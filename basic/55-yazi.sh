@@ -11,7 +11,8 @@ title "Yazi"
 
 # ── 1. Preview backends ───────────────────────────────────────────────────────
 # ffmpegthumbnailer → video thumbs, poppler-utils → PDF, unar → archives.
-apt_ensure ffmpegthumbnailer poppler-utils unar curl unzip
+# git: ya pkg add (flavor install) clones from GitHub.
+apt_ensure ffmpegthumbnailer poppler-utils unar curl unzip git
 
 # ── 2. ueberzugpp — image overlay for terminals without a graphics protocol ───
 if has_cmd ueberzugpp; then
@@ -57,6 +58,33 @@ else
     run install -m755 "$ext/yazi-${ytarget}/ya"   "$HOME/.local/bin/ya"
     run rm -rf "$tmp" "$ext"
     ok "yazi installed → ~/.local/bin (open with: yazi)."
+fi
+
+# ── 4. Gruvbox flavor — installed via ya, wired in theme.toml ─────────────────
+# A "flavor" is a prebuilt theme package; theme.toml just references it by name.
+ya="$HOME/.local/bin/ya"
+has_cmd ya && ya="ya"
+flavor_dir="$HOME/.config/yazi/flavors/gruvbox-dark.yazi"
+if [[ -d "$flavor_dir" ]]; then
+    skip "gruvbox-dark flavor already installed."
+else
+    step "Installing gruvbox-dark flavor (ya pkg add)"
+    run "$ya" pkg add bennyyip/gruvbox-dark
+    ok "gruvbox-dark flavor installed."
+fi
+
+theme="$HOME/.config/yazi/theme.toml"
+if [[ -f "$theme" ]]; then
+    skip "yazi theme.toml exists — leaving flavor untouched."
+else
+    step "Setting yazi dark flavor to gruvbox-dark"
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would write:%s [flavor] dark=gruvbox-dark → %s\n' "$C_DIM" "$C_OFF" "$theme"
+    else
+        mkdir -p "$(dirname "$theme")"
+        printf '[flavor]\ndark = "gruvbox-dark"\n' > "$theme"
+    fi
+    ok "yazi theme → gruvbox-dark."
 fi
 
 ok "Yazi ready."

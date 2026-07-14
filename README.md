@@ -59,11 +59,15 @@ config repos are cloned into it.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
    yazi auto-detects ueberzugpp — no `yazi.toml` needed. Runs after the Nerd
-   Font so its icons render.
+   Font so its icons render. Ships the **gruvbox-dark** flavor (`ya pkg add
+   bennyyip/gruvbox-dark`) wired in `~/.config/yazi/theme.toml`.
 9. **`60-flameshot`** — screenshot tool (i3's `$mod+Shift+s`); apt package.
 10. **`70-zen-browser`** — [Zen](https://zen-browser.app) via its official
    user-local script (no root/apt; installs to `~/.local/bin/zen`).
 11. **`80-arandr`** — GUI for xrandr (monitor layout); apt package.
+12. **`90-opencode`** — [opencode](https://opencode.ai) terminal AI coding agent
+   via its official user-local script (installs to `~/.local/bin/opencode`).
+   Sets the built-in **gruvbox** theme in `~/.config/opencode/tui.json`.
 
 ### Design: light repos, one orchestrator
 
