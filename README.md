@@ -60,7 +60,9 @@ config repos are cloned into it.
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
    yazi auto-detects ueberzugpp — no `yazi.toml` needed. Runs after the Nerd
    Font so its icons render. Ships the **gruvbox-dark** flavor (`ya pkg add
-   bennyyip/gruvbox-dark`) wired in `~/.config/yazi/theme.toml`.
+   bennyyip/gruvbox-dark`) wired in `~/.config/yazi/theme.toml`. Also installs
+   **zoxide** (apt) and the latest **fzf** binary (→ `~/.local/bin`) for the
+   `z`/`Z` bindings — apt's fzf 0.44 renders the picker blank under yazi.
 9. **`60-flameshot`** — screenshot tool (i3's `$mod+Shift+s`); apt package.
 10. **`70-zen-browser`** — [Zen](https://zen-browser.app) via its official
    user-local script (no root/apt; installs to `~/.local/bin/zen`).
