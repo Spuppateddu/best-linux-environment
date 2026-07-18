@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 title "Base tooling"
 require_apt
 
-# zsh here so the shell is present before 10-zsh clones oh-my-zsh into it.
+# zsh here so the shell is present before 10-tools runs the zshrc installer.
 apt_ensure \
     git curl wget unzip xz-utils ca-certificates gnupg \
     build-essential pkg-config \

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cross-cutting desktop bits that aren't tied to any single tool: the Nerd Font
-# used across the bar/terminal/editor, and the BreezeX-Dark cursor theme.
+# used across the bar/terminal/editor, and the macOS cursor theme.
 # These live here (not in i3rc) so the per-tool repos stay light and these run
 # even without i3. i3rc's own copies are idempotent, so overlap is harmless.
 set -euo pipefail
@@ -30,18 +30,18 @@ else
     ok "CaskaydiaCove Nerd Font installed."
 fi
 
-# ── 2. BreezeX-Dark cursor ───────────────────────────────────────────────────
+# ── 2. macOS cursor ──────────────────────────────────────────────────────────
 # Must live under ~/.icons: libXcursor's default search path excludes
 # ~/.local/share/icons, so xsetroot/i3 couldn't find it there.
-CURSOR_THEME="BreezeX-Dark"
+CURSOR_THEME="macOS"
 CURSOR_VERSION="v2.0.1"
 CURSOR_DIR="$HOME/.icons/$CURSOR_THEME"
 
 if [[ -d "$CURSOR_DIR" ]]; then
     skip "$CURSOR_THEME cursor already installed."
 else
-    url="https://github.com/ful1e5/BreezeX_Cursor/releases/download/$CURSOR_VERSION/BreezeX-Dark.tar.xz"
-    tmp="/tmp/BreezeX-Dark.$$.tar.xz"
+    url="https://github.com/ful1e5/apple_cursor/releases/download/$CURSOR_VERSION/macOS.tar.xz"
+    tmp="/tmp/macOS-cursor.$$.tar.xz"
     step "Installing $CURSOR_THEME cursor ($CURSOR_VERSION)"
     run mkdir -p "$HOME/.icons"
     run curl -fL --progress-bar -o "$tmp" "$url"

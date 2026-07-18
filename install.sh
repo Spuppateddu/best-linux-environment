@@ -3,14 +3,18 @@
 # up newly added packages/apps; already-installed things are skipped.
 #
 # Usage:
-#   ./install.sh                 # interactive: basic, then pick advanced apps
-#   ./install.sh basic           # only the essentials (shell, editor, tmux, i3)
+#   ./install.sh                 # interactive: basic, tool menu, advanced apps
+#   ./install.sh basic           # only the essentials (base, tools, fonts, …)
 #   ./install.sh advanced        # only the optional-apps menu
-#   ./install.sh all             # basic + every advanced app, no prompts
+#   ./install.sh all             # basic + every tool + every advanced app
 #   ./install.sh advanced steam okular   # basic-free, install named apps
+#   ./install.sh update          # non-interactive: pull this repo + every
+#                                #   installed tool repo, re-apply configs
+#                                #   (what the @reboot cron runs)
+#   ./install.sh cron            # (re)install the @reboot auto-update cron
 #   ./install.sh --dry-run all   # preview everything, touch nothing
 #
-# Target: Ubuntu 26.04 LTS.
+# Target: Ubuntu 26.04 LTS. Expected to live at ~/best-linux-environment.
 
 set -euo pipefail
 
@@ -31,13 +35,21 @@ set -- "${ARGS[@]:-}"
 
 require_apt
 
+# How basic/10-tools.sh treats the tool repos: menu | all | update.
+export BLE_TOOLS_MODE="${BLE_TOOLS_MODE:-menu}"
+
 # ── module runners ───────────────────────────────────────────────────────────
 run_basic() {
     title "Basic environment"
     local m
     for m in "$HERE"/basic/*.sh; do
         [[ -e "$m" ]] || continue
-        bash "$m"
+        if [[ "$BLE_TOOLS_MODE" == update ]]; then
+            # Boot-cron path: one broken module must not stop the others.
+            bash "$m" || warn "Module $(basename "$m") failed — continuing."
+        else
+            bash "$m"
+        fi
     done
 }
 
@@ -120,6 +132,71 @@ run_advanced_all() {
     while IFS= read -r n; do run_advanced_one "$n"; done < <(advanced_names)
 }
 
+# ── update mode (the @reboot cron path) ──────────────────────────────────────
+# Pull this repo first; if it changed, re-exec the NEW install.sh once so the
+# rest of the update runs the freshly pulled code.
+self_update() {
+    local before after
+    before="$(git -C "$HERE" rev-parse HEAD 2>/dev/null || echo unknown)"
+    step "Updating best-linux-environment itself"
+    run git -C "$HERE" pull --ff-only --quiet \
+        || warn "Could not pull $HERE — continuing with the current version."
+    after="$(git -C "$HERE" rev-parse HEAD 2>/dev/null || echo unknown)"
+    if [[ "$before" != "$after" && "${BLE_SELF_UPDATED:-}" != 1 ]]; then
+        ok "Repo updated — re-running the new install.sh."
+        BLE_SELF_UPDATED=1 exec bash "$HERE/install.sh" update
+    fi
+}
+
+run_update() {
+    title "Update ($(date '+%F %T'))"
+    self_update
+    export BLE_TOOLS_MODE=update
+    run_basic
+}
+
+# ── @reboot cron ─────────────────────────────────────────────────────────────
+BLE_STATE_DIR="$HOME/.cache/best-linux-environment"
+
+cron_installed() { crontab -l 2>/dev/null | grep -qF "$HERE/install.sh update"; }
+
+install_cron() {
+    if ! has_cmd crontab; then
+        warn "crontab not found — install cron first: sudo apt install cron"
+        return 1
+    fi
+    if cron_installed; then
+        skip "Boot-update cron already installed."
+        return 0
+    fi
+    local entry="@reboot sleep 45 && /usr/bin/env bash $HERE/install.sh update >> $BLE_STATE_DIR/update.log 2>&1"
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would add cron:%s %s\n' "$C_DIM" "$C_OFF" "$entry"
+        return 0
+    fi
+    mkdir -p "$BLE_STATE_DIR"
+    (crontab -l 2>/dev/null || true; printf '%s\n' "$entry") | crontab -
+    ok "Boot-update cron installed (log: $BLE_STATE_DIR/update.log)."
+}
+
+# First-install question: create the auto-update cron? A "no" is remembered so
+# it's asked only once — re-add any time with ./install.sh cron.
+offer_cron() {
+    cron_installed && return 0
+    local declined="$BLE_STATE_DIR/cron-declined"
+    [[ -f "$declined" ]] && return 0
+    title "Auto-update at boot"
+    printf 'Add a @reboot cron that runs "install.sh update" (git pull this repo +\nevery tool repo, re-apply configs) at every boot? [y/N] '
+    local reply; read -r reply || reply=n
+    if [[ "$reply" =~ ^[yY] ]]; then
+        install_cron
+    else
+        run mkdir -p "$BLE_STATE_DIR"
+        run touch "$declined"
+        skip "No cron — update by hand: ./install.sh update   (add later: ./install.sh cron)"
+    fi
+}
+
 # ── dispatch ─────────────────────────────────────────────────────────────────
 mode="${1:-interactive}"
 shift || true
@@ -136,19 +213,27 @@ case "$mode" in
         fi
         ;;
     all)
+        export BLE_TOOLS_MODE=all
         run_basic
         run_advanced_all
+        ;;
+    update)
+        run_update
+        ;;
+    cron)
+        install_cron
         ;;
     interactive)
         run_basic
         run_advanced_menu
+        offer_cron
         ;;
     -h|--help|help)
         grep '^#' "$0" | grep -v '^#!' | sed 's/^# \?//'
         exit 0
         ;;
     *)
-        fail "Unknown mode '$mode'. Try: basic | advanced | all | --help"
+        fail "Unknown mode '$mode'. Try: basic | advanced | all | update | cron | --help"
         exit 1
         ;;
 esac

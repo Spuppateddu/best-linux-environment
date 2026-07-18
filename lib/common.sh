@@ -43,6 +43,10 @@ run() {
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# sudo works here only with a terminal (password prompt) or cached credentials;
+# boot/cron runs must never hang waiting for a password.
+can_sudo() { [[ -t 0 ]] || sudo -n true 2>/dev/null; }
+
 require_apt() {
     if ! has_cmd apt; then
         fail "This repo targets Ubuntu (apt). Adapt for your distro."
@@ -82,6 +86,11 @@ apt_ensure() {
 
     if [[ "$DRY_RUN" == true ]]; then
         printf '%s  would install:%s %s\n' "$C_DIM" "$C_OFF" "${missing[*]}"
+        return 0
+    fi
+    if ! can_sudo; then
+        warn "sudo unavailable (non-interactive) — skipped apt install: ${missing[*]}"
+        warn "Run ./install.sh from a terminal to pick these up."
         return 0
     fi
     step "apt: installing ${#missing[@]} package(s): ${missing[*]}"
