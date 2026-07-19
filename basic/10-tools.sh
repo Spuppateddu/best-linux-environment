@@ -18,10 +18,16 @@ CONF="$BLE_ROOT/tools.conf"
 
 title "Tool config repos"
 
-# Parse tools.conf into parallel arrays (order preserved).
+# Parse tools.conf into parallel arrays (order preserved). The optional 4th
+# field marks a tool "gui" (desktop-only); those are dropped on a server so a
+# headless box never pulls alacritty/i3.
 NAMES=(); URLS=(); DESTS=()
-while IFS='|' read -r name url dest; do
+while IFS='|' read -r name url dest scope; do
     [[ -z "$name" || "$name" == \#* ]] && continue
+    if [[ "$scope" == gui ]] && is_server; then
+        skip "Tool '$name' is desktop-only — skipped (server profile)."
+        continue
+    fi
     NAMES+=("$name"); URLS+=("$url"); DESTS+=("${dest/#\~/$HOME}")
 done < "$CONF"
 
@@ -36,7 +42,9 @@ install_tool() {
         step "Running $name's own install.sh"
         (cd "$dest" && bash ./install.sh)
     else
-        warn "$name ships no install.sh — repo updated, nothing else run."
+        # Config-only repos (e.g. alacritty ships just a toml) legitimately have
+        # no installer; this repo owns their package/linking in a basic/ module.
+        skip "$name ships no install.sh — config-only repo, nothing else to run."
     fi
 }
 

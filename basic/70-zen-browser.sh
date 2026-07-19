@@ -5,6 +5,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 title "Zen browser"
+require_desktop "Zen browser"
 
 apt_ensure curl
 

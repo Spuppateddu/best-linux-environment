@@ -10,11 +10,18 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 title "Yazi"
 
 # ── 1. Preview backends + navigation ──────────────────────────────────────────
-# ffmpegthumbnailer → video thumbs, poppler-utils → PDF, unar/p7zip-full → archives.
+# ffmpegthumbnailer → video thumbs, poppler-utils → PDF, unar/7z → archives.
 # zoxide → the z/Z directory-jump bindings. fzf is NOT apt-installed here: apt's
 # 0.44 renders the picker blank when yazi pipes its stdout (see section 3b).
 # git: ya pkg add (flavor install) clones from GitHub.
-apt_ensure ffmpegthumbnailer poppler-utils unar p7zip-full curl unzip git zoxide
+# 26.04 dropped p7zip-full in favour of 7zip (same 7z/7zz binaries); fall back
+# to the old name on releases that still ship it. Capture the candidate first
+# (not `| grep -q`): under pipefail, grep -q closing the pipe would SIGPIPE
+# apt-cache and wrongly fail the test.
+sevenzip=p7zip-full
+sevenzip_cand="$(apt-cache policy 7zip 2>/dev/null | awk '/Candidate:/ {print $2}')"
+[[ "$sevenzip_cand" =~ ^[0-9] ]] && sevenzip=7zip
+apt_ensure ffmpegthumbnailer poppler-utils unar "$sevenzip" curl unzip git zoxide
 
 # ── 2. ueberzugpp — image overlay for terminals without a graphics protocol ───
 if has_cmd ueberzugpp; then

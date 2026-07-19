@@ -5,5 +5,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 title "Flameshot"
+require_desktop "Flameshot"
 apt_ensure flameshot
 ok "Flameshot ready."

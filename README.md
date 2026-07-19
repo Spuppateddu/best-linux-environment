@@ -76,17 +76,53 @@ skipped with a warning — run `./install.sh` from a terminal to pick those up.
 If you decline, that's remembered (asked only once); update by hand with
 `./install.sh update`, or add the cron later with `./install.sh cron`.
 
+## Desktop vs server
+
+The installer detects up front whether the host is an **Ubuntu desktop** or a
+**server** and skips everything graphical on a server — i3 and alacritty (tool
+repos), the Nerd Font + cursor, Flameshot, Zen, ARandR, and **every** advanced
+app. CLI tooling (zsh, vim, tmux, **lazygit**, yazi, opencode) still installs.
+
+Detection order: `BLE_PROFILE` env override → systemd default target
+(`graphical.target` vs `multi-user.target`) → a live `DISPLAY`/Wayland session →
+desktop/X packages. Force it either way:
+
+```bash
+BLE_PROFILE=server  ./install.sh all   # treat as headless — no GUI
+BLE_PROFILE=desktop ./install.sh all   # force the full graphical set
+```
+
+GUI modules self-skip via `require_desktop` in `lib/common.sh`; tool repos are
+tagged desktop-only with a `gui` scope in [`tools.conf`](tools.conf).
+
 ## What "basic" installs
 
 Run in order (`basic/NN-*.sh`); order matters — the base tooling exists before
 the tool repos install into it, and fonts before the tools that render them.
+Items marked **(desktop)** are skipped on a server.
 
 1. **`00-base`** — core apt tooling (git, curl, build-essential, `zsh`, …).
 2. **`10-tools`** — the tool config repos described above: clone/update each
-   into its hidden `$HOME` folder and run **its own** `install.sh`.
-3. **`50-fonts-cursor`** — cross-cutting **Nerd Font + macOS cursor**,
-   owned here so the per-tool repos stay light.
-4. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+   into its hidden `$HOME` folder and run **its own** `install.sh`. `alacritty`
+   and `i3` are desktop-only. Config-only repos (alacritty ships just a `.toml`,
+   no installer) are cloned here; their package + linking is owned by a module
+   below.
+3. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
+   + GTK greeter, made the **default** display manager (replacing GDM3). GDM3's
+   session picker is a hard-to-find cog that on some builds never surfaces the
+   i3 xsession; the LightDM greeter shows a session dropdown on the login form,
+   so choosing **i3** is one click. Switch is preseeded via debconf (no
+   interactive `dpkg-reconfigure`) and applies at the next reboot.
+4. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
+   TUI. Prefers apt (26.04 ships a recent build); falls back to the latest
+   prebuilt binary from GitHub (→ `~/.local/bin`) on releases without a package.
+5. **`50-fonts-cursor`** *(desktop)* — cross-cutting **Nerd Font + macOS
+   cursor**, owned here so the per-tool repos stay light.
+6. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal (apt package) plus
+   a symlink of the cloned `~/.alacritty/alacritty.toml` into
+   `~/.config/alacritty/` where Alacritty actually reads it. Runs after the Nerd
+   Font its config renders.
+7. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -95,11 +131,18 @@ the tool repos install into it, and fonts before the tools that render them.
    bennyyip/gruvbox-dark`) wired in `~/.config/yazi/theme.toml`. Also installs
    **zoxide** (apt) and the latest **fzf** binary (→ `~/.local/bin`) for the
    `z`/`Z` bindings — apt's fzf 0.44 renders the picker blank under yazi.
-5. **`60-flameshot`** — screenshot tool (i3's `$mod+Shift+s`); apt package.
-6. **`70-zen-browser`** — [Zen](https://zen-browser.app) via its official
+8. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+9. **`70-zen-browser`** *(desktop)* — [Zen](https://zen-browser.app) via its official
    user-local script (no root/apt; installs to `~/.local/bin/zen`).
-7. **`80-arandr`** — GUI for xrandr (monitor layout); apt package.
-8. **`90-opencode`** — [opencode](https://opencode.ai) terminal AI coding agent
+10. **`71-zen-sync`** *(desktop)* — applies the public, non-personal Zen config in
+   `basic/zen-config/` (keyboard shortcuts, toolbar/sidebar layout, Zen mods + CSS,
+   containers, file handlers, and curated prefs via `user.js`) into the active
+   profile — resolved from `profiles.ini`. Ships **no** personal data (no bookmarks/
+   history/cookies/logins/sessions). Skips while Zen is running (it rewrites
+   `prefs.js` on exit) and backs up every file it replaces. To refresh the payload
+   from a machine you've customised, re-copy those files out of your profile.
+11. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+12. **`90-opencode`** — [opencode](https://opencode.ai) terminal AI coding agent
    via its official user-local script (installs to `~/.local/bin/opencode`).
    Sets the built-in **gruvbox** theme in `~/.config/opencode/tui.json`.
 
@@ -115,8 +158,9 @@ otherwise bloat a single repo — the cursor theme, the shared Nerd Font — liv
 
 ## What "advanced" installs
 
-Optional apps, each a standalone script in `advanced/`. The interactive menu
-lists **only apps that aren't installed yet** — already-present ones are hidden.
+Optional apps, each a standalone script in `advanced/`. All are graphical, so
+the whole advanced menu is skipped on a server. The interactive menu lists
+**only apps that aren't installed yet** — already-present ones are hidden.
 
 **To add one, drop a `advanced/<name>.sh` file** that:
 
@@ -140,9 +184,14 @@ It then shows up in the menu automatically on the next run.
 ## Shared library
 
 `lib/common.sh` holds every reusable helper (colored `step/ok/skip/warn`,
-`run` dry-run wrapper, `apt_ensure`, `clone_or_pull`, `link`,
-`ensure_source_line`, `apt_repo_add`). Modules source it — no duplicated
-plumbing.
+`run` dry-run wrapper, `apt_ensure`, `apt_refresh`, `clone_or_pull`, `link`,
+`ensure_source_line`, `apt_repo_add`, and the `is_desktop`/`is_server`/
+`require_desktop` profile helpers). Modules source it — no duplicated plumbing.
+
+`apt_ensure` self-heals a freshly-added third-party repo: if a package has no
+install candidate it refreshes the apt index once and re-scans before giving up,
+so apps like Brave and TablePlus install on the first run instead of being
+skipped against a stale index.
 
 ## Notes
 

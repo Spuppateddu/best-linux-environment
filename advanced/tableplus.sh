@@ -8,6 +8,7 @@ is_installed() { apt_installed tableplus; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
 title "TablePlus"
+require_desktop "TablePlus"
 if is_installed; then skip "TablePlus already installed."; ok "TablePlus ready."; exit 0; fi
 
 apt_ensure curl gnupg

@@ -7,6 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 title "Fonts & cursor"
+require_desktop "Fonts & cursor"
 
 apt_ensure fontconfig x11-xserver-utils
 

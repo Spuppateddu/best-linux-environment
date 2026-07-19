@@ -35,6 +35,12 @@ set -- "${ARGS[@]:-}"
 
 require_apt
 
+# Detect (or honour BLE_PROFILE=desktop|server) once, up front, and export it so
+# every sub-script sees the same answer. On a server, GUI modules skip themselves.
+export BLE_PROFILE="${BLE_PROFILE:-auto}"
+step "Host profile: Ubuntu $(lsb_release -rs 2>/dev/null || echo '?') — $(profile_label)$([[ "$BLE_PROFILE" != auto ]] && echo " (forced via BLE_PROFILE)")"
+is_server && skip "Server profile — GUI apps (i3, browsers, fonts, advanced apps) will be skipped."
+
 # How basic/10-tools.sh treats the tool repos: menu | all | update.
 export BLE_TOOLS_MODE="${BLE_TOOLS_MODE:-menu}"
 
@@ -118,6 +124,7 @@ select_advanced() {
 }
 
 run_advanced_menu() {
+    is_server && { skip "Server profile — skipping advanced GUI apps."; return 0; }
     local SELECTED
     select_advanced
     [[ ${#SELECTED[@]} -eq 0 ]] && { skip "No advanced apps selected."; return; }
@@ -127,6 +134,7 @@ run_advanced_menu() {
 }
 
 run_advanced_all() {
+    is_server && { skip "Server profile — skipping advanced GUI apps."; return 0; }
     title "All advanced apps"
     local n
     while IFS= read -r n; do run_advanced_one "$n"; done < <(advanced_names)

@@ -8,6 +8,7 @@ is_installed() { apt_installed megasync; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
 title "MEGAsync"
+require_desktop "MEGAsync"
 if is_installed; then skip "MEGAsync already installed."; ok "MEGAsync ready."; exit 0; fi
 
 apt_ensure curl gnupg

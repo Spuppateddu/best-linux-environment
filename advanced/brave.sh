@@ -8,6 +8,7 @@ is_installed() { apt_installed brave-browser; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
 title "Brave browser"
+require_desktop "Brave browser"
 if is_installed; then skip "Brave already installed."; ok "Brave ready."; exit 0; fi
 
 apt_ensure curl

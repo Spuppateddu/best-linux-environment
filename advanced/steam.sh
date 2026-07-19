@@ -7,6 +7,7 @@ is_installed() { apt_installed steam-installer || apt_installed steam-launcher |
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
 title "Steam"
+require_desktop "Steam"
 if is_installed; then skip "Steam already installed."; ok "Steam ready."; exit 0; fi
 
 # 32-bit libs are required by the Steam runtime.
