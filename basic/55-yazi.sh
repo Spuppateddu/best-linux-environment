@@ -257,23 +257,28 @@ fi
 
 # The fetchers populate git state per file; without them the plugin shows nothing.
 yazi_toml="$HOME/.config/yazi/yazi.toml"
-if [[ -f "$yazi_toml" ]] && grep -q 'id = "git"' "$yazi_toml"; then
+if [[ -f "$yazi_toml" ]] && grep -q 'group = "git"' "$yazi_toml"; then
     skip "yazi.toml already has the git fetchers."
 elif [[ -f "$yazi_toml" ]]; then
-    warn "yazi.toml exists without git fetchers — add manually under [plugin]:"
-    warn '  prepend_fetchers = [{ id = "git", name = "*", run = "git" }, { id = "git", name = "*/", run = "git" }]'
+    warn "yazi.toml exists without git fetchers — add manually:"
+    warn '  [[plugin.prepend_fetchers]]  with  url = "*"  run = "git"  group = "git"  (and url = "*/")'
 else
     step "Writing git fetchers to yazi.toml"
     if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would write:%s [plugin] prepend_fetchers (git) → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
+        printf '%s  would write:%s [[plugin.prepend_fetchers]] (git) → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
     else
         mkdir -p "$(dirname "$yazi_toml")"
+        # Yazi >26.1.22 dropped `id` and renamed `name`→`url`, and now requires `group`.
         cat > "$yazi_toml" <<'TOML'
-[plugin]
-prepend_fetchers = [
-	{ id = "git", name = "*", run = "git" },
-	{ id = "git", name = "*/", run = "git" },
-]
+[[plugin.prepend_fetchers]]
+url   = "*"
+run   = "git"
+group = "git"
+
+[[plugin.prepend_fetchers]]
+url   = "*/"
+run   = "git"
+group = "git"
 TOML
     fi
     ok "yazi.toml → git fetchers wired."
