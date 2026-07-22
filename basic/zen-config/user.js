@@ -18,9 +18,11 @@ user_pref("sidebar.visibility", "hide-sidebar");
 user_pref("zen.glance.enabled", false);
 user_pref("zen.tabs.select-recently-used-on-close", false);
 user_pref("zen.tabs.show-newtab-vertical", false);
-user_pref("zen.view.compact.enable-at-startup", true);
+user_pref("zen.view.compact.enable-at-startup", false);
 user_pref("zen.view.show-newtab-button-top", false);
 user_pref("zen.view.use-single-toolbar", false);
+// Window mode / chrome scheme (0 = default single-window scheme).
+user_pref("zen.view.window.scheme", 0);
 user_pref("zen.workspaces.separate-essentials", false);
 // Web content flush to the chrome: no gap around it, square corners (border 0).
 // Zen reads these ints and drives --zen-element-separation / --zen-border-radius.
