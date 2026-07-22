@@ -31,6 +31,11 @@ user_pref("zen.keyboard.shortcuts.version", 19);
 // Skip the first-run onboarding on a freshly provisioned machine.
 user_pref("zen.welcome-screen.seen", true);
 
+// ── Custom userChrome.css (theming) ──────────────────────────────────────────
+// Required for Zen/Firefox to load chrome/userChrome.css at startup. Enables the
+// Gruvbox theme (chrome/userChrome.css, from github.com/unsecretised/gruvbox-zen).
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+
 // ── Fonts ────────────────────────────────────────────────────────────────────
 user_pref("font.name.serif.x-western", "CaskaydiaCove Nerd Font");
 
