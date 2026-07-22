@@ -22,10 +22,19 @@ user_pref("zen.view.compact.enable-at-startup", true);
 user_pref("zen.view.show-newtab-button-top", false);
 user_pref("zen.view.use-single-toolbar", false);
 user_pref("zen.workspaces.separate-essentials", false);
+// Web content flush to the chrome: no gap around it, square corners (border 0).
+// Zen reads these ints and drives --zen-element-separation / --zen-border-radius.
+user_pref("zen.theme.content-element-separation", 0);
+user_pref("zen.theme.border-radius", 0);
 // Keep the shipped keyboard-shortcuts file from being regenerated on first run.
 user_pref("zen.keyboard.shortcuts.version", 19);
 // Skip the first-run onboarding on a freshly provisioned machine.
 user_pref("zen.welcome-screen.seen", true);
+
+// ── Custom userChrome.css (theming) ──────────────────────────────────────────
+// Required for Zen/Firefox to load chrome/userChrome.css at startup. Enables the
+// Gruvbox theme (chrome/userChrome.css, from github.com/unsecretised/gruvbox-zen).
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
 // ── Fonts ────────────────────────────────────────────────────────────────────
 user_pref("font.name.serif.x-western", "CaskaydiaCove Nerd Font");
