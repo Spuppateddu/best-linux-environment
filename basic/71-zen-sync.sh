@@ -76,14 +76,21 @@ if [[ -z "$PROFILE" ]]; then
 fi
 step "Target profile: ${PROFILE/#$HOME/\~}"
 
-# ── Refuse to write under a running Zen ──────────────────────────────────────
+# ── Detect a running Zen (but don't bail on it) ──────────────────────────────
+# The two file groups have different safety profiles under a live Zen:
+#   • Safe: user.js and chrome/ (userChrome.css + mods). Zen only ever READS these
+#     — it never writes them back — and applies them at the next startup. Copying
+#     them while Zen runs can't be clobbered; they just need a restart to show.
+#     The Gruvbox theme lives here, so it ALWAYS syncs on every installer run.
+#   • Volatile: the JSON state files (layout/shortcuts/containers/…). Zen rewrites
+#     these on exit, so writing under a live browser would be lost — defer them
+#     until Zen is closed.
 # The lock symlink and .parentlock exist only while Zen is open; pgrep is the
-# belt-and-braces check. DRY_RUN just previews, so let it through.
+# belt-and-braces check. DRY_RUN just previews, so treat it as "not running".
+ZEN_RUNNING=false
 if [[ "$DRY_RUN" != true ]] \
    && { [[ -e "$PROFILE/lock" || -e "$PROFILE/.parentlock" ]] && pgrep -x zen >/dev/null 2>&1; }; then
-    warn "Zen is running — close it and re-run, or it will overwrite these files on exit."
-    warn "Skipping config this pass."
-    exit 0
+    ZEN_RUNNING=true
 fi
 
 # ── Copy one file, backing up any existing real file first ───────────────────
@@ -102,19 +109,11 @@ copy_file() {
     ok "applied $rel"
 }
 
-for f in \
-    user.js \
-    zen-keyboard-shortcuts.json \
-    zen-themes.json \
-    containers.json \
-    xulstore.json \
-    handlers.json \
-    search.json.mozlz4
-do
-    copy_file "$f"
-done
+# ── Always-safe: prefs (user.js) + chrome/ (theme + mods) ────────────────────
+# Never written by Zen, so these sync on every run regardless of whether Zen is
+# open. This is what carries the Gruvbox theme; it takes effect on next restart.
+copy_file user.js
 
-# ── chrome/ (Zen mods + userChrome CSS) — mirror the whole tree ──────────────
 if [[ -d "$SRC/chrome" ]]; then
     if [[ -d "$PROFILE/chrome" ]] && diff -rq "$SRC/chrome" "$PROFILE/chrome" >/dev/null 2>&1; then
         skip "chrome/ already up to date."
@@ -122,8 +121,26 @@ if [[ -d "$SRC/chrome" ]]; then
         [[ -e "$PROFILE/chrome" ]] && run cp -a "$PROFILE/chrome" "$PROFILE/chrome.backup.$$"
         run mkdir -p "$PROFILE/chrome"
         run cp -a "$SRC/chrome/." "$PROFILE/chrome/"
-        ok "applied chrome/ (mods + CSS)"
+        ok "applied chrome/ (theme + mods)"
     fi
+fi
+
+# ── Volatile state files — only safe to write while Zen is closed ────────────
+# Zen rewrites these on exit; writing under a live browser would be clobbered.
+if [[ "$ZEN_RUNNING" == true ]]; then
+    warn "Zen is running — deferred the volatile state files (layout/shortcuts/containers)."
+    warn "Close Zen and re-run to sync those too. The theme (user.js + chrome/) was applied."
+else
+    for f in \
+        zen-keyboard-shortcuts.json \
+        zen-themes.json \
+        containers.json \
+        xulstore.json \
+        handlers.json \
+        search.json.mozlz4
+    do
+        copy_file "$f"
+    done
 fi
 
 ok "Zen config applied — restart Zen to see it."
