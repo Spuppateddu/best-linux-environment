@@ -73,17 +73,29 @@ is_desktop() {
         desktop) return 0 ;;
         server)  return 1 ;;
     esac
-    # systemd's default target is the clearest signal on Ubuntu: a Server install
-    # boots to multi-user.target, a Desktop install to graphical.target.
+    # Most authoritative signal, and the ONE our own GUI installs can't pollute:
+    # the install-type metapackage. The Ubuntu Server ISO lays down `ubuntu-server`
+    # (and no `ubuntu-desktop*`); the Desktop ISO the reverse. Everything else
+    # below (graphical.target, xserver-xorg, /dev/dri, a live display) gets dragged
+    # in the moment this repo installs lightdm+i3 — so a server that ran us once
+    # would forever look like a desktop by those. Check the metapackage first.
+    if apt_installed ubuntu-desktop || apt_installed ubuntu-desktop-minimal; then
+        return 0
+    fi
+    if apt_installed ubuntu-server; then
+        return 1
+    fi
+    # Neither metapackage (e.g. a bare minimal install driving i3 by hand): fall
+    # back to runtime signals. A live graphical session is decisive; otherwise the
+    # systemd default target, then leftover desktop/X packages.
+    [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && return 0
     if has_cmd systemctl; then
         case "$(systemctl get-default 2>/dev/null)" in
             graphical.target)  return 0 ;;
             multi-user.target) return 1 ;;
         esac
     fi
-    # Fallbacks when systemd can't answer: a live display, or desktop/X packages.
-    [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && return 0
-    apt_installed ubuntu-desktop || apt_installed xserver-xorg || has_cmd Xorg
+    apt_installed xserver-xorg || has_cmd Xorg
 }
 is_server() { ! is_desktop; }
 
