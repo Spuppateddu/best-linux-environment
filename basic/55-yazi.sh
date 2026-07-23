@@ -256,20 +256,13 @@ else
 fi
 
 # The fetchers populate git state per file; without them the plugin shows nothing.
+# Yazi >26.1.22 dropped `id`, renamed `name`→`url` and made `group` mandatory —
+# a yazi.toml written before that refuses to parse ("missing field `group`") and
+# yazi falls back to preset settings on every launch. So a stale fetcher block is
+# migrated in place, not just warned about: any other settings in the file are
+# preserved and the old file is kept as .bak.
 yazi_toml="$HOME/.config/yazi/yazi.toml"
-if [[ -f "$yazi_toml" ]] && grep -q 'group = "git"' "$yazi_toml"; then
-    skip "yazi.toml already has the git fetchers."
-elif [[ -f "$yazi_toml" ]]; then
-    warn "yazi.toml exists without git fetchers — add manually:"
-    warn '  [[plugin.prepend_fetchers]]  with  url = "*"  run = "git"  group = "git"  (and url = "*/")'
-else
-    step "Writing git fetchers to yazi.toml"
-    if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would write:%s [[plugin.prepend_fetchers]] (git) → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
-    else
-        mkdir -p "$(dirname "$yazi_toml")"
-        # Yazi >26.1.22 dropped `id` and renamed `name`→`url`, and now requires `group`.
-        cat > "$yazi_toml" <<'TOML'
+fetchers_toml=$(cat <<'TOML'
 [[plugin.prepend_fetchers]]
 url   = "*"
 run   = "git"
@@ -280,8 +273,55 @@ url   = "*/"
 run   = "git"
 group = "git"
 TOML
+)
+
+if [[ -f "$yazi_toml" ]] && grep -q 'group = "git"' "$yazi_toml"; then
+    skip "yazi.toml already has the git fetchers."
+elif [[ -f "$yazi_toml" ]] && grep -q 'prepend_fetchers' "$yazi_toml"; then
+    step "Migrating yazi.toml git fetchers to the url/group syntax"
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would rewrite:%s legacy [[plugin.prepend_fetchers]] → url/group → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
+    else
+        cp -f "$yazi_toml" "$yazi_toml.bak"
+        # Drop the legacy fetchers in both spellings — the inline-array form
+        # (prepend_fetchers = [ … ]) and the table form ([[plugin.prepend_fetchers]]
+        # followed by its keys) — then squeeze the blank lines they leave behind.
+        awk '
+            /^[[:space:]]*prepend_fetchers[[:space:]]*=/ { arr = 1; next }
+            arr { if (/\]/) arr = 0; next }
+            /^[[:space:]]*\[\[plugin\.prepend_fetchers\]\]/ { tbl = 1; next }
+            tbl {
+                if (/^[[:space:]]*$/ || /^[[:space:]]*\[/) { tbl = 0 } else next
+            }
+            { print }
+        ' "$yazi_toml.bak" | cat -s > "$yazi_toml"
+        # A file that held nothing but fetchers is left with a bare [plugin] header.
+        [[ "$(tr -d '[:space:]' < "$yazi_toml")" == "[plugin]" ]] && : > "$yazi_toml" || true
+        [[ -s "$yazi_toml" ]] && printf '\n' >> "$yazi_toml" || true
+        printf '%s\n' "$fetchers_toml" >> "$yazi_toml"
+    fi
+    ok "yazi.toml → git fetchers migrated (old file kept as yazi.toml.bak)."
+else
+    step "Writing git fetchers to yazi.toml"
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would write:%s [[plugin.prepend_fetchers]] (git) → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
+    else
+        mkdir -p "$(dirname "$yazi_toml")"
+        printf '%s\n' "$fetchers_toml" > "$yazi_toml"
     fi
     ok "yazi.toml → git fetchers wired."
+fi
+
+# Config errors are silent until launch (yazi prints them, then waits for Enter),
+# so parse-check here — `yazi --version` reads the config and exits non-zero on a
+# bad one. </dev/null keeps the "Press <Enter>" prompt from blocking the install.
+yazi_bin="$HOME/.local/bin/yazi"
+has_cmd yazi && yazi_bin="yazi"
+if [[ "$DRY_RUN" != true ]] && command -v "$yazi_bin" >/dev/null 2>&1; then
+    if ! "$yazi_bin" --version </dev/null >/dev/null 2>&1; then
+        warn "yazi rejects its config — it will start with preset settings. Details:"
+        "$yazi_bin" --version </dev/null 2>&1 | sed 's/^/    /' || true
+    fi
 fi
 
 ok "Yazi ready."
