@@ -20,7 +20,14 @@ user_pref("zen.tabs.select-recently-used-on-close", false);
 user_pref("zen.tabs.show-newtab-vertical", false);
 user_pref("zen.view.compact.enable-at-startup", false);
 user_pref("zen.view.show-newtab-button-top", false);
-user_pref("zen.view.use-single-toolbar", false);
+// Layout (Settings → Look and Feel → Layout). The pane writes both prefs together:
+//   single-toolbar=true,  sidebar-expanded=true  → "Only Sidebar"      ← ours
+//   single-toolbar=false, sidebar-expanded=true  → "Sidebar and Top Toolbar"
+//   sidebar-expanded=false                       → "Collapsed Sidebar"
+// Both are pinned here; leaving one out lets a stale prefs.js value pick a
+// different layout on the next launch.
+user_pref("zen.view.use-single-toolbar", true);
+user_pref("zen.view.sidebar-expanded", true);
 // Window mode / chrome scheme (0 = default single-window scheme).
 user_pref("zen.view.window.scheme", 0);
 user_pref("zen.workspaces.separate-essentials", false);
