@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# One alias, `b-temp`, added to <shell>-alias.local (gitignored, so machine-local)
+# for both shells — only if temps is here, and never over an alias you already have.
+set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
+
+ALIAS_NAME="b-temp"
+ALIAS_CMD="temps"
+
+# Both config repos name things the same way: ~/.<shell>/<shell>-alias, with a
+# .local beside it. Order here is only the order of the messages below.
+SHELLS=(zsh bash)
+
+title "temps alias for your shell ($ALIAS_NAME)"
+
+# ── 1. is the temperature logger here? ───────────────────────────────────────
+# PATH *or* ~/.local/bin *or* the repo: the boot cron's PATH has only the first.
+temps_here() {
+    has_cmd "$ALIAS_CMD" || have_local_bin "$ALIAS_CMD" || [[ -x "$HOME/.temps/$ALIAS_CMD" ]]
+}
+
+if ! temps_here; then
+    skip "temps is not installed — nothing to alias."
+    exit 0
+fi
+
+# grep without -q (a SIGPIPE'd grep reads as "no match" under pipefail), across
+# both files: the alias may have been committed as easily as written by us.
+grep_aliases() {
+    local pattern="$1"; shift
+    local files=() f
+    for f in "$@"; do [[ -f "$f" ]] && files+=("$f"); done
+    [[ ${#files[@]} -gt 0 ]] || return 1
+    grep -hE "$pattern" "${files[@]}" >/dev/null 2>&1
+}
+
+# ── 2. one shell at a time ───────────────────────────────────────────────────
+# `did_one` tells "no shell config here" from "the alias is in place" at the end.
+did_one=false
+for shell_name in "${SHELLS[@]}"; do
+    config_dir="$HOME/.$shell_name"
+    alias_file="$config_dir/$shell_name-alias"
+    local_file="$alias_file.local"
+    label="${local_file/#$HOME/\~}"
+
+    # ── is this shell's config here? ─────────────────────────────────────────
+    # The tracked file sources the .local one, and a config needs a shell to read it.
+    if ! has_cmd "$shell_name"; then
+        skip "$shell_name is not installed — skipping its alias file."
+        continue
+    fi
+    if [[ ! -f "$alias_file" ]]; then
+        skip "No $shell_name config wired in (${alias_file/#$HOME/\~}) — nowhere to put the alias."
+        continue
+    fi
+    did_one=true
+
+    # ── is one already there? ────────────────────────────────────────────────
+    # Loose on purpose: this decides whether to LEAVE THINGS ALONE, so it errs wide.
+    if grep_aliases '^[[:space:]]*alias[[:space:]]+[^=]+=.*\btemps\b' "$alias_file" "$local_file"; then
+        skip "$shell_name: an alias already runs temps — left exactly as it is."
+        continue
+    fi
+    # Separately: is the NAME taken by something else? A second `alias b-temp=`
+    # would silently win over somebody's working alias.
+    if grep_aliases "^[[:space:]]*alias[[:space:]]+$ALIAS_NAME=" "$alias_file" "$local_file"; then
+        warn "$shell_name: '$ALIAS_NAME' is already an alias for something else — not touching it."
+        warn "Add your own with: alias NAME=\"$ALIAS_CMD\"  in $label"
+        continue
+    fi
+
+    # ── append it ────────────────────────────────────────────────────────────
+    # Appended, never config_write: that owns a whole file, and this one is yours.
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would append:%s alias %s="%s" → %s\n' \
+            "$C_DIM" "$C_OFF" "$ALIAS_NAME" "$ALIAS_CMD" "$label"
+        continue
+    fi
+
+    # A hand-edited file with no trailing newline would otherwise get the alias
+    # glued onto its last line.
+    if [[ -s "$local_file" ]] && [[ -n "$(tail -c 1 "$local_file")" ]]; then
+        printf '\n' >> "$local_file"
+    fi
+
+    {
+        printf '\n'
+        printf '# CPU/GPU temperature logger (temperature-logger). Added by\n'
+        printf '# best-linux-environment because this machine has temps installed.\n'
+        printf 'alias %s="%s"\n' "$ALIAS_NAME" "$ALIAS_CMD"
+    } >> "$local_file"
+
+    ok "$shell_name: added alias $ALIAS_NAME=\"$ALIAS_CMD\" to $label (open a new shell to use it)."
+done
+
+[[ "$did_one" == false ]] && \
+    skip "No shell config repo is wired in — run ./setup.sh and pick zsh or bash."
+exit 0
