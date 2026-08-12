@@ -24,7 +24,7 @@ FONT_FAMILY_PROPO="JetBrainsMono Nerd Font Propo" # proportional metrics — gtk
 FONT_FAMILY_TEXT="Courier Prime"
 # With a size, for toolkits wanting a full description. 11 matches ~/.i3rc, so no
 # surface renders a size apart from the rest of the desktop.
-UI_FONT="$FONT_FAMILY_PROPO 11"
+UI_FONT="$FONT_FAMILY_TEXT 11"
 MONO_FONT="$FONT_FAMILY_MONO 11"
 
 # Never `fc-list | grep -q`: a SIGPIPE'd fc-list re-downloads the font every run.

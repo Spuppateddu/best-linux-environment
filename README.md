@@ -2,6 +2,12 @@
 
 Commands to replicate my personal Ubuntu setup on a fresh **Ubuntu 26.04 LTS**.
 
+![The setup: i3, Alacritty, vim, tmux and the temperature logger](pictures/best_setup.png)
+
+What a machine looks like after `./setup.sh`: i3 tiling the screen, Firefox with
+no browser UI, vim and the `temps` logger in tmux panes, all on the same Nerd
+Font and Gruvbox colours.
+
 **Two files.** One you run, one the machine runs. There are no modes to pick and
 no arguments to remember:
 
