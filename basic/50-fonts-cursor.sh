@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The desktop's two fonts and the macOS cursor. Exclusive by design: JetBrainsMono
-# becomes the one family, bar Courier Prime, which section 4 lets through.
+# becomes the one family, bar Cascadia Code, which section 4 lets through.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -21,7 +21,7 @@ FONT_FAMILY_MONO="JetBrainsMono Nerd Font Mono"  # single-cell icons — termina
 FONT_FAMILY_PROPO="JetBrainsMono Nerd Font Propo" # proportional metrics — gtk/ui
 # What i3, Alacritty and Firefox render text in, with JetBrainsMono behind it for
 # icons. Installed in 1b, exempted in 4.
-FONT_FAMILY_TEXT="Courier Prime"
+FONT_FAMILY_TEXT="Cascadia Code"
 # With a size, for toolkits wanting a full description. 11 matches ~/.i3rc, so no
 # surface renders a size apart from the rest of the desktop.
 UI_FONT="$FONT_FAMILY_TEXT 11"
@@ -51,36 +51,31 @@ else
     run rm -f "$tmp"
 fi
 
-# ── 1b. Courier Prime ────────────────────────────────────────────────────────
-# Upstream's TTFs, not apt's mislabelled ones. $PRIME_GLOB must match section 2.
-PRIME_GLOB="CourierPrime*"
-if compgen -G "$FONT_DIR/$PRIME_GLOB" >/dev/null 2>&1; then
+# ── 1b. Cascadia Code ────────────────────────────────────────────────────────
+# The four statics, not the variable build: only they report style=Bold/Italic,
+# which is how alacritty.toml asks for them. $CASCADIA_GLOB must match section 2.
+CASCADIA_VERSION="2407.24"
+CASCADIA_GLOB="CascadiaCode-*"
+if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
     skip "$FONT_FAMILY_TEXT already installed."
 else
-    url="https://github.com/quoteunquoteapps/CourierPrime/archive/refs/heads/master.zip"
+    url="https://github.com/microsoft/cascadia-code/releases/download/v$CASCADIA_VERSION/CascadiaCode-$CASCADIA_VERSION.zip"
     tmp="$(tmp_file .zip)"
-    tmpdir="$(mktemp -d)"
-    step "Installing $FONT_FAMILY_TEXT"
+    step "Installing $FONT_FAMILY_TEXT $CASCADIA_VERSION"
     run mkdir -p "$FONT_DIR"
-    # A condition, like the Nerd Font above. The repo has no releases, so this is
-    # the branch zip and the four ttf are copied out by name, not unzipped whole.
+    # A condition, like the Nerd Font above. -j flattens ttf/static/ away, and
+    # naming the four files keeps the NF and PL variants out of $FONT_DIR.
     if run curl -fL --progress-bar -o "$tmp" "$url" \
-       && run unzip -oq "$tmp" -d "$tmpdir" \
-       && compgen -G "$tmpdir/CourierPrime-*/fonts/ttf/CourierPrime-*.ttf" >/dev/null 2>&1; then
-        run cp -f "$tmpdir"/CourierPrime-*/fonts/ttf/CourierPrime-*.ttf "$FONT_DIR/"
+       && run unzip -oqj "$tmp" \
+              'ttf/static/CascadiaCode-Regular.ttf' 'ttf/static/CascadiaCode-Bold.ttf' \
+              'ttf/static/CascadiaCode-Italic.ttf' 'ttf/static/CascadiaCode-BoldItalic.ttf' \
+              -d "$FONT_DIR"; then
         run fc-cache -rf
         ok "$FONT_FAMILY_TEXT installed."
     else
         warn "Could not install $FONT_FAMILY_TEXT — i3, Alacritty and Firefox will fall back to JetBrainsMono until a later run."
     fi
-    run rm -rf "$tmp" "$tmpdir"
-fi
-
-# Both claim the same family name, so with the apt package present fontconfig
-# picks between eight faces, four of which lie about their weight.
-if apt_installed fonts-courier-prime; then
-    warn "apt's fonts-courier-prime is installed and its faces are mislabelled (style=Light on all four)."
-    warn "Remove it so bold resolves predictably:  sudo apt-get purge fonts-courier-prime"
+    run rm -f "$tmp"
 fi
 
 # ── 2. Every other user-installed font removed ───────────────────────────────
@@ -92,7 +87,7 @@ if compgen -G "$FONT_DIR/JetBrainsMono*Nerd*" >/dev/null 2>&1; then
         find "$FONT_DIR" "$HOME/.fonts" -type f \
              \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \
                 -o -iname '*.pfb' -o -iname '*.pcf*' -o -iname '*.woff*' \) \
-             ! -iname 'JetBrainsMono*' ! -iname "$PRIME_GLOB" -print0 2>/dev/null
+             ! -iname 'JetBrainsMono*' ! -iname "$CASCADIA_GLOB" -print0 2>/dev/null
     )
     if [[ ${#others[@]} -eq 0 ]]; then
         skip "No other user-installed fonts to remove."

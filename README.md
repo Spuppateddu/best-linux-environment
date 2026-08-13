@@ -380,16 +380,17 @@ repos install into it, and fonts before the tools that render them. Items marked
    fallback), and then points fontconfig, gsettings and GTK2 at it, so
    `sans-serif`, `monospace` and any concrete family a program names all resolve
    to JetBrainsMono. Glyphs it doesn't have still fall through to the font that
-   does. **Courier Prime** — a redesign of Courier with more stem weight and a
-   taller x-height at Courier's identical 0.600 em advance — is what the three
-   surfaces you actually read text on ask for by name: the i3 desktop, Alacritty
-   and Firefox. The fontconfig rule above carries an explicit exception for it,
-   without which those configs would render in JetBrainsMono as if nothing had
-   changed. Fetched from **upstream's own TTFs**, deliberately not apt's
-   `fonts-courier-prime`, whose four faces all report `style=Light` so bold and
-   italic resolve to the regular with Pango faking the difference. No Courier
-   has an icon range, so each of those configs names JetBrainsMono behind it.
-   GTK3/4 come from `~/.i3rc`'s own `settings.ini`.
+   does. **Cascadia Code** — Microsoft's programming face: a 0.586 em advance, a
+   tall 0.518 em x-height, and four real faces (Regular, Bold, Italic, Bold
+   Italic), so bold-as-emphasis stays bold — is what the three surfaces you
+   actually read text on ask for by name: the i3 desktop, Alacritty and Firefox. The fontconfig rule above carries an
+   explicit exception for it, without which those configs would render in
+   JetBrainsMono as if nothing had changed. Fetched from **upstream's own
+   release** (pinned at `2407.24`), and from it the four **static** TTFs, not the
+   variable build — only the statics report `style=Bold`/`Italic`, which is how
+   `alacritty.toml` names them. Cascadia Code has no icon range, so each of those
+   configs names JetBrainsMono behind it. GTK3/4 come from `~/.i3rc`'s own
+   `settings.ini`.
 7. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
