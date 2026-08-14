@@ -6,6 +6,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 title "Fonts & cursor"
 require_desktop "Fonts & cursor"
+# The family below and the size the greeter and GTK2 render at both come from
+# here, so fonts.local moves them without touching this file.
+source "$BLE_ROOT/lib/fonts.sh"
 
 # fonts-noto-core provides Noto Sans Symbols2, which section 5 and Alacritty's
 # symbol rule both resolve fallback onto — so it is declared, not assumed.
@@ -21,11 +24,12 @@ FONT_FAMILY_MONO="JetBrainsMono Nerd Font Mono"  # single-cell icons — termina
 FONT_FAMILY_PROPO="JetBrainsMono Nerd Font Propo" # proportional metrics — gtk/ui
 # What i3, Alacritty and Firefox render text in, with JetBrainsMono behind it for
 # icons. Installed in 1b, exempted in 4.
-FONT_FAMILY_TEXT="Cascadia Code"
-# With a size, for toolkits wanting a full description. 11 matches ~/.i3rc, so no
-# surface renders a size apart from the rest of the desktop.
-UI_FONT="$FONT_FAMILY_TEXT 11"
-MONO_FONT="$FONT_FAMILY_MONO 11"
+FONT_FAMILY_TEXT="$BLE_FONT_FAMILY_TEXT"
+# With a size, for toolkits wanting a full description. The size is this machine's
+# BLE_SIZE_GTK (fonts.local); its default, 11, is what ~/.i3rc renders at.
+GTK_SIZE="${BLE_SIZE_GTK:-$BLE_SIZE_GTK_DEFAULT}"
+UI_FONT="$FONT_FAMILY_TEXT $GTK_SIZE"
+MONO_FONT="$FONT_FAMILY_MONO $GTK_SIZE"
 
 # Never `fc-list | grep -q`: a SIGPIPE'd fc-list re-downloads the font every run.
 # Match "JetBrainsMono Nerd", never bare "JetBrains Mono" — that one has no icons.
@@ -52,10 +56,9 @@ else
 fi
 
 # ── 1b. Cascadia Code ────────────────────────────────────────────────────────
-# The four statics, not the variable build: only they report style=Bold/Italic,
-# which is how alacritty.toml asks for them. $CASCADIA_GLOB must match section 2.
+# The four statics, not the variable build: only they report style=Bold/Italic.
 CASCADIA_VERSION="2407.24"
-CASCADIA_GLOB="CascadiaCode-*"
+CASCADIA_GLOB="CascadiaCode-*"   # section 2 reuses it to spare these from the sweep
 if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
     skip "$FONT_FAMILY_TEXT already installed."
 else

@@ -6,3 +6,6 @@
 
 # Backups created by the installer helpers if run in-tree
 *.backup.*
+
+# This machine's font sizes. fonts.local.example is the copy that IS committed.
+fonts.local

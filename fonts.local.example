@@ -1,0 +1,47 @@
+# Font sizes, this machine only: `cp fonts.local.example fonts.local`, edit, then
+# ./setup.sh (./boot.sh and every boot re-apply it). fonts.local is git-ignored.
+
+# One family for the whole desktop — only the sizes are yours to move. Every line
+# is commented out and shows the size its config repo ships: uncomment to override.
+
+# Points, as the app spells them, bar the three marked px.
+
+
+# ── Terminal ─────────────────────────────────────────────────────────────────
+# Alacritty, so also bash, zsh, vim, tmux, lazygit, yazi.
+#BLE_SIZE_TERMINAL=9.5
+
+# Raising it widens the cell: if the eww bar starts clipping, re-derive CHAR100
+# in ~/.i3rc/eww/scripts/screen.sh.
+
+
+# ── i3 ───────────────────────────────────────────────────────────────────────
+# Window titles and the text i3 itself draws.
+#BLE_SIZE_I3=10
+
+# The eww bar across the top (px). Icons follow it at +4, the way
+# ~/.i3rc/eww/eww.scss sets them.
+#BLE_SIZE_BAR=11
+
+# The bar's reserved widths assume 11px, so a big jump can clip a segment — the
+# widths are tiers in ~/.i3rc/eww/scripts/screen.sh, not something to tune here.
+
+# The rofi launcher ($mod+d) and the power menu.
+#BLE_SIZE_ROFI=11
+
+# Notifications.
+#BLE_SIZE_DUNST=10
+
+
+# ── GTK ──────────────────────────────────────────────────────────────────────
+# GTK apps and their menus, plus the LightDM login screen.
+#BLE_SIZE_GTK=11
+
+
+# ── Firefox ──────────────────────────────────────────────────────────────────
+# Page text (px). Code blocks follow at +1px, the gap user.js keeps.
+#BLE_SIZE_FIREFOX_PAGE=12
+
+# The browser's own bar (px) — tabs, URL bar, menus. Tab height follows it, so a
+# big jump here also makes the toolbar taller.
+#BLE_SIZE_FIREFOX_UI=12

@@ -2,11 +2,11 @@
 
 Commands to replicate my personal Ubuntu setup on a fresh **Ubuntu 26.04 LTS**.
 
-![The setup: i3, Alacritty, vim, tmux and the temperature logger](pictures/best_setup.png)
+![The setup: i3 tiling the screen, Alacritty, fastfetch, the temperature logger and Firefox](pictures/i3_tiling.png)
 
 What a machine looks like after `./setup.sh`: i3 tiling the screen, Firefox with
-no browser UI, vim and the `temps` logger in tmux panes, all on the same Nerd
-Font and Gruvbox colours.
+no browser UI, `fastfetch` and the `temps` logger in Alacritty windows, all on
+the same Cascadia Code + Nerd Font pair and the same colours.
 
 **Two files.** One you run, one the machine runs. There are no modes to pick and
 no arguments to remember:
@@ -214,6 +214,34 @@ path: the installers resolve their location with `cd "$(dirname "$0")" && pwd`,
 which is logical, so entering via `~/.vim` is what makes vim's own "am I at
 `~/.vim`?" check pass.
 
+### What the two shells look like
+
+Same prompt, same aliases, same colours — the difference is what runs behind
+them. zsh brings Oh My Zsh, autosuggestions and live syntax highlighting; bash
+gets the same look with nothing third-party in the shell.
+
+**bash** — `configuration-bash`, no framework:
+
+![bash: the prompt and fastfetch in Alacritty](pictures/bash.png)
+
+**zsh** — `configuration-zsh`, Oh My Zsh and the gnzh prompt:
+
+![zsh: the two-line gnzh prompt and fastfetch in Alacritty](pictures/zsh.png)
+
+### The two i3 layouts
+
+i3 is a tiling window manager, and `configuration-i3` keeps both of its modes
+one keybinding apart (`$mod+Shift+space`). Tiling is the default; floating is
+there for the windows that only make sense at their own size.
+
+**Tiling** — every window gets a share of the screen, nothing overlaps:
+
+![i3 in tiling mode: fastfetch, the temperature logger and Firefox sharing the screen](pictures/i3_tiling.png)
+
+**Floating** — windows stack and overlap, the way a classic desktop behaves:
+
+![i3 in floating mode: an Alacritty window floating over Firefox](pictures/i3_floating.png)
+
 ### Converting an older machine
 
 A machine set up before `~/linux-configuration/` existed still has the
@@ -264,6 +292,66 @@ repo's own `install.sh`, which draws the identical list right after its clone.
 That path is taken only when `setup.sh` reports it hit that case *and* there is a
 terminal; `boot.sh` never sets it, so it still cannot hang.
 
+## Font sizes per machine: `fonts.local`
+
+The config repos are shared by every PC, and every PC has a different screen. So
+the one thing that is *not* shared is the sizes: they live in **`fonts.local`**,
+a git-ignored file at the root of this repo, and nothing else on the machine
+holds a size you are meant to edit.
+
+```bash
+cp fonts.local.example fonts.local
+$EDITOR fonts.local
+./setup.sh          # or ./boot.sh — and every boot re-applies it
+```
+
+Every line is commented out and shows the size its config repo ships. Uncomment
+one to override that surface; delete it again and the repo's own size comes
+back. Sizes are points, as the app spells them, bar the three marked px:
+
+| Key | What it sizes |
+| --- | --- |
+| `BLE_SIZE_TERMINAL` | Alacritty — so bash, zsh, vim, tmux, lazygit, yazi |
+| `BLE_SIZE_I3` | i3 window titles |
+| `BLE_SIZE_BAR` | the eww bar across the top (px; icons follow at +4, +6) |
+| `BLE_SIZE_ROFI` | the launcher (`$mod+d`) and the power menu |
+| `BLE_SIZE_DUNST` | notifications |
+| `BLE_SIZE_GTK` | GTK apps, their menus, and the LightDM login screen |
+| `BLE_SIZE_FIREFOX_PAGE` | page text (px; code blocks follow at +1) |
+| `BLE_SIZE_FIREFOX_UI` | Firefox's own bar — tabs, URL bar, menus (px) |
+
+`basic/99-font-sizes.sh` applies them, last in a `setup.sh` run and after the
+pull in a `boot.sh` one, then reloads i3, the bar and dunst if any of them moved.
+Alacritty re-reads its own config; GTK apps and Firefox need a restart.
+
+### It never edits the config repos
+
+A size is written into a **separate override file** that the app reads *last* —
+never into the repo file it belongs beside. That is the whole point: the clones
+in `~/linux-configuration/` stay clean, so `git pull --ff-only` keeps working on
+every boot. Each config repo carries the one line that loads its override, and
+this repo warns rather than adds it if that line is missing:
+
+| Surface | Override this repo writes | How the config repo loads it |
+| --- | --- | --- |
+| Alacritty | `~/.alacritty/size.local.toml` | last `import` in `alacritty.toml` |
+| i3 | `~/.i3rc/05-fontsize.local` | the existing `include ~/.i3rc/*.local` |
+| eww bar | `~/.i3rc/eww/size.local.scss` | `@import` at the foot of `eww.scss` |
+| rofi | `~/.i3rc/rofi/size.local.rasi` | `@import` at the foot of both themes |
+| dunst | `~/.i3rc/dunst/size.local.conf` | a second `-config` on dunst's line |
+| GTK | `~/.config/gtk-{3,4}.0/size.local.css` | `@import` at the top of `gtk.css` |
+| Firefox prefs | `~/.firefox/user.local.js` | appended to `user.js` by its installer |
+| Firefox UI | `~/.firefox/chrome/userChrome.local.css` | `@import`, read as a CSS variable |
+
+Two details that are not obvious. In Alacritty the **importing** file wins, so
+the size cannot sit in `alacritty.toml` at all — the repo's own default moved to
+`size.toml`, and yours imports after it. And GTK resolves a relative `@import`
+beside the **symlink** it loaded, not beside the real file, which is why the GTK
+override is written into `~/.config` rather than into the i3 repo.
+
+The login screen and GTK2 have no repo of their own: `basic/50-fonts-cursor.sh`
+reads `BLE_SIZE_GTK` straight from `lib/fonts.sh` and writes them itself.
+
 ## Auto-update at boot
 
 `setup.sh` offers a `@reboot` cron the first time it runs. If you accept, every
@@ -272,15 +360,17 @@ boot runs `./boot.sh`, which:
 1. `git pull`s **this repo** (and re-execs itself if it changed);
 2. `git pull`s each **cloned** config repo and re-runs the `install.sh` it ships,
    so a config you pushed from another machine is applied here;
-3. **reloads what is running** — `i3-msg reload`, `tmux source-file` on every
+3. re-applies **`fonts.local`**, and reloads i3, the bar and dunst if a size
+   moved;
+4. **reloads what is running** — `i3-msg reload`, `tmux source-file` on every
    running server, `fc-cache`, `xrdb -merge`;
-4. refreshes the binaries apt doesn't manage for us — **yazi**/`ya`, **fzf**,
+5. refreshes the binaries apt doesn't manage for us — **yazi**/`ya`, **fzf**,
    **lazygit** (only a `~/.local/bin` copy; an apt one belongs to apt) and
    **opencode** (`opencode upgrade`) — each behind a release-tag check, so a run
    with nothing new downloads nothing. Secondary apps are **not** in this list,
    so the `~/.local/bin` **lazydocker** binary is never bumped here:
    `bash advanced/lazydocker.sh --upgrade`;
-5. logs to `~/.cache/best-linux-environment/boot.log`, trimmed to the last
+6. logs to `~/.cache/best-linux-environment/boot.log`, trimmed to the last
    512 KiB at the start of each run so it can't grow without bound.
 
 It **installs nothing new and asks nothing**. A repo you didn't tick is not
@@ -288,9 +378,9 @@ cloned; a config file you were meant to make yours is not rewritten. A boot can
 move this machine forward — it can never reset it, and it can never decide
 something for you. That is `setup.sh`'s job, always.
 
-One honest limit on step 3: at boot there are no shells running yet, and nothing
+One honest limit on step 4: at boot there are no shells running yet, and nothing
 can `source` a file into a shell that already exists anyway. A new `zshrc` or
-`bashrc` applies to the next terminal you open. Steps 2 and 3 are the parts that *can* be made to
+`bashrc` applies to the next terminal you open. Steps 2, 3 and 4 are the parts that *can* be made to
 take effect immediately, and they are — which is also why running `./boot.sh` by
 hand is the quickest way to apply a config change you just pushed.
 
@@ -390,7 +480,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    variable build — only the statics report `style=Bold`/`Italic`, which is how
    `alacritty.toml` names them. Cascadia Code has no icon range, so each of those
    configs names JetBrainsMono behind it. GTK3/4 come from `~/.i3rc`'s own
-   `settings.ini`.
+   `settings.ini`. The families are fixed; the **sizes** are not — the greeter and
+   GTK2 take theirs from `BLE_SIZE_GTK`, see [`fonts.local`](#font-sizes-per-machine-fontslocal).
 7. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
@@ -650,10 +741,10 @@ bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest rele
 
 ## Shared library
 
-Four files, all sourced — never run. `lib/common.sh` holds what a **module**
-needs; the other three hold what an **entry script** needs, which is what lets
-`setup.sh` and `boot.sh` be thin wrappers over the same modules instead of two
-copies of the same loop.
+Five files, all sourced — never run. `lib/common.sh` holds what a **module**
+needs, `lib/fonts.sh` what the two modules that render text need; the other three
+hold what an **entry script** needs, which is what lets `setup.sh` and `boot.sh`
+be thin wrappers over the same modules instead of two copies of the same loop.
 
 | `lib/common.sh` | What it does |
 | --- | --- |
@@ -668,6 +759,13 @@ copies of the same loop.
 | `apt_app_module` | the whole body of a one-package module (`apt_app_module arandr "ARandR" --desktop`) |
 | `arch_pick`, `gh_latest_tag`, `gh_newer_tag`, `have_local_bin`, `install_tarball_bin` | resolving, installing and upgrading prebuilt GitHub release downloads |
 | `clone_or_pull`, `link`, `xsessionrc_export` | git checkouts, symlinks, session-wide env vars |
+
+| `lib/fonts.sh` | What it does |
+| --- | --- |
+| `fonts_load` | parse `fonts.local` into `BLE_SIZE_*` — read as data, never sourced, so a typo costs one warned line and not the run |
+| `BLE_SIZE_*` | this machine's sizes, empty where the file sets none |
+| `BLE_FONT_FAMILY_TEXT` | the one text family of the whole desktop |
+| `fonts_int` | a size plus an offset, rounded — for the px surfaces |
 
 | `lib/registry.sh` | What it does |
 | --- | --- |

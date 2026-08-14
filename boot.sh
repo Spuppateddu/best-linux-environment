@@ -10,18 +10,20 @@ What runs at every boot, from the @reboot cron ./setup.sh offers to install.
 You are not expected to run it by hand, though you can — it is the fastest way
 to pull every repo and re-apply every config after editing one.
 
-It does four things and refuses to do a fifth:
+It does five things and refuses to do a sixth:
 
   1. git pull this repo, and re-exec itself if that changed anything.
   2. git pull every config repo you have (zsh, vim, tmux, temps, alacritty,
      i3) and re-run the install.sh each one ships. That last part is the
      "source": it is what re-links ~/.zshrc, rewrites ~/.tmux.conf, reinstalls
      a plugin the repo has gained, and puts back a symlink something broke.
-  3. Reload what is running right now, so an edit you pushed from another
+  3. Re-apply this machine's font sizes from fonts.local, and reload i3, the
+     bar and dunst if any of them moved.
+  4. Reload what is running right now, so an edit you pushed from another
      machine is live without a logout: i3 reloads its config, every running
      tmux server re-sources its, the font cache is rebuilt, X resources are
      re-merged.
-  4. Move the binaries apt doesn't manage to their latest release — lazygit,
+  5. Move the binaries apt doesn't manage to their latest release — lazygit,
      yazi/ya, fzf, opencode.
 
 What it will not do is make a decision. It never asks a question (there is
@@ -31,7 +33,7 @@ something new to this machine is ./setup.sh's job, always.
 
 One honest limit on "reload": at boot there are no shells running yet, and
 nothing can source a file into a shell that already exists anyway. A new zshrc
-applies to the next shell you open. Steps 2 and 3 are the parts that can be
+applies to the next shell you open. Steps 2, 3 and 4 are the parts that can be
 made to take effect immediately, and they are.
 
 Usage:
@@ -87,7 +89,11 @@ self_update "$@"
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.
 bash "$HERE/basic/10-tools.sh" || FAILED+=("config repos")
 
-# ── 3. reload what is running ────────────────────────────────────────────────
+# ── 3. this machine's font sizes ─────────────────────────────────────────────
+# After the pull, so fonts.local survives what the config repos just re-applied.
+bash "$HERE/basic/99-font-sizes.sh" || FAILED+=("font sizes")
+
+# ── 4. reload what is running ────────────────────────────────────────────────
 # The catch-all for repos whose own installer didn't reload. All best-effort.
 title "Reloading live configuration"
 
@@ -124,7 +130,7 @@ if [[ -n "${DISPLAY:-}" && -f "$HOME/.Xresources" ]] && has_cmd xrdb; then
         || skip "Could not merge ~/.Xresources."
 fi
 
-# ── 4. binaries apt doesn't manage ───────────────────────────────────────────
+# ── 5. binaries apt doesn't manage ───────────────────────────────────────────
 # Each checks upstream's latest release and downloads only when there is one.
 title "Refreshing hand-installed binaries"
 

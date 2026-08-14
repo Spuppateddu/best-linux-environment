@@ -389,6 +389,10 @@ else
     skip "No secondary apps ticked."
 fi
 
+# Last, not a modules.conf entry: it writes INTO the config repos the tiers above
+# clone, so it only has somewhere to write once they are all on disk.
+bash "$BLE_ROOT/basic/99-font-sizes.sh" || FAILED+=("font sizes")
+
 if (( WANT_CRON )); then
     title "Boot cron"
     install_cron || FAILED+=("cron")
