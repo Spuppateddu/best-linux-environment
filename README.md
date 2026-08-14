@@ -230,17 +230,17 @@ gets the same look with nothing third-party in the shell.
 
 ### The two i3 layouts
 
-i3 is a tiling window manager, and `configuration-i3` keeps both of its modes
-one keybinding apart (`$mod+Shift+space`). Tiling is the default; floating is
-there for the windows that only make sense at their own size.
+i3 runs here as a normal desktop, not as a tiling WM: **every window floats** by
+default, with a title bar you can grab. `configuration-i3` keeps the other mode
+one keybinding away — `$mod+Control+space` tiles the whole desktop, and back.
 
-**Tiling** — every window gets a share of the screen, nothing overlaps:
-
-![i3 in tiling mode: fastfetch, the temperature logger and Firefox sharing the screen](pictures/i3_tiling.png)
-
-**Floating** — windows stack and overlap, the way a classic desktop behaves:
+**Floating**, the default — windows overlap, the way a classic desktop behaves:
 
 ![i3 in floating mode: an Alacritty window floating over Firefox](pictures/i3_floating.png)
+
+**Tiling** — every window takes a share of the screen and nothing overlaps:
+
+![i3 in tiling mode: fastfetch, the temperature logger and Firefox sharing the screen](pictures/i3_tiling.png)
 
 ### Converting an older machine
 
