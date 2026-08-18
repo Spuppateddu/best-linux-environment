@@ -5,9 +5,9 @@
 [[ -n "${_BLE_FONTS_LOADED:-}" ]] && return 0
 _BLE_FONTS_LOADED=1
 
-# The one text family of the whole desktop, installed by basic/50-fonts-cursor.sh.
-# Every pango string written from a size below names it.
-BLE_FONT_FAMILY_TEXT="${BLE_FONT_FAMILY_TEXT:-Cascadia Code}"
+# The one family of the whole desktop, installed by basic/50-fonts-cursor.sh. NF
+# = the Nerd Font build: same face, plus the icon range the bar draws from.
+BLE_FONT_FAMILY_TEXT="${BLE_FONT_FAMILY_TEXT:-Cascadia Code NF}"
 
 # The file you edit on each PC. Git-ignored, so no machine's sizes reach another.
 BLE_FONTS_LOCAL="${BLE_FONTS_LOCAL:-$BLE_ROOT/fonts.local}"

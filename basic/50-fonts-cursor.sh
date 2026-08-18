@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The desktop's two fonts and the macOS cursor. Exclusive by design: JetBrainsMono
-# becomes the one family, bar Cascadia Code, which section 4 lets through.
+# The desktop's one font and the macOS cursor. Exclusive by design: Cascadia Code
+# NF becomes the only family, and section 2 deletes every other one.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -10,87 +10,60 @@ require_desktop "Fonts & cursor"
 # here, so fonts.local moves them without touching this file.
 source "$BLE_ROOT/lib/fonts.sh"
 
-# fonts-noto-core provides Noto Sans Symbols2, which section 5 and Alacritty's
-# symbol rule both resolve fallback onto — so it is declared, not assumed.
+# fonts-noto-core provides Noto Sans Symbols2, which section 4 resolves fallback
+# onto — so it is declared, not assumed.
 apt_ensure fontconfig x11-xserver-utils fonts-noto-color-emoji fonts-noto-core
 
-# ── 1. JetBrainsMono Nerd Font ───────────────────────────────────────────────
-# Must be the Nerd Fonts build — apt's `fonts-jetbrains-mono` has no icon range.
+# ── 1. Cascadia Code NF ──────────────────────────────────────────────────────
+# The NF build, not plain Cascadia: same face, plus the Nerd Fonts icon range the
+# eww bar draws from. Upstream ships it in the very same zip.
 FONT_DIR="$HOME/.local/share/fonts"
-# All three builds, named once: the purge, the fontconfig rule and the GTK
-# settings below must agree on the spelling or they silently pick another font.
-FONT_FAMILY="JetBrainsMono Nerd Font"          # natural-width icons — the icon fallback
-FONT_FAMILY_MONO="JetBrainsMono Nerd Font Mono"  # single-cell icons — terminal grid
-FONT_FAMILY_PROPO="JetBrainsMono Nerd Font Propo" # proportional metrics — gtk/ui
-# What i3, Alacritty and Firefox render text in, with JetBrainsMono behind it for
-# icons. Installed in 1b, exempted in 4.
-FONT_FAMILY_TEXT="$BLE_FONT_FAMILY_TEXT"
+# Named once: the purge, the fontconfig rule and the GTK settings below must
+# agree on the spelling or they silently pick another font.
+FONT_FAMILY="$BLE_FONT_FAMILY_TEXT"
 # With a size, for toolkits wanting a full description. The size is this machine's
 # BLE_SIZE_GTK (fonts.local); its default, 11, is what ~/.i3rc renders at.
 GTK_SIZE="${BLE_SIZE_GTK:-$BLE_SIZE_GTK_DEFAULT}"
-UI_FONT="$FONT_FAMILY_TEXT $GTK_SIZE"
-MONO_FONT="$FONT_FAMILY_MONO $GTK_SIZE"
+UI_FONT="$FONT_FAMILY $GTK_SIZE"
 
+# The four statics, not the variable build: only they report style=Bold/Italic.
+CASCADIA_VERSION="2407.24"
+CASCADIA_GLOB="CascadiaCodeNF-*"   # sections 2 and 3 reuse it to find these files
 # Never `fc-list | grep -q`: a SIGPIPE'd fc-list re-downloads the font every run.
-# Match "JetBrainsMono Nerd", never bare "JetBrains Mono" — that one has no icons.
-if compgen -G "$FONT_DIR/JetBrainsMono*Nerd*" >/dev/null 2>&1 \
-   || fc-list 2>/dev/null | grep -iE "jetbrainsmono.*nerd" >/dev/null; then
-    skip "JetBrainsMono Nerd Font already installed."
+if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
+    skip "$FONT_FAMILY already installed."
 else
-    url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+    url="https://github.com/microsoft/cascadia-code/releases/download/v$CASCADIA_VERSION/CascadiaCode-$CASCADIA_VERSION.zip"
     tmp="$(tmp_file .zip)"
-    step "Installing JetBrainsMono Nerd Font"
+    step "Installing $FONT_FAMILY $CASCADIA_VERSION"
     run mkdir -p "$FONT_DIR"
     # A condition, not run bare: an offline run would otherwise abort the module
     # and leave the half-downloaded temp file behind.
     if run curl -fL --progress-bar -o "$tmp" "$url" \
-       && run unzip -oq "$tmp" -d "$FONT_DIR"; then
+       && run unzip -oqj "$tmp" \
+              'ttf/static/CascadiaCodeNF-Regular.ttf' 'ttf/static/CascadiaCodeNF-Bold.ttf' \
+              'ttf/static/CascadiaCodeNF-Italic.ttf' 'ttf/static/CascadiaCodeNF-BoldItalic.ttf' \
+              -d "$FONT_DIR"; then
         # -r, not just -f: a plain `fc-cache -f` left the new files uncached, so
         # the icon range read as missing. -r drops the caches and rebuilds.
         run fc-cache -rf
-        ok "JetBrainsMono Nerd Font installed."
+        ok "$FONT_FAMILY installed."
     else
-        warn "Could not install the JetBrainsMono Nerd Font — icons will be missing until a later run."
-    fi
-    run rm -f "$tmp"
-fi
-
-# ── 1b. Cascadia Code ────────────────────────────────────────────────────────
-# The four statics, not the variable build: only they report style=Bold/Italic.
-CASCADIA_VERSION="2407.24"
-CASCADIA_GLOB="CascadiaCode-*"   # section 2 reuses it to spare these from the sweep
-if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
-    skip "$FONT_FAMILY_TEXT already installed."
-else
-    url="https://github.com/microsoft/cascadia-code/releases/download/v$CASCADIA_VERSION/CascadiaCode-$CASCADIA_VERSION.zip"
-    tmp="$(tmp_file .zip)"
-    step "Installing $FONT_FAMILY_TEXT $CASCADIA_VERSION"
-    run mkdir -p "$FONT_DIR"
-    # A condition, like the Nerd Font above. -j flattens ttf/static/ away, and
-    # naming the four files keeps the NF and PL variants out of $FONT_DIR.
-    if run curl -fL --progress-bar -o "$tmp" "$url" \
-       && run unzip -oqj "$tmp" \
-              'ttf/static/CascadiaCode-Regular.ttf' 'ttf/static/CascadiaCode-Bold.ttf' \
-              'ttf/static/CascadiaCode-Italic.ttf' 'ttf/static/CascadiaCode-BoldItalic.ttf' \
-              -d "$FONT_DIR"; then
-        run fc-cache -rf
-        ok "$FONT_FAMILY_TEXT installed."
-    else
-        warn "Could not install $FONT_FAMILY_TEXT — i3, Alacritty and Firefox will fall back to JetBrainsMono until a later run."
+        warn "Could not install $FONT_FAMILY — the desktop keeps its old face until a later run."
     fi
     run rm -f "$tmp"
 fi
 
 # ── 2. Every other user-installed font removed ───────────────────────────────
 # User dirs only, and guarded on the font being present, or nothing would be left.
-if compgen -G "$FONT_DIR/JetBrainsMono*Nerd*" >/dev/null 2>&1; then
+if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
     # -print0/read -d: font filenames from a zip can carry spaces.
     others=()
     while IFS= read -r -d '' f; do others+=("$f"); done < <(
         find "$FONT_DIR" "$HOME/.fonts" -type f \
              \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \
                 -o -iname '*.pfb' -o -iname '*.pcf*' -o -iname '*.woff*' \) \
-             ! -iname 'JetBrainsMono*' ! -iname "$CASCADIA_GLOB" -print0 2>/dev/null
+             ! -iname "$CASCADIA_GLOB" -print0 2>/dev/null
     )
     if [[ ${#others[@]} -eq 0 ]]; then
         skip "No other user-installed fonts to remove."
@@ -101,18 +74,39 @@ if compgen -G "$FONT_DIR/JetBrainsMono*Nerd*" >/dev/null 2>&1; then
         done
         run rm -f "${others[@]}"
         # Directories the removed families came in; -empty so a dir still holding
-        # JetBrainsMono files stays.
+        # Cascadia files stays.
         run find "$FONT_DIR" "$HOME/.fonts" -mindepth 1 -type d -empty -delete 2>/dev/null || true
         run fc-cache -rf
         ok "Other user-installed fonts removed."
     fi
 else
-    skip "JetBrainsMono not on disk — leaving other fonts alone."
+    skip "$FONT_FAMILY not on disk — leaving other fonts alone."
+fi
+
+# The JetBrainsMono this module used to install, before Cascadia Code NF made it
+# redundant. Left behind, the greeter and fontconfig would still resolve onto it.
+OLD_SYS_FONT_DIR="/usr/local/share/fonts/jetbrains-mono-nerd-font"
+OLD_JB_CONF="$HOME/.config/fontconfig/conf.d/60-jetbrainsmono-default.conf"
+if [[ -e "$OLD_JB_CONF" ]]; then
+    step "Removing the old JetBrainsMono fontconfig rule"
+    run rm -f "$OLD_JB_CONF"
+    run fc-cache -rf
+    ok "Old JetBrainsMono rule removed."
+fi
+if [[ -d "$OLD_SYS_FONT_DIR" ]]; then
+    if [[ "$DRY_RUN" != true ]] && ! can_sudo; then
+        warn "sudo unavailable — $OLD_SYS_FONT_DIR left in place."
+    else
+        step "Removing the old system-wide JetBrainsMono"
+        run sudo rm -rf "$OLD_SYS_FONT_DIR"
+        run sudo fc-cache -f
+        ok "Old system-wide JetBrainsMono removed."
+    fi
 fi
 
 # ── 3. The login screen ──────────────────────────────────────────────────────
 # The greeter cannot read $HOME, so it needs a copy in /usr/local/share/fonts.
-SYS_FONT_DIR="/usr/local/share/fonts/jetbrains-mono-nerd-font"
+SYS_FONT_DIR="/usr/local/share/fonts/cascadia-code-nf"
 GREETER_CONF="/etc/lightdm/lightdm-gtk-greeter.conf"
 
 if ! apt_installed lightdm-gtk-greeter; then
@@ -121,25 +115,25 @@ else
     # Count-compare, so a half-copied directory doesn't look done forever. Both
     # sides via process substitution: `find | wc -l` exits the module on run one.
     sys_src=(); while IFS= read -r -d '' f; do sys_src+=("$f"); done < <(
-        find "$FONT_DIR" -maxdepth 1 -name 'JetBrainsMono*.ttf' -print0 2>/dev/null)
+        find "$FONT_DIR" -maxdepth 1 -name "$CASCADIA_GLOB" -print0 2>/dev/null)
     sys_have=(); while IFS= read -r -d '' f; do sys_have+=("$f"); done < <(
-        find "$SYS_FONT_DIR" -maxdepth 1 -name 'JetBrainsMono*.ttf' -print0 2>/dev/null)
+        find "$SYS_FONT_DIR" -maxdepth 1 -name "$CASCADIA_GLOB" -print0 2>/dev/null)
 
     if [[ ${#sys_src[@]} -eq 0 ]]; then
-        skip "JetBrainsMono not on disk — nothing to copy system-wide."
+        skip "$FONT_FAMILY not on disk — nothing to copy system-wide."
     elif [[ ${#sys_have[@]} -eq ${#sys_src[@]} ]]; then
-        skip "JetBrainsMono already installed system-wide."
+        skip "$FONT_FAMILY already installed system-wide."
     elif [[ "$DRY_RUN" != true ]] && ! can_sudo; then
         warn "sudo unavailable — login screen left on the distro font."
     else
-        step "Installing JetBrainsMono system-wide for the login screen"
+        step "Installing $FONT_FAMILY system-wide for the login screen"
         run sudo mkdir -p "$SYS_FONT_DIR"
         run sudo cp -f "${sys_src[@]}" "$SYS_FONT_DIR/"
         # cp preserves the umask of whoever ran the installer; the greeter has to
         # be able to read these.
-        run sudo chmod 644 "$SYS_FONT_DIR"/JetBrainsMono*.ttf
+        run sudo chmod 644 "$SYS_FONT_DIR"/$CASCADIA_GLOB
         run sudo fc-cache -f "$SYS_FONT_DIR"
-        ok "JetBrainsMono installed system-wide."
+        ok "$FONT_FAMILY installed system-wide."
     fi
 
     # Ships commented out, so this writes the line rather than editing one —
@@ -161,10 +155,10 @@ else
     fi
 fi
 
-# ── 4. JetBrainsMono as the default for every family ─────────────────────────
+# ── 4. Cascadia Code NF as the default for every family ──────────────────────
 # prepend_first + strong, never <alias><prefer>; not_eq qual="all" is the exception list.
-JB_CONF="$HOME/.config/fontconfig/conf.d/60-jetbrainsmono-default.conf"
-config_write "$JB_CONF" <<XML
+FC_CONF="$HOME/.config/fontconfig/conf.d/60-cascadia-default.conf"
+config_write "$FC_CONF" <<XML
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <!-- Written by best-linux-environment/basic/50-fonts-cursor.sh.
@@ -172,26 +166,14 @@ config_write "$JB_CONF" <<XML
 <fontconfig>
 
   <!-- Every request, generic or by name, except the families listed here, which
-       must reach their own font. Propo = proportional metrics, for UI and text. -->
+       must reach their own font. Cascadia is monospaced, so serif, sans-serif
+       and monospace all land on the same face — one rule covers the lot. -->
   <match target="pattern">
     <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY_MONO</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY_PROPO</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY_TEXT</string></test>
     <test name="family" compare="not_eq" qual="all"><string>Noto Color Emoji</string></test>
     <test name="family" compare="not_eq" qual="all"><string>Noto Sans Symbols2</string></test>
     <edit name="family" mode="prepend_first" binding="strong">
-      <string>$FONT_FAMILY_PROPO</string>
-    </edit>
-  </match>
-
-  <!-- Anything fixed-width takes the Mono build, whose icons fit one cell. The
-       second test keeps the desktop's text font out of it, whatever 45-latin says. -->
-  <match target="pattern">
-    <test name="family" compare="eq" qual="any"><string>monospace</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY_TEXT</string></test>
-    <edit name="family" mode="prepend_first" binding="strong">
-      <string>$FONT_FAMILY_MONO</string>
+      <string>$FONT_FAMILY</string>
     </edit>
   </match>
 
@@ -199,7 +181,7 @@ config_write "$JB_CONF" <<XML
 XML
 if [[ "$CONFIG_WRITTEN" == true ]]; then
     run fc-cache -rf
-    ok "$FONT_FAMILY is the default family; $FONT_FAMILY_TEXT reaches the apps that name it."
+    ok "$FONT_FAMILY is the only family on the desktop."
     warn "Restart running apps (or log out) to pick up the new default font."
 fi
 
@@ -232,7 +214,7 @@ if has_cmd gsettings; then
     # document-font-name is what Evince/Nautilus use for body text, and it
     # defaults to a different family than font-name.
     for pair in "font-name=$UI_FONT" "document-font-name=$UI_FONT" \
-                "monospace-font-name=$MONO_FONT"; do
+                "monospace-font-name=$UI_FONT"; do
         key="${pair%%=*}"; value="${pair#*=}"
         # gsettings get quotes its output; compare against the quoted form.
         if [[ "$(gsettings get org.gnome.desktop.interface "$key" 2>/dev/null)" == "'$value'" ]]; then

@@ -6,7 +6,7 @@ Commands to replicate my personal Ubuntu setup on a fresh **Ubuntu 26.04 LTS**.
 
 What a machine looks like after `./setup.sh`: i3 tiling the screen, Firefox with
 no browser UI, `fastfetch` and the `temps` logger in Alacritty windows, all on
-the same Cascadia Code + Nerd Font pair and the same colours.
+the same single font — Cascadia Code NF — and the same colours.
 
 **Two files.** One you run, one the machine runs. There are no modes to pick and
 no arguments to remember:
@@ -462,26 +462,25 @@ repos install into it, and fonts before the tools that render them. Items marked
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
 6. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
-   owned here so the per-tool repos stay light. Two families, with different
-   jobs. **JetBrainsMono Nerd Font** (all three builds) is the machine-wide
-   default and the icon fallback, and that side is *exclusive*: it **deletes
-   every other font this user had installed** (`~/.local/share/fonts`,
-   `~/.fonts` — never `/usr/share/fonts`, which stays as the CJK/emoji/symbol
-   fallback), and then points fontconfig, gsettings and GTK2 at it, so
-   `sans-serif`, `monospace` and any concrete family a program names all resolve
-   to JetBrainsMono. Glyphs it doesn't have still fall through to the font that
-   does. **Cascadia Code** — Microsoft's programming face: a 0.586 em advance, a
-   tall 0.518 em x-height, and four real faces (Regular, Bold, Italic, Bold
-   Italic), so bold-as-emphasis stays bold — is what the three surfaces you
-   actually read text on ask for by name: the i3 desktop, Alacritty and Firefox. The fontconfig rule above carries an
-   explicit exception for it, without which those configs would render in
-   JetBrainsMono as if nothing had changed. Fetched from **upstream's own
-   release** (pinned at `2407.24`), and from it the four **static** TTFs, not the
-   variable build — only the statics report `style=Bold`/`Italic`, which is how
-   `alacritty.toml` names them. Cascadia Code has no icon range, so each of those
-   configs names JetBrainsMono behind it. GTK3/4 come from `~/.i3rc`'s own
-   `settings.ini`. The families are fixed; the **sizes** are not — the greeter and
-   GTK2 take theirs from `BLE_SIZE_GTK`, see [`fonts.local`](#font-sizes-per-machine-fontslocal).
+   owned here so the per-tool repos stay light. **One family for the whole
+   machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
+   advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
+   Italic, Bold Italic), so bold-as-emphasis stays bold — in upstream's **NF**
+   build, which is the same face with the Nerd Fonts icon range patched in. That
+   one detail is what lets the desktop stop at a single font: the i3 bar's
+   battery, wifi and volume glyphs come out of the same file as the text around
+   them, with nothing sitting behind it. Fetched from **upstream's own release**
+   (pinned at `2407.24`), and from it the four **static** TTFs, not the variable
+   build — only the statics report `style=Bold`/`Italic`, which is how
+   `alacritty.toml` names them. The install is *exclusive*: it **deletes every
+   other font this user had installed** (`~/.local/share/fonts`, `~/.fonts` —
+   never `/usr/share/fonts`, which stays as the CJK/emoji/symbol fallback), then
+   points fontconfig, gsettings and GTK2 at Cascadia, so `serif`, `sans-serif`,
+   `monospace` and any concrete family a program names all resolve to it. Glyphs
+   it doesn't have still fall through to the font that does. GTK3/4 come from
+   `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
+   the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
+   [`fonts.local`](#font-sizes-per-machine-fontslocal).
 7. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
