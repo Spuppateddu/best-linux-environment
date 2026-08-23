@@ -373,14 +373,16 @@ clone_or_pull() {
 }
 
 # ── files ───────────────────────────────────────────────────────────────────
-# config_write DEST [--seed] [--exec] — stdin in, $HOME out. Sets CONFIG_WRITTEN.
+# config_write DEST [--seed|--if-missing] [--exec] — stdin in, $HOME out. Sets
+# CONFIG_WRITTEN.
 config_write() {
     local dst="$1"; shift
-    local seed=false exec_bit=false arg
+    local seed=false if_missing=false exec_bit=false arg
     CONFIG_WRITTEN=false
     for arg in "$@"; do
         case "$arg" in
             --seed) seed=true ;;
+            --if-missing) if_missing=true ;;
             --exec) exec_bit=true ;;
             *) fail "config_write: unknown flag '$arg'"; return 1 ;;
         esac
@@ -390,6 +392,13 @@ config_write() {
     # Both sides of the comparison below lose trailing newlines to $( ), so it
     # stays a fair one; the printf that writes the file puts exactly one back.
     new="$(cat)"
+
+    # --if-missing: the file only has to EXIST. Not compared and not backed up,
+    # so even ./setup.sh's reset leaves what is already there alone.
+    if [[ -e "$dst" && "$if_missing" == true ]]; then
+        skip "$label already there — left as it is."
+        return 0
+    fi
 
     if [[ -f "$dst" ]] && [[ "$new" == "$(cat "$dst" 2>/dev/null)" ]]; then
         skip "$label already up to date."
@@ -426,6 +435,31 @@ config_write() {
     [[ "$exec_bit" == true ]] && chmod +x "$dst"
     CONFIG_WRITTEN=true
     ok "$verb $label"
+}
+
+# ensure_line FILE PATTERN LINE  — append LINE unless grep -E PATTERN already
+# matches FILE. The insert half of "create what is missing"; sets LINE_ADDED.
+ensure_line() {
+    local file="$1" pattern="$2" line="$3"
+    local label="${file/#$HOME/\~}"
+    LINE_ADDED=false
+
+    if [[ -f "$file" ]] && grep -Eq -- "$pattern" "$file"; then
+        skip "$label already has it."
+        return 0
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would append:%s %s → %s\n' "$C_DIM" "$C_OFF" "$line" "$label"
+        LINE_ADDED=true
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$file")"
+    # A file not ending in a newline would otherwise glue the two lines together.
+    [[ -s "$file" && -n "$(tail -c 1 "$file")" ]] && printf '\n' >> "$file"
+    printf '%s\n' "$line" >> "$file"
+    LINE_ADDED=true
+    ok "appended to $label: $line"
 }
 
 # link SRC DST  — symlink DST→SRC, backing up any real file already there.

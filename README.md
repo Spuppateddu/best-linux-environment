@@ -143,7 +143,7 @@ What it does *not* touch: your data. Bookmarks and history, SSH keys, shell
 history, anything not in the list below. Every file it does replace is copied
 next to itself first as `<name>.backup.<pid>`, so a reset is undoable by hand.
 
-Config files come in two kinds, and the reset is only interesting for the second:
+Config files come in three kinds, and the reset is only interesting for the second:
 
 - **Managed** — the repo owns the content outright, and nothing else writes it:
   the yazi `tmux-run` helper and plugin, the colour-emoji fontconfig rule, the
@@ -156,9 +156,14 @@ Config files come in two kinds, and the reset is only interesting for the second
   the default cursor `~/.icons/default/index.theme`. `./boot.sh` never rewrites
   one of these once it exists, so your edits survive every boot; `./setup.sh`
   puts the repo's version back, because that run is the one you asked for.
+- **Created if missing** — the baseline a new machine has to have *at all*, and
+  after that nobody's business but yours: `fonts.local`, `~/.profile`'s
+  `~/.local/bin` line, `~/.ssh/config`, git's `init.defaultBranch`, `~/.Xresources`.
+  Written only when the file (or, for git, the key) is not there — so even the
+  reset leaves what you have alone. See [baseline config](#baseline-config-05-defaults).
 
-Both live in one helper (`config_write`, in `lib/common.sh`), so a module just
-declares which kind a file is and both scripts do the rest.
+All three live in one helper (`config_write`, in `lib/common.sh`), so a module
+just declares which kind a file is and both scripts do the rest.
 
 ## Core: the config repos
 
@@ -427,12 +432,16 @@ repos install into it, and fonts before the tools that render them. Items marked
 1. **the apt substrate** — `git curl wget unzip xz-utils ca-certificates gnupg
    build-essential pkg-config zsh cron software-properties-common
    openssh-client`, all in one `apt-get` call, before anything else runs.
-2. **`10-tools`** — invoked once per config repo `setup.sh` decided on: clone or
+2. **`05-defaults`** — the **baseline config files**, each created only when it
+   isn't there. Nothing here is ever rewritten, not even by the reset, so this
+   module is safe to run on a machine you have configured by hand — see
+   [baseline config](#baseline-config-05-defaults) for the list and the reasoning.
+3. **`10-tools`** — invoked once per config repo `setup.sh` decided on: clone or
    pull it, symlink it to its hidden `$HOME` folder, and run **its own**
    `install.sh`. `alacritty` and `i3` are desktop-only. Config-only repos
    (alacritty ships just a `.toml`, no installer) are cloned here; their package
    + linking is owned by a module below.
-3. **`20-ssh`** — the SSH **client** half: `openssh-client`, for connecting
+4. **`20-ssh`** — the SSH **client** half: `openssh-client`, for connecting
    *out*. It opens no port and listens for nothing, which is why it is
    `necessary` and never asked about — the server half is a separate
    `secondary` entry (see below). It also generates a default passphrase-less
@@ -447,13 +456,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    whichever machine ran `ssh-copy-id` first, and getting back in costs a trip
    to its keyboard. The module now **removes** that file if it finds one and
    reloads `ssh`, so re-running fixes a machine that still has it.
-4. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
+5. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
    + GTK greeter, made the **default** display manager (replacing GDM3). GDM3's
    session picker is a hard-to-find cog that on some builds never surfaces the
    i3 xsession; the LightDM greeter shows a session dropdown on the login form,
    so choosing **i3** is one click. Switch is preseeded via debconf (no
    interactive `dpkg-reconfigure`) and applies at the next reboot.
-5. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
+6. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
    TUI. Prefers apt (26.04 ships a recent build); falls back to the latest
    prebuilt binary from GitHub (→ `~/.local/bin`) on releases without a package.
    `./boot.sh` bumps that fallback copy to the newest release — an apt-managed
@@ -461,7 +470,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    out of the system's hands. Installed **because git is**: the module skips
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
-6. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
+7. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
    owned here so the per-tool repos stay light. **One family for the whole
    machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
    advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
@@ -481,13 +490,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
    the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
    [`fonts.local`](#font-sizes-per-machine-fontslocal).
-7. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
+8. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
    `~/.config/alacritty/` — where Alacritty actually reads it — and the symbol
    fallback rule into `~/.config/fontconfig/conf.d/`. This module keeps the
    package so the terminal exists even when that tool was skipped in the menu.
-8. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+9. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -506,8 +515,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-9. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-10. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+10. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+11. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -524,8 +533,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-11. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-12. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+12. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+13. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -533,6 +542,29 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.config/opencode/tui.json` — opencode writes that file itself when you
    change the theme in the TUI, so `./boot.sh` leaves it alone and runs
    `opencode upgrade` instead.
+
+### Baseline config: `05-defaults`
+
+A machine that has never been set up is missing more than programs: it is
+missing the small files those programs read. `basic/05-defaults.sh` runs first
+in the `necessary` tier and creates each of them **only when it isn't there**.
+
+| File | What it gets, and why |
+| --- | --- |
+| `fonts.local` | a copy of `fonts.local.example`, every line commented out. Changes nothing until you uncomment one — but the file to edit exists instead of a hint telling you to make it (see [font sizes](#font-sizes-per-machine-fontslocal)) |
+| `~/.local/bin` + `~/.profile` | the directory `lazygit`, `yazi`, `fzf` and `temps` install into, plus the line that puts it on `PATH`. Ubuntu's own `~/.profile` adds it *only if the directory already exists*, so on a fresh machine it never does. The line is **appended** to the `~/.profile` you have; a machine with no `~/.profile` at all gets a minimal one |
+| `~/.ssh/config` | `AddKeysToAgent`, `ServerAliveInterval 60` — so a long remote session doesn't drop silently. Mode `600`, or `ssh` refuses to read it. The key itself belongs to [`20-ssh`](#what-the-necessary-tier-installs) |
+| git | `init.defaultBranch=main`, `pull.rebase=false`, `push.default=simple`, `core.editor=vim` — **per key, not per file**, so a `~/.gitconfig` holding only your name still gets them and a key you set yourself is never touched |
+| `~/.Xresources` | Xft antialiasing and hinting for X apps that read them from here. `./boot.sh` merges this file at every boot — but only if there is one |
+| `user.name` / `user.email` | **not** written. A wrong identity ends up inside commits, so the module prints the two `git config` commands and leaves it to you |
+
+Everything above is `--if-missing` (or `ensure_line`), which is the one kind of
+write [the reset](#reset-re-running-setupsh) leaves alone: run `./setup.sh` on a
+machine you have configured by hand and this module changes nothing.
+
+`fonts.local` and `~/.Xresources` are skipped on a server, along with the rest of
+the [desktop-only](#desktop-vs-server) set. `./boot.sh` does not run this module
+at all — a file you deleted on purpose stays deleted until you ask for a setup.
 
 ### Where the questions went
 
@@ -751,7 +783,8 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | `run` | execute, or just print under `--dry-run` |
 | `has_cmd`, `can_sudo`, `require_apt` | environment probes |
 | `is_desktop` / `is_server` / `require_desktop` / `profile_label` | desktop-vs-server profile |
-| `config_write` | write a config file — `--seed` for one that becomes yours, plain for one the repo owns; skips an identical file, backs up what it replaces |
+| `config_write` | write a config file — `--seed` for one that becomes yours, `--if-missing` for one only created when absent, plain for one the repo owns; skips an identical file, backs up what it replaces |
+| `ensure_line` | append a line to a file unless it is already there — the insert half of "create what is missing" |
 | `force_config` / `want_upgrade` | what this mode is allowed to do (set from `BLE_MODE`) |
 | `BLE_SHELL` / `remember_shell` / `other_shell` | which shell owns the login shell — read back from `~/.cache/best-linux-environment/shell`, zsh when never asked |
 | `apt_ensure`, `apt_refresh`, `apt_installed`, `apt_has_candidate`, `apt_repo_add` | apt |
