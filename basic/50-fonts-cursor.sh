@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The desktop's one font and the macOS cursor. Exclusive by design: Cascadia Code
-# NF becomes the only family, and section 2 deletes every other one.
+# NF becomes the only family, and section 2 deletes every other one — except the
+# plain Cascadia Code build, which ~/.alacritty/install.sh owns and re-downloads
+# on every run if this module deletes it.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -29,6 +31,10 @@ UI_FONT="$FONT_FAMILY $GTK_SIZE"
 # The four statics, not the variable build: only they report style=Bold/Italic.
 CASCADIA_VERSION="2407.24"
 CASCADIA_GLOB="CascadiaCodeNF-*"   # sections 2 and 3 reuse it to find these files
+# Wider on purpose, and only for the purge in section 2: it also covers the plain
+# CascadiaCode-* statics that ~/.alacritty/install.sh installs for the terminal.
+# Deleting those made that installer re-download the zip on every single run.
+CASCADIA_KEEP_GLOB="CascadiaCode*"
 # Never `fc-list | grep -q`: a SIGPIPE'd fc-list re-downloads the font every run.
 if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
     skip "$FONT_FAMILY already installed."
@@ -63,7 +69,7 @@ if compgen -G "$FONT_DIR/$CASCADIA_GLOB" >/dev/null 2>&1; then
         find "$FONT_DIR" "$HOME/.fonts" -type f \
              \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \
                 -o -iname '*.pfb' -o -iname '*.pcf*' -o -iname '*.woff*' \) \
-             ! -iname "$CASCADIA_GLOB" -print0 2>/dev/null
+             ! -iname "$CASCADIA_KEEP_GLOB" -print0 2>/dev/null
     )
     if [[ ${#others[@]} -eq 0 ]]; then
         skip "No other user-installed fonts to remove."

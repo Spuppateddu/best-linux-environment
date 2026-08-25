@@ -91,7 +91,7 @@ core list carries the shell you just picked and **not** the other one:
 
  ❯ [x] bash — prompt, aliases, keybindings (no framework)      (~/.bash)
    [x] vim — plugins, LSP, per-language support                (~/.vim)
-   [x] tmux — keybindings, status line, agent scripts          (~/.tmuxrc)
+   [x] tmux — keybindings, status line, window naming          (~/.tmuxrc)
    [ ] temps — CPU/GPU temperature logger, aliased b-temp in your shell (~/.temps)
    [x] alacritty — colours, font, padding                      (~/.alacritty)
    [x] i3 — window manager, rofi, dunst, picom, eww            (~/.i3rc)
