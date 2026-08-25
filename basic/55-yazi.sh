@@ -325,35 +325,11 @@ fi
 
 fi   # end: git.yazi installed
 
-# ── 6b. Enter on an image opens Firefox ──────────────────────────────────────
-# orphan = true or quitting yazi closes the browser. Appended, not written whole.
-yazi_toml="$HOME/.config/yazi/yazi.toml"
-opener_toml=$(cat <<'TOML'
-[opener]
-image = [
-	{ run = 'firefox "$@"', orphan = true, desc = "Firefox", for = "unix" },
-]
-
-[open]
-prepend_rules = [
-	{ mime = "image/*", use = "image" },
-]
-TOML
-)
-
-if [[ -f "$yazi_toml" ]] && grep -q '^\[opener\]' "$yazi_toml"; then
-    skip "yazi.toml already has an [opener] block — leaving the image rule to you."
-else
-    step "Wiring the Firefox image opener into yazi.toml"
-    if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would append:%s [opener]/[open] (images → firefox) → %s\n' "$C_DIM" "$C_OFF" "$yazi_toml"
-    else
-        mkdir -p "$(dirname "$yazi_toml")"
-        [[ -s "$yazi_toml" ]] && printf '\n' >> "$yazi_toml"
-        printf '%s\n' "$opener_toml" >> "$yazi_toml"
-    fi
-    ok "yazi.toml → Enter on an image opens Firefox."
-fi
+# ── 6b. Enter on an image ────────────────────────────────────────────────────
+# Not here any more. This used to write [opener] image = firefox, from before
+# the repo had a viewer of its own; basic/57-image-viewer.sh owns that key now,
+# and migrates the Firefox line it finds in an existing yazi.toml. Two modules
+# writing the same key is how it ends up disagreeing with itself.
 
 # ── 7. Keep the yazi packages current ────────────────────────────────────────
 # `ya pkg add` only installs, so without this the packages never move. ./boot.sh only.

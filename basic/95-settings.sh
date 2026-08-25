@@ -21,40 +21,6 @@ else
     skip "No settings.local — every surface keeps what its own repo ships."
 fi
 
-# ── writing ──────────────────────────────────────────────────────────────────
-# write_gen DEST  — stdin into a file this repo owns whole. No backup is kept:
-# nothing you wrote is in it, and settings.local can rebuild it at any time.
-write_gen() {
-    local dst="$1" new label; label="${dst/#$HOME/\~}"
-    new="$(cat)"
-    GEN_CHANGED=false
-    if [[ -f "$dst" && "$new" == "$(cat "$dst" 2>/dev/null)" ]]; then
-        skip "$label already up to date."
-        return 0
-    fi
-    if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would write:%s %s\n' "$C_DIM" "$C_OFF" "$label"
-    else
-        mkdir -p "$(dirname "$dst")"
-        printf '%s\n' "$new" > "$dst"
-        ok "wrote $label"
-    fi
-    GEN_CHANGED=true
-}
-
-drop_gen() {
-    local dst="$1" owner="$2" label="${1/#$HOME/\~}"
-    GEN_CHANGED=false
-    [[ -e "$dst" ]] || return 0
-    if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would remove:%s %s\n' "$C_DIM" "$C_OFF" "$label"
-    else
-        rm -f "$dst"
-        ok "removed $label — back to what $owner says."
-    fi
-    GEN_CHANGED=true
-}
-
 # hooked FILE NEEDLE  — true when the config repo's own file still names the
 # override we are about to write. Warned about rather than fixed: that file
 # belongs to the other repo, and one owner per file is why any of this works.

@@ -437,6 +437,44 @@ config_write() {
     ok "$verb $label"
 }
 
+# write_gen / drop_gen — the other half of config_write, for a file this repo
+# owns WHOLE: no backup is kept, because nothing you wrote is ever in it and
+# the module can rebuild it at any time. config_write is for files a person
+# may reasonably have edited; these two are for generated ones. Both set
+# GEN_CHANGED, which callers read to decide whether to reload anything.
+# write_gen DEST  — stdin into a file this repo owns whole. No backup is kept:
+# nothing you wrote is in it, and settings.local can rebuild it at any time.
+write_gen() {
+    local dst="$1" new label; label="${dst/#$HOME/\~}"
+    new="$(cat)"
+    GEN_CHANGED=false
+    if [[ -f "$dst" && "$new" == "$(cat "$dst" 2>/dev/null)" ]]; then
+        skip "$label already up to date."
+        return 0
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would write:%s %s\n' "$C_DIM" "$C_OFF" "$label"
+    else
+        mkdir -p "$(dirname "$dst")"
+        printf '%s\n' "$new" > "$dst"
+        ok "wrote $label"
+    fi
+    GEN_CHANGED=true
+}
+
+drop_gen() {
+    local dst="$1" owner="$2" label="${1/#$HOME/\~}"
+    GEN_CHANGED=false
+    [[ -e "$dst" ]] || return 0
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would remove:%s %s\n' "$C_DIM" "$C_OFF" "$label"
+    else
+        rm -f "$dst"
+        ok "removed $label — back to what $owner says."
+    fi
+    GEN_CHANGED=true
+}
+
 # ensure_line FILE PATTERN LINE  — append LINE unless grep -E PATTERN already
 # matches FILE. The insert half of "create what is missing"; sets LINE_ADDED.
 ensure_line() {

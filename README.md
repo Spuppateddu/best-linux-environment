@@ -432,6 +432,15 @@ which i3's `include ~/.i3rc/*.local` reads after it. A `set $agent` you put in
 `config.local` by hand therefore still wins — and because that silently ignores
 `settings.local`, the run warns you and names the line to delete.
 
+Every generated `.local` this repo drops into `~/.i3rc/` follows the same rule,
+and the numbers are the whole ordering contract: `05-agent.local`,
+`06-colors.local` and `07-image-viewer.local` are read after `config`, so a
+`for_window` in one of them overrides the catch-all that floats and borders
+every window; `config.local` is read after all three, so a hand-written line
+there still wins; and `90-tiling-mode.local` — written by the i3 repo's own
+`desktop_mode.sh`, not by anything here — sorts last of all, which is what lets
+the tiling desktop undo the floating rules without any of these files knowing.
+
 ## Font sizes per machine: `fonts.local`
 
 The config repos are shared by every PC, and every PC has a different screen. So
@@ -659,8 +668,44 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-11. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-12. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+11. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
+   **`libheif-plugin-libde265`**, and the three places that have to agree on
+   which program shows a picture. It owns yazi's `[opener] image` key (Enter on
+   an image → `nsxiv -a -- %s`, `orphan = true` so quitting yazi does not take
+   the viewer with it), and **migrates the `firefox` line** `55-yazi` used to
+   write there; an `[opener]` block naming neither is treated as hand-written
+   and left alone. **`%s`, not `"$@"`** — yazi interpolates its own placeholders
+   into `run` and then hands the result to a shell with *no* positional
+   arguments, so a `"$@"` written there is live shell syntax that expands to
+   nothing: the viewer launches with no file and exits, which looks exactly like
+   the key doing nothing at all. `yazi --version` does not catch it, because the
+   TOML is valid — only meaningless. The placeholders are `%s` (every selected
+   file), `%s1` (just the first) and `%d1` (its parent dir); `strings $(command
+   -v yazi)` around `[opener]` is the authority for the version you have. It writes `~/.i3rc/07-image-viewer.local` —
+   `for_window [class="(?i)^nsxiv$"] border pixel 1` — because the i3 config
+   floats every window with `border normal 3`, and a title bar is the widest
+   thing between you and a photo; `07-` sorts after `06-colors.local` and before
+   `config.local`, so `border none` there still wins, and after
+   `90-tiling-mode.local` nothing changes for the tiling desktop. That rule only
+   bites while the i3 config's catch-all is **two** `for_window` lines rather
+   than one chained `floating enable, border normal 3`: i3 re-runs the whole
+   assignment list from *inside* a command list, right after `floating enable`
+   finishes, so the chained form resumes afterwards and puts its own border back
+   over any per-app rule — being read last is not enough, and nothing reports
+   it. The module greps for the chained form and warns, rather than patching a
+   file that belongs to the i3 repo. Finally it
+   points `xdg-mime` at `nsxiv.desktop` for the raster image types, which is what
+   a browser download or a mail attachment opens with — Ubuntu leaves that at
+   whichever browser registered last, so a double-clicked photo opens a new tab.
+   **SVG is deliberately not in that list**: imlib2 rasterises it once at a fixed
+   size, so zooming gives you big blurry pixels — that one stays with the browser.
+   The `libde265` half is the part worth knowing about. Ubuntu ships libheif with
+   the **AV1 plugins only** (`aomdec`/`aomenc`), so AVIF decodes out of the box and
+   **HEIC does not** — a phone's `.heic` is HEVC. Nothing reports a missing codec;
+   the image just fails to open, in nsxiv and equally in Loupe, gThumb and the
+   file-manager thumbnailer. Installing that one package fixes all of them at once.
+12. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+13. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -677,8 +722,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-13. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-14. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+14. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+15. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -1080,6 +1125,7 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | `has_cmd`, `can_sudo`, `require_apt` | environment probes |
 | `is_desktop` / `is_server` / `require_desktop` / `profile_label` | desktop-vs-server profile |
 | `config_write` | write a config file — `--seed` for one that becomes yours, `--if-missing` for one only created when absent, plain for one the repo owns; skips an identical file, backs up what it replaces |
+| `write_gen` / `drop_gen` | write (or remove) a file this repo owns **whole** — no backup, because nothing you wrote is ever in it. `config_write` is for files a person may have edited; these are for generated ones. Both set `GEN_CHANGED` |
 | `ensure_line` | append a line to a file unless it is already there — the insert half of "create what is missing" |
 | `force_config` / `want_upgrade` | what this mode is allowed to do (set from `BLE_MODE`) |
 | `BLE_SHELL` / `remember_shell` / `other_shell` | which shell owns the login shell — read back from `~/.cache/best-linux-environment/shell`, zsh when never asked |
