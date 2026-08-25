@@ -17,8 +17,10 @@ It does five things and refuses to do a sixth:
      i3) and re-run the install.sh each one ships. That last part is the
      "source": it is what re-links ~/.zshrc, rewrites ~/.tmux.conf, reinstalls
      a plugin the repo has gained, and puts back a symlink something broke.
-  3. Re-apply this machine's font sizes from fonts.local, and reload i3, the
-     bar and dunst if any of them moved.
+  3. Re-apply this machine's settings from settings.local and aliases.local
+     (the agent $mod+c opens, your prompt colours, your shared aliases) and its
+     font sizes from fonts.local, then reload i3, the bar and dunst if any of
+     them moved.
   4. Reload what is running right now, so an edit you pushed from another
      machine is live without a logout: i3 reloads its config, every running
      tmux server re-sources its, the font cache is rebuilt, X resources are
@@ -89,8 +91,10 @@ self_update "$@"
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.
 bash "$HERE/basic/10-tools.sh" || FAILED+=("config repos")
 
-# ── 3. this machine's font sizes ─────────────────────────────────────────────
-# After the pull, so fonts.local survives what the config repos just re-applied.
+# ── 3. this machine's settings and font sizes ────────────────────────────────
+# After the pull, so settings.local and fonts.local survive what the config
+# repos just re-applied.
+bash "$HERE/basic/95-settings.sh" || FAILED+=("settings")
 bash "$HERE/basic/99-font-sizes.sh" || FAILED+=("font sizes")
 
 # ── 4. reload what is running ────────────────────────────────────────────────
