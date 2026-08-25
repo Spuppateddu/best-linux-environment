@@ -317,7 +317,7 @@ the first run, straight from the `.example` next to them — and their values ar
 **live, not commented out**. A fresh machine starts from a working base rather
 than from a blank file it has to fill in before anything happens: an agent (the
 one actually installed on that machine, picked at seed time), an agent folder,
-an editor, a rolled pair of prompt colours, and a dozen aliases. Change what you
+an editor, a rolled set of colours, and a dozen aliases. Change what you
 disagree with, comment out what you don't want.
 
 **`settings.local`** is `KEY=VALUE`, one per line. Quotes are optional — use
@@ -330,6 +330,8 @@ never the run.
 | `BLE_AGENT_DESK` | the folder it opens in, created if missing. Its own folder, never `$HOME`: an agent asks you to trust the directory it starts in | `~/.i3rc/05-agent.local` → `set $agent_desk`, and `$BLE_AGENT_DESK` in both shells |
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
+| `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
+| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -347,29 +349,55 @@ the copy already on disk is the last one that worked.
 and after the pull in a `boot.sh` one. Nothing can push a new prompt into a shell
 that already exists, so open a new terminal; i3 is reloaded for you.
 
-### Your prompt colours, rolled once
+### Your colours, rolled once
 
-Leave the two colour keys out and the first run **rolls a pair for you** and
-writes it back into `settings.local`, with the colour's name in a comment beside
+Leave a colour key out and the first run **rolls it for you** and writes it back
+into `settings.local`, with the colour's name and its surface in a comment beside
 it:
 
 ```
-# Rolled by best-linux-environment on 2026-08-25, once. Delete the line(s) below
-# to get a new colour; edit them to keep one for good (0-255, and the two must differ).
-BLE_PROMPT_COLOR_USER=141   # violet
-BLE_PROMPT_COLOR_PATH=48    # spring green
+# Rolled by best-linux-environment on 2026-08-25, once. Delete a line below to get a
+# new colour for that one surface; edit it to keep the colour for good (0-255,
+# and the two prompt colours must differ).
+BLE_PROMPT_COLOR_USER=141   # violet — user@host in the prompt
+BLE_PROMPT_COLOR_PATH=48    # spring green — the current folder in the prompt
+BLE_CURSOR_COLOR=214        # amber — the terminal cursor
+BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3
 ```
 
-Written back down, so it is rolled **once** and never again: a prompt that
+Written back down, so each is rolled **once** and never again: a desktop that
 changed colour every time you installed something would be a bug, not a feature.
-Every PC ends up with its own pair, which is the point — a glance at the prompt
-tells you which machine the terminal is on.
+Every PC ends up with its own set, which is the point — a glance at the prompt,
+the cursor or the window you are typing in tells you which machine you are on.
 
-The two can never come out the same. They cannot even come out the same *hue*:
-the palette is twenty xterm-256 colours across six families, and the roll refuses
-a second colour whose nearest ANSI colour matches the first, so you never get two
-greens two shades apart. Delete both lines to roll again; set one by hand to keep
-it and let the other be rolled.
+Four surfaces, one palette of twenty xterm-256 colours across six families:
+
+| Key | What it paints | How you see it |
+| --- | --- | --- |
+| `BLE_PROMPT_COLOR_USER` | `user@host` in the prompt | zsh and bash alike |
+| `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
+| `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
+| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator | only the **focused** class, so "which window has the keyboard" reads at a glance |
+
+The two prompt colours can never come out the same. They cannot even come out
+the same *hue*: the roll refuses a second colour whose nearest ANSI colour
+matches the first, so you never get two greens two shades apart. The other two
+have no such rule — they land on surfaces of their own, with nothing to be
+different from. Delete a line to roll that one again; set it by hand to keep it.
+
+**The cursor and the theme toggle.** `$mod+Shift+t` runs
+`~/.i3rc/scripts/theme.sh`, which rewrites `~/.cache/alacritty-theme.toml` from
+scratch every time — cursor colour included. So `colors.local.toml` is listed
+**after** it in `~/.alacritty/alacritty.toml`'s `import`, where the later import
+wins. The toggle keeps owning dark and light; your rolled cursor colour rides
+over both. That import line lives in the Alacritty repo, and `95-settings.sh`
+warns instead of writing the file when it is missing — one owner per file.
+
+**The i3 window colour** goes to `~/.i3rc/06-colors.local`, picked up by that
+repo's `include ~/.i3rc/*.local`. `06-` sorts after the `05-` files and before
+`config.local`, so a `client.focused` line you put in `config.local` by hand
+still wins — and the run tells you when there is one, because otherwise
+`settings.local` looks broken.
 
 Both shells get the same pair and the same shape they had before. zsh keeps the
 two-line `gnzh` prompt Oh My Zsh draws — the git branch, the virtualenv, the
@@ -473,7 +501,7 @@ boot runs `./boot.sh`, which:
 2. `git pull`s each **cloned** config repo and re-runs the `install.sh` it ships,
    so a config you pushed from another machine is applied here;
 3. re-applies **`settings.local`** and **`aliases.local`** (the agent `$mod+c`
-   opens, your prompt colours, your shared aliases) and then **`fonts.local`**,
+   opens, your colours, your shared aliases) and then **`fonts.local`**,
    reloading i3, the bar and dunst if anything moved;
 4. **reloads what is running** — `i3-msg reload`, `tmux source-file` on every
    running server, `fc-cache`, `xrdb -merge`;
@@ -660,7 +688,7 @@ in the `necessary` tier and creates each of them **only when it isn't there**.
 | File | What it gets, and why |
 | --- | --- |
 | `fonts.local` | a copy of `fonts.local.example`, every line commented out. Changes nothing until you uncomment one — but the file to edit exists instead of a hint telling you to make it (see [font sizes](#font-sizes-per-machine-fontslocal)) |
-| `settings.local` + `aliases.local` | copies of their `.example` files, **values live** — a working base (agent, agent folder, editor, prompt colours, a dozen aliases), not a blank file. The two files you edit to change every machine at once (see [one file for every machine](#one-file-for-every-machine-settingslocal)) |
+| `settings.local` + `aliases.local` | copies of their `.example` files, **values live** — a working base (agent, agent folder, editor, colours, a dozen aliases), not a blank file. The two files you edit to change every machine at once (see [one file for every machine](#one-file-for-every-machine-settingslocal)) |
 | `~/.local/bin` + `~/.profile` | the directory `lazygit`, `yazi`, `fzf` and `temps` install into, plus the line that puts it on `PATH`. Ubuntu's own `~/.profile` adds it *only if the directory already exists*, so on a fresh machine it never does. The line is **appended** to the `~/.profile` you have; a machine with no `~/.profile` at all gets a minimal one |
 | `~/.ssh/config` | `AddKeysToAgent`, `ServerAliveInterval 60` — so a long remote session doesn't drop silently. Mode `600`, or `ssh` refuses to read it. The key itself belongs to [`20-ssh`](#what-the-necessary-tier-installs) |
 | git | `init.defaultBranch=main`, `pull.rebase=false`, `push.default=simple`, `core.editor=vim` — **per key, not per file**, so a `~/.gitconfig` holding only your name still gets them and a key you set yourself is never touched |
@@ -911,11 +939,14 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 
 | `lib/settings.sh` | What it does |
 | --- | --- |
-| `settings_load` | parse `settings.local` into `BLE_AGENT`, `BLE_EDITOR`, the prompt colours… — read as data, never sourced, same as `fonts.sh` |
+| `settings_load` | parse `settings.local` into `BLE_AGENT`, `BLE_EDITOR`, the colours… — read as data, never sourced, same as `fonts.sh` |
 | `settings_validate` | drop a value that would break the file it is written into (a colour that isn't a number, a relative agent folder) — one bad line, not the run |
 | `settings_seed` | put `settings.local` and `aliases.local` there when they aren't, from the committed `.example` copies |
 | `roll_prompt_colors` | pick the two prompt colours, once — never equal, never the same hue family |
+| `roll_color` | pick one colour for a surface of its own (the terminal cursor, the i3 window) — no pairing rule |
+| `BLE_COLOR_KEYS` | every key holding an xterm-256 colour: validated, rolled and written back together |
 | `color_name` / `color_fallback8` / `color_zsh_name` | a colour's word, its nearest ANSI colour for an 8-colour terminal, and zsh's spelling of that |
+| `color_hex` | the `rrggbb` an xterm-256 number paints, prefix-less — `#` for i3, `0x` for Alacritty |
 
 | `lib/registry.sh` | What it does |
 | --- | --- |

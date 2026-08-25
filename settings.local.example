@@ -33,14 +33,22 @@ BLE_AGENT=claude
 BLE_AGENT_DESK=~/agent-desk
 
 
-# ── The prompt ───────────────────────────────────────────────────────────────
-# Two xterm-256 colours (0-255) for zsh and bash alike: one for `user@host`, one
-# for the current folder. They must differ — that is the point of having two.
+# ── The colours ──────────────────────────────────────────────────────────────
+# Four xterm-256 colours (0-255), one per surface. Every one of them is left out
+# on purpose: the first run ROLLS them for you and writes them in at the bottom
+# of this file, so nothing changes under you afterwards and every PC ends up
+# looking like itself. DELETE A LINE DOWN THERE AND RE-RUN TO ROLL THAT ONE
+# AGAIN; set it by hand to keep the colour for good.
 #
-# Left out on purpose: the first run rolls a pair for you and writes it in at the
-# bottom of this file, so your prompt never changes under you and every PC gets
-# its own. DELETE THOSE TWO LINES AND RE-RUN TO GET A NEW PAIR; set them by hand
-# to keep one for good.
+#   BLE_PROMPT_COLOR_USER   `user@host` in the prompt, in zsh and bash alike
+#   BLE_PROMPT_COLOR_PATH   the current folder in the prompt
+#   BLE_CURSOR_COLOR        the block cursor in the terminal
+#   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3
+#
+# The two prompt colours must differ, and are rolled so they differ in HUE and
+# not merely in number — telling the machine from the path is the point of
+# having two. The other two have no such rule: they land on surfaces of their
+# own, so any colour in the palette will do.
 
 
 # ── The editor ───────────────────────────────────────────────────────────────

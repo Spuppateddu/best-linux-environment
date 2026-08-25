@@ -55,42 +55,74 @@ drop_gen() {
     GEN_CHANGED=true
 }
 
-# ── 1. the prompt colours, rolled once ───────────────────────────────────────
-# Rolled here rather than in the parser, because rolling means WRITING: the pair
-# goes back into settings.local, and a colour that changed on you at every boot
-# would be a bug rather than a feature.
-HAD_USER="$BLE_PROMPT_COLOR_USER"; HAD_PATH="$BLE_PROMPT_COLOR_PATH"
-roll_prompt_colors
+# hooked FILE NEEDLE  — true when the config repo's own file still names the
+# override we are about to write. Warned about rather than fixed: that file
+# belongs to the other repo, and one owner per file is why any of this works.
+hooked() {
+    [[ -f "$1" ]] || return 1
+    grep -Fq "$2" "$1" && return 0
+    warn "${1/#$HOME/\~} does not load $2 — pull that repo, the hook lives there."
+    return 1
+}
 
-if [[ -n "$HAD_USER" && -n "$HAD_PATH" ]]; then
-    step "Prompt colours: $BLE_PROMPT_COLOR_USER ($(color_name "$BLE_PROMPT_COLOR_USER")) / $BLE_PROMPT_COLOR_PATH ($(color_name "$BLE_PROMPT_COLOR_PATH")) — yours, from settings.local."
+# ── 1. the colours, rolled once ──────────────────────────────────────────────
+# Rolled here rather than in the parser, because rolling means WRITING: every
+# colour goes back into settings.local, and a colour that changed on you at
+# every boot would be a bug rather than a feature.
+#
+# What each one paints, for the comment written beside it and for the report
+# below. Every key in BLE_COLOR_KEYS needs a line here.
+declare -A COLOR_WHAT=(
+    [BLE_PROMPT_COLOR_USER]="user@host in the prompt"
+    [BLE_PROMPT_COLOR_PATH]="the current folder in the prompt"
+    [BLE_CURSOR_COLOR]="the terminal cursor"
+    [BLE_I3_BORDER_COLOR]="the focused window in i3"
+)
+
+# Which ones already had a value, taken BEFORE the roll: only a colour that was
+# actually rolled is written back, so one you pinned by hand stays where you put
+# it. Read after settings_load, so a value it threw out counts as missing.
+declare -A HAD=()
+for k in "${BLE_COLOR_KEYS[@]}"; do HAD[$k]="${!k}"; done
+
+roll_prompt_colors                  # the pair — never equal, never the same hue
+roll_color BLE_CURSOR_COLOR
+roll_color BLE_I3_BORDER_COLOR
+
+ROLLED=()
+for k in "${BLE_COLOR_KEYS[@]}"; do
+    [[ -z "${HAD[$k]}" ]] && ROLLED+=("$k")
+done
+
+if [[ ${#ROLLED[@]} -eq 0 ]]; then
+    step "Colours: all ${#BLE_COLOR_KEYS[@]} are yours, from settings.local."
+    for k in "${BLE_COLOR_KEYS[@]}"; do
+        printf '%s    %s (%s) — %s%s\n' "$C_DIM" "${!k}" "$(color_name "${!k}")" "${COLOR_WHAT[$k]}" "$C_OFF"
+    done
 elif [[ "$DRY_RUN" == true ]]; then
     # Before the "no file" arm below: under --dry-run the seed above only
     # printed, so the file is missing for that reason and not for a real one.
-    printf '%s  would roll:%s prompt colours %s / %s → %s\n' "$C_DIM" "$C_OFF" \
-        "$BLE_PROMPT_COLOR_USER" "$BLE_PROMPT_COLOR_PATH" "${BLE_SETTINGS_LOCAL/#$HOME/\~}"
+    for k in "${ROLLED[@]}"; do
+        printf '%s  would roll:%s %s=%s (%s) → %s\n' "$C_DIM" "$C_OFF" \
+            "$k" "${!k}" "$(color_name "${!k}")" "${BLE_SETTINGS_LOCAL/#$HOME/\~}"
+    done
 elif [[ ! -f "$BLE_SETTINGS_LOCAL" ]]; then
     warn "No settings.local to write the rolled colours into — they change on the next run."
 else
-    # Only the half that had no usable value is written, so a colour you pinned
-    # by hand stays exactly where you put it. Appended rather than edited in
-    # place: the parser takes the LAST value of a key, so the new line wins over
-    # a bad one above it without this having to rewrite a file that is yours.
+    # Appended rather than edited in place: the parser takes the LAST value of a
+    # key, so the new line wins over a bad one above it without this having to
+    # rewrite a file that is yours.
     {
-        printf '\n# Rolled by best-linux-environment on %s, once. Delete the line(s) below\n' "$(date '+%F')"
-        printf '# to get a new colour; edit them to keep one for good (0-255, and the two must differ).\n'
-        [[ -n "$HAD_USER" ]] || \
-            printf 'BLE_PROMPT_COLOR_USER=%s   # %s\n' "$BLE_PROMPT_COLOR_USER" "$(color_name "$BLE_PROMPT_COLOR_USER")"
-        [[ -n "$HAD_PATH" ]] || \
-            printf 'BLE_PROMPT_COLOR_PATH=%s   # %s\n' "$BLE_PROMPT_COLOR_PATH" "$(color_name "$BLE_PROMPT_COLOR_PATH")"
+        printf '\n# Rolled by best-linux-environment on %s, once. Delete a line below to get a\n' "$(date '+%F')"
+        printf '# new colour for that one surface; edit it to keep the colour for good (0-255,\n'
+        printf '# and the two prompt colours must differ).\n'
+        for k in "${ROLLED[@]}"; do
+            printf '%s=%s   # %s — %s\n' "$k" "${!k}" "$(color_name "${!k}")" "${COLOR_WHAT[$k]}"
+        done
     } >> "$BLE_SETTINGS_LOCAL"
-    if [[ -z "$HAD_USER" && -z "$HAD_PATH" ]]; then
-        ok "Rolled your prompt colours: $(color_name "$BLE_PROMPT_COLOR_USER") for user@host, $(color_name "$BLE_PROMPT_COLOR_PATH") for the path."
-    elif [[ -z "$HAD_USER" ]]; then
-        ok "Rolled the user@host colour: $(color_name "$BLE_PROMPT_COLOR_USER"). The path keeps yours."
-    else
-        ok "Rolled the path colour: $(color_name "$BLE_PROMPT_COLOR_PATH"). user@host keeps yours."
-    fi
+    for k in "${ROLLED[@]}"; do
+        ok "Rolled ${COLOR_WHAT[$k]}: $(color_name "${!k}")."
+    done
     ok "Kept in ${BLE_SETTINGS_LOCAL/#$HOME/\~} — they will not change again."
 fi
 
@@ -259,6 +291,24 @@ i3_agent_file() {
     return 0
 }
 
+# What ~/.i3rc/06-colors.local holds, on stdout: the focused window, in the
+# colour settings.local rolled for this machine. Only the FOCUSED class — the
+# unfocused ones stay the config's greys, because "which window has the keyboard"
+# is the whole thing this colour is here to say.
+i3_colors_file() {
+    local hex; hex="#$(color_hex "$BLE_I3_BORDER_COLOR")"
+    printf '# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.\n'
+    printf '# Do NOT edit: every run rewrites it. Change the colour in\n'
+    printf '# %s/settings.local, then re-run.\n' "${BLE_ROOT/#$HOME/\~}"
+    printf '#\n'
+    printf '# Named 06- so config.local, which i3 reads after it, still wins.\n'
+    printf '# Fields: border, background, text, indicator, child_border.\n'
+    printf '# The text is the title bar, kept dark on purpose: every colour in the\n'
+    printf '# palette is a bright one, so a dark title always reads on it.\n'
+    printf 'client.focused %s %s #1d2021 %s %s\n' "$hex" "$hex" "$hex" "$hex"
+    return 0
+}
+
 # The line that loads it, appended once to the rc file. Guarded on the file
 # existing, so removing this repo cannot leave you with a shell that errors.
 rc_line() {
@@ -324,7 +374,34 @@ if [[ "$SHELL_DONE" == false && "${FAILED_ALIASES:-false}" != true ]]; then
     skip "No shell config repo is wired in — run ./setup.sh and pick zsh or bash."
 fi
 
-# ── 4. i3: the agent key ($mod+c) ────────────────────────────────────────────
+# ── 4. the terminal cursor (Alacritty) ───────────────────────────────────────
+# Alacritty merges its imports and the LAST one wins, so this file is listed
+# after ~/.cache/alacritty-theme.toml — the file $mod+Shift+t rewrites. That
+# ordering is the whole trick: the theme toggle keeps owning the dark/light
+# scheme, and the cursor keeps the colour this machine rolled either way.
+ALA="$HOME/.alacritty"
+if [[ ! -d "$ALA" ]]; then
+    skip "${ALA/#$HOME/\~} not cloned yet — no terminal cursor to colour (./setup.sh clones it)."
+elif hooked "$ALA/alacritty.toml" "colors.local.toml"; then
+    cursor_hex="$(color_hex "$BLE_CURSOR_COLOR")"
+    write_gen "$ALA/colors.local.toml" <<EOF
+# Written by best-linux-environment — settings.local, BLE_CURSOR_COLOR.
+# Do NOT edit: every run rewrites it. Change the colour in
+# ${BLE_ROOT/#$HOME/\~}/settings.local, then re-run.
+#
+# Imported after ~/.cache/alacritty-theme.toml, so \$mod+Shift+t can keep
+# swapping dark and light without taking this colour with it.
+[colors.cursor]
+cursor = '0x$cursor_hex'
+# The character the block sits on. Kept dark rather than left to Alacritty's
+# default: every colour in the palette is a bright one, so dark always reads.
+text = '0x1d2021'
+EOF
+    # Alacritty watches its own imports and re-reads them, so there is nothing
+    # to reload here — the cursor changes colour in the windows already open.
+fi
+
+# ── 5. i3: the agent key ($mod+c), and the focused window's colour ───────────
 # 05- so it sorts before config.local, which i3's `include ~/.i3rc/*.local`
 # reads after it: a value you put in config.local by hand still wins.
 I3="$HOME/.i3rc"
@@ -344,6 +421,11 @@ else
         skip "Set one there (BLE_AGENT=claude) rather than in ~/.i3rc/config.local."
     fi
 
+    # The focused window's colour. Always written: the roll above always leaves
+    # BLE_I3_BORDER_COLOR with a value, so there is no "unset" case to drop.
+    write_gen "$I3/06-colors.local" <<< "$(i3_colors_file)"
+    [[ "$GEN_CHANGED" == true ]] && CHANGED_I3=true
+
     # The one thing that silently undoes this file. config.local sorts after it,
     # so a `set $agent` left in there wins and settings.local looks broken.
     if [[ -f "$I3/config.local" ]]; then
@@ -354,6 +436,12 @@ else
             warn "~/.i3rc/config.local also sets \$$var — that one wins, and settings.local's is ignored."
             warn "Delete its 'set \$$var …' line to let settings.local decide."
         done
+
+        # Same trap, for the colour: config.local sorts after 06-colors.local.
+        if grep -Eq '^[[:space:]]*client\.focused[[:space:]]' "$I3/config.local"; then
+            warn "~/.i3rc/config.local also sets client.focused — that one wins, and settings.local's colour is ignored."
+            warn "Delete its 'client.focused …' line to let settings.local decide."
+        fi
     fi
 
     # Made here as well as by the i3 repo's own setup, so the key works on a
@@ -375,7 +463,7 @@ else
     fi
 fi
 
-# ── 5. git ───────────────────────────────────────────────────────────────────
+# ── 6. git ───────────────────────────────────────────────────────────────────
 # Asserted, not seeded: basic/05-defaults.sh sets what is missing and leaves
 # your own values alone, but a value in settings.local IS your own value, said
 # once for every machine.
@@ -400,7 +488,7 @@ else
     git_assert core.editor "$BLE_EDITOR"
 fi
 
-# ── 6. apply it to what is running ───────────────────────────────────────────
+# ── 7. apply it to what is running ───────────────────────────────────────────
 [[ "$DRY_RUN" == true ]] && { ok "Settings ready."; exit 0; }
 
 if [[ "${CHANGED_I3:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd i3-msg \

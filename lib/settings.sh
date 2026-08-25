@@ -21,11 +21,21 @@ BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
 BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
+    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR
+)
+
+# Every key above that holds an xterm-256 colour. Validated together, rolled
+# together, and written back into settings.local together — so adding a colour
+# to a new surface is one line here and one write in basic/95-settings.sh.
+BLE_COLOR_KEYS=(
+    BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
+    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR
 )
 
 BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
+BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -83,9 +93,10 @@ settings_load() {
 settings_validate() {
     local k v
 
-    # The two colours are written straight into a prompt escape, where a word
-    # instead of a number paints your whole shell in a stray colour code.
-    for k in BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH; do
+    # Every colour is written straight into an escape, a hex triplet or an i3
+    # directive, where a word instead of a number paints your whole shell in a
+    # stray colour code — or leaves i3 refusing to parse the line at all.
+    for k in "${BLE_COLOR_KEYS[@]}"; do
         v="${!k}"
         [[ -z "$v" ]] && continue
         if [[ ! "$v" =~ ^[0-9]+$ ]] || (( v > 255 )); then
@@ -187,6 +198,37 @@ color_zsh_name() {
         34) printf 'blue' ;;    35) printf 'magenta' ;; 36) printf 'cyan' ;;
         *)  printf 'white' ;;
     esac
+}
+
+# color_hex N  — the rrggbb an xterm-256 number actually paints, with no prefix:
+# i3 wants '#d787af' and Alacritty wants '0xd787af', so the caller adds its own.
+# The 16-231 cube is regular, so that range is arithmetic; the sixteen basic
+# colours are a table nothing can derive, and 232-255 is an even grey ramp.
+color_hex() {
+    local n="$1" r g b
+    local basic=(
+        000000 800000 008000 808000 000080 800080 008080 c0c0c0
+        808080 ff0000 00ff00 ffff00 0000ff ff00ff 00ffff ffffff
+    )
+    local cube=(0 95 135 175 215 255)
+    if (( n < 16 )); then printf '%s' "${basic[$n]}"; return 0; fi
+    if (( n >= 232 )); then
+        r=$(( 8 + 10 * (n - 232) ))
+        printf '%02x%02x%02x' "$r" "$r" "$r"
+        return 0
+    fi
+    n=$(( n - 16 ))
+    r="${cube[$(( n / 36 ))]}"; g="${cube[$(( n % 36 / 6 ))]}"; b="${cube[$(( n % 6 ))]}"
+    printf '%02x%02x%02x' "$r" "$g" "$b"
+}
+
+# roll_color KEY  — one colour out of the palette for KEY, when KEY has none yet.
+# No pairing rule, unlike the prompt below: these land one to a surface, so there
+# is nothing for them to have to look different from.
+roll_color() {
+    local n="${#BLE_PROMPT_PALETTE[@]}"
+    [[ -n "${!1}" ]] && return 0
+    printf -v "$1" '%s' "${BLE_PROMPT_PALETTE[RANDOM % n]}"
 }
 
 # roll_prompt_colors  — pick the two, once. Sets BLE_PROMPT_COLOR_USER and
