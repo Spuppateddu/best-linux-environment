@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Talks to the idle-poweroff timer. A script in ~/.local/bin, not a shell
+# function, so zsh and bash share one copy of it.
+set -uo pipefail
+
+usage() {
+    cat <<'EOF'
+b-idle — the timer that powers this machine off once nobody is using it.
+
+Usage: b-idle [status|off|on|log]
+  status   what it sees right now, and how close it is to powering off
+  off      hold it off until the next reboot
+  on       release that hold
+  log      what it has actually done, from the journal
+
+`off` lives in /run, a tmpfs, so it cannot outlive a reboot.
+EOF
+}
+
+BIN=/usr/local/sbin/idle-poweroff
+STATE=/run/idle-poweroff
+FLAG="$STATE/disabled"
+
+if [ ! -x "$BIN" ]; then
+    printf 'b-idle: idle-poweroff is not installed on this machine.\n' >&2
+    exit 1
+fi
+
+# Root already; sudo would only add a password prompt where none is needed.
+as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
+
+# Only a greeter's idle time needs root. With no sudo, answer anyway and say
+# what is missing, rather than failing and telling you nothing.
+status() {
+    if [ "$(id -u)" = 0 ] || sudo -n true 2>/dev/null || [ -t 0 ]; then
+        as_root "$BIN" --status
+    else
+        printf 'b-idle: no root here, so a login screen'"'"'s idle time cannot be read.\n' >&2
+        "$BIN" --status
+    fi
+}
+
+case "${1:-status}" in
+    status) status ;;
+    off)    as_root mkdir -p "$STATE" && as_root touch "$FLAG" &&
+            printf 'idle-poweroff: held off until the next reboot.\n' ;;
+    on)     as_root rm -f "$FLAG" && printf 'idle-poweroff: active again.\n' ;;
+    log)    journalctl -t idle-poweroff -n 30 --no-pager ;;
+    -h|--help) usage ;;
+    *)      printf 'usage: b-idle [status|off|on|log]\n' >&2; exit 2 ;;
+esac

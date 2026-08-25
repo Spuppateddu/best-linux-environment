@@ -592,13 +592,21 @@ repos install into it, and fonts before the tools that render them. Items marked
    whichever machine ran `ssh-copy-id` first, and getting back in costs a trip
    to its keyboard. The module now **removes** that file if it finds one and
    reloads `ssh`, so re-running fixes a machine that still has it.
-5. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
+5. **`25-idle-poweroff`** — the root **systemd timer that powers the machine off
+   once nobody is using it**: an hour at an unlocked desktop, ten minutes with
+   the screen locked or with no screen at all. Never while somebody is connected
+   over ssh, media is playing, or a coding agent or tmux job is still printing.
+   Installs `b-idle` into `~/.local/bin` as a script, so both shells get it from
+   one file, and masks `autosuspend` if it finds it — two things that can power
+   the machine off is one too many. Needs root; without it only `b-idle` lands,
+   with a warning. See [Idle poweroff](#-idle-poweroff).
+6. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
    + GTK greeter, made the **default** display manager (replacing GDM3). GDM3's
    session picker is a hard-to-find cog that on some builds never surfaces the
    i3 xsession; the LightDM greeter shows a session dropdown on the login form,
    so choosing **i3** is one click. Switch is preseeded via debconf (no
    interactive `dpkg-reconfigure`) and applies at the next reboot.
-6. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
+7. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
    TUI. Prefers apt (26.04 ships a recent build); falls back to the latest
    prebuilt binary from GitHub (→ `~/.local/bin`) on releases without a package.
    `./boot.sh` bumps that fallback copy to the newest release — an apt-managed
@@ -606,7 +614,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    out of the system's hands. Installed **because git is**: the module skips
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
-7. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
+8. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
    owned here so the per-tool repos stay light. **One family for the whole
    machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
    advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
@@ -626,13 +634,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
    the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
    [`fonts.local`](#font-sizes-per-machine-fontslocal).
-8. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
+9. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
    `~/.config/alacritty/` — where Alacritty actually reads it — and the symbol
    fallback rule into `~/.config/fontconfig/conf.d/`. This module keeps the
    package so the terminal exists even when that tool was skipped in the menu.
-9. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+10. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -651,8 +659,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-10. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-11. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+11. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+12. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -669,8 +677,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-12. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-13. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+13. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+14. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -794,6 +802,156 @@ This repo only clones/updates them (per `tools.conf`) and calls that script;
 it never reimplements a tool's install. Anything cross-cutting that would
 otherwise bloat a single repo — the cursor theme, the shared Nerd Font — lives
 **here** instead (`configuration-i3`'s `setup.sh` no longer carries its own copies).
+
+## ⏻ Idle poweroff
+
+These machines are woken with Wake-on-LAN, and their BIOS is set to power on
+again after a power loss. A blackout at 3am therefore boots every box in the
+house — and with nobody home they sit at the login screen for days.
+`basic/25-idle-poweroff.sh` installs the other half of that setting: a root
+systemd timer that powers the machine back off once it is demonstrably unused.
+
+It lives here, and not in a shell config repo, because it is a **systemd unit,
+not a shell setting**. Which shell you type at has nothing to do with whether the
+machine should turn itself off, and `setup.sh` installs only the one shell repo
+you picked — so a zsh machine would never have got it. One copy, every machine.
+
+| Situation | Powers off after |
+| --- | --- |
+| Screen locked (`i3lock`) | **10 min** — locking is the human saying they left |
+| Unlocked desktop | **1 h** with no key or mouse event (`xprintidle`) |
+| Sitting at the LightDM login window | **1 h** — the blackout case |
+| Headless, or no X at all | **10 min**, counted from the first check after boot |
+| Someone was on ssh | never while connected, then **10 min** after the last one left |
+| Media playing | never, for as long as it plays |
+| An agent or a tmux job that is printing | never, until it has been quiet 20 min |
+| Less than 15 min since boot | never — you were probably about to log in |
+
+The waiting time is **not one number**: it comes from what was last happening on
+the machine. Somebody sat at an unlocked desktop gets the full hour, because a
+person reading a long page is still using it. Somebody who locked the screen said
+they were leaving, so ten minutes is enough. A box with no screen at all has
+nobody in front of it by definition, so it too gets ten. And an ssh client, a
+film or a working agent are not a countdown at all — they are a hard stop, and
+the clock only starts once the last of them is gone.
+
+It never powers off silently. At the limit it sends a desktop notification and a
+`wall`, waits two minutes, and only then pulls the plug — any activity in that
+window cancels it.
+
+And it will not power off **at all** while:
+
+- the 1-minute load average is above `0.5` — a build, a render, a backup;
+- **anyone is connected over ssh** — an open shell, an `scp`, an `sftp`, a
+  `ssh -N` port forward, a remote editor. This one never expires: an ssh session
+  that has been quiet for hours still counts as in use, so a box you left a
+  build running on cannot power off underneath you. Connections are found
+  through logind, and the ssh sockets themselves for the ones that open no
+  session — so a non-standard ssh port needs no configuration. Set
+  `BLOCK_ON_SSH=false` on a machine something keeps a permanent ssh link to;
+- **for 10 minutes after the last ssh connection closed** (`SSH_GRACE_MINUTES`).
+  A desktop or a login screen counts its idle time in X, and logging out of ssh
+  does not touch that counter, so without this grace the machine would power off
+  two or three minutes after you type `exit`. Reconnect inside those 10 minutes
+  and the clock starts again from the new disconnection;
+- **media is playing** (`BLOCK_ON_MEDIA`) — a film, a video call, music. The
+  test is the sound card, not a list of players: PipeWire and PulseAudio alike
+  report a sink as `RUNNING` only while something is actually feeding it, and
+  drop it to `IDLE` within a second of the audio stopping. Players that mute
+  themselves are caught by the freedesktop *idle* inhibitor they take out
+  instead (`mpv`, VLC, a browser playing fullscreen video);
+- **a coding agent is running and has printed something in the last 20 min**
+  (`BLOCK_ON_AGENT`, `AGENT_SILENT_MINUTES`) — `claude`, `opencode`, `codex` and
+  friends, matched by process name. This is the one case the load average
+  provably cannot catch: an agent waiting on its API uses no CPU at all, for
+  minutes at a time, and powering the machine off under it throws the work away.
+  The silence half matters just as much in the other direction: an agent sitting
+  at a prompt waiting for *you* is not working, and should not keep the machine
+  up all night. Set `AGENT_SILENT_MINUTES=0` to go back to "any running agent
+  blocks for ever";
+- **a tmux pane is running something that is not a shell, and printing**
+  (`BLOCK_ON_MUX`, `MUX_SILENT_MINUTES`) — the long job you left in a detached
+  window. An idle prompt does not count, and neither does a job that has gone
+  silent for 20 minutes;
+- **the machine booted less than 15 minutes ago** (`MIN_UPTIME_MINUTES`). These
+  boxes are woken by Wake-on-LAN and by the BIOS after a blackout; a headless
+  wake that powered off again before you could connect would leave you with a
+  machine you cannot reach without walking to it;
+- a tty or ssh login has written to its terminal within the last hour, on
+  systems that still keep `utmp`;
+- a systemd `block` inhibitor is holding shutdown, which is the clean way to
+  protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
+- `b-idle off` is in force, or `ENABLED=false` is set in the config.
+
+### How "still working?" is answered
+
+The kernel stamps a terminal's `mtime` every time something is printed on it
+(throttled to about 8 seconds, which is far finer than we need). So the question
+"is this job still doing something, or is it parked waiting for me?" has a cheap
+and completely generic answer: *when did it last print anything?* No list of
+agents, no per-tool integration, and it works the same for `make`, `rsync` and a
+coding agent. `tmux` hands us each pane's tty directly; for a bare process we ask
+`ps` for its controlling terminal.
+
+Two honest limits:
+
+- **A full-screen program that redraws is never silent.** An agent that repaints
+  a status bar or a spinner keeps stamping its tty whether it is thinking or
+  waiting for you, so the expiry never fires for it. `b-idle` shows you which
+  kind yours is.
+- **A job with no terminal at all** — output piped to a file, or started as a
+  service — cannot be judged this way, so it counts as *in use*. Powering off
+  underneath it is the worse mistake.
+
+There is deliberately **no "a tmux client is attached" rule**. Attached over ssh
+is already held by the ssh check; attached at the machine itself is already held
+by the X idle timer. Blocking on attachment as well would mean a desktop with a
+tmux window open could never power off at all.
+
+A graphical session that exists but cannot be measured — a Wayland compositor,
+an unreadable Xauthority — counts as *in use*. Powering off a desktop we cannot
+see is the one mistake here that cannot be undone.
+
+Day to day you only ever type `b-idle`. It is a **script** in `~/.local/bin`,
+not a shell function, so zsh and bash both get it from the same single file:
+
+```sh
+b-idle          # what it sees right now, and how close it is to powering off
+b-idle off      # hold it off until the next reboot
+b-idle on       # release that hold
+b-idle log      # what it has actually done, from the journal
+```
+
+`off` writes into `/run`, a tmpfs, so it cannot outlive a reboot and leave a
+machine that silently never powers off again.
+
+### Only one thing may power the machine off
+
+If the [`autosuspend`](https://autosuspend.readthedocs.io/) daemon is installed
+and enabled, `install.sh` **masks it**. Two systems that can both pull the plug
+is one too many, and by its own documentation `autosuspend` does not treat a
+merely *connected* ssh session as activity — so a machine running both can still
+die under an open shell, however careful this script is. Its config is left on
+disk untouched; undo with:
+
+```sh
+sudo systemctl unmask --now autosuspend.service
+```
+
+Settings live in `/etc/idle-poweroff.conf`, written once on the first install and
+never overwritten afterwards — the same idea as the `.local` alias file, so
+`boot.sh` re-running the installer can never undo them. Every key is documented
+in there; the ones worth knowing are `IDLE_MINUTES`, `LOCKED_MINUTES` and
+`MAX_LOAD`. To keep one machine on for good, set `ENABLED=false` there, or
+set `ENABLED=false` in `/etc/idle-poweroff.conf`.
+
+It needs root — it writes a systemd unit and calls `poweroff` — and a machine
+booted with systemd. Without either, `install.sh` says so and installs the rest
+of the shell config as usual.
+
+If you also run the [i3 config](https://github.com/Spuppateddu/configuration-i3),
+its DPMS timer blanks the panel at 50 minutes, ten minutes before this fires — so
+a dark screen is the visible warning that the machine is about to go.
 
 ## What the `secondary` tier installs
 

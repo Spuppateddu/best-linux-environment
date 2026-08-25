@@ -91,13 +91,18 @@ self_update "$@"
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.
 bash "$HERE/basic/10-tools.sh" || FAILED+=("config repos")
 
-# ── 3. this machine's settings and font sizes ────────────────────────────────
+# ── 3. the idle timer ────────────────────────────────────────────────────────
+# Re-deployed here because a copy drifting behind the repo once powered this
+# machine off under a live ssh session. Cron has no tty, so only b-idle lands.
+bash "$HERE/basic/25-idle-poweroff.sh" || FAILED+=("idle poweroff")
+
+# ── 4. this machine's settings and font sizes ────────────────────────────────
 # After the pull, so settings.local and fonts.local survive what the config
 # repos just re-applied.
 bash "$HERE/basic/95-settings.sh" || FAILED+=("settings")
 bash "$HERE/basic/99-font-sizes.sh" || FAILED+=("font sizes")
 
-# ── 4. reload what is running ────────────────────────────────────────────────
+# ── 5. reload what is running ────────────────────────────────────────────────
 # The catch-all for repos whose own installer didn't reload. All best-effort.
 title "Reloading live configuration"
 
@@ -134,7 +139,7 @@ if [[ -n "${DISPLAY:-}" && -f "$HOME/.Xresources" ]] && has_cmd xrdb; then
         || skip "Could not merge ~/.Xresources."
 fi
 
-# ── 5. binaries apt doesn't manage ───────────────────────────────────────────
+# ── 6. binaries apt doesn't manage ───────────────────────────────────────────
 # Each checks upstream's latest release and downloads only when there is one.
 title "Refreshing hand-installed binaries"
 
