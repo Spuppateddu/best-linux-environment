@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The baseline config nothing else owns: fonts.local, ~/.local/bin on PATH,
-# ~/.ssh/config, git's defaults, ~/.Xresources. Created when missing, never after.
+# The baseline config nothing else owns: fonts.local, settings.local,
+# aliases.local, ~/.local/bin on PATH, ~/.ssh/config, git's defaults,
+# ~/.Xresources. Created when missing, never after.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -23,6 +24,14 @@ else
     config_write "$FONTS_LOCAL" --if-missing < "$FONTS_EXAMPLE"
     [[ "$CONFIG_WRITTEN" == true ]] && ok "Edit ${FONTS_LOCAL/#$HOME/\~}, then re-run — every boot re-applies it."
 fi
+
+# ── 1b. settings.local and aliases.local ────────────────────────────────────
+# The two files you edit to change every machine at once — the agent $mod+c
+# opens, your prompt colours, your aliases. Both all-commented, so a fresh
+# machine has the file to edit instead of a sentence in the README telling it
+# to make one. basic/95-settings.sh is what reads them.
+source "$BLE_ROOT/lib/settings.sh"
+settings_seed
 
 # ── 2. ~/.local/bin on PATH ──────────────────────────────────────────────────
 # lazygit, yazi, fzf and temps all land here. Ubuntu's own ~/.profile adds it

@@ -389,8 +389,9 @@ else
     skip "No secondary apps ticked."
 fi
 
-# Last, not a modules.conf entry: it writes INTO the config repos the tiers above
-# clone, so it only has somewhere to write once they are all on disk.
+# Last, and not modules.conf entries: these two write INTO the config repos the
+# tiers above clone, so they only have somewhere to write once those are on disk.
+bash "$BLE_ROOT/basic/95-settings.sh" || FAILED+=("settings")
 bash "$BLE_ROOT/basic/99-font-sizes.sh" || FAILED+=("font sizes")
 
 if (( WANT_CRON )); then

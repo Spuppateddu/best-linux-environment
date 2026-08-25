@@ -157,8 +157,9 @@ Config files come in three kinds, and the reset is only interesting for the seco
   one of these once it exists, so your edits survive every boot; `./setup.sh`
   puts the repo's version back, because that run is the one you asked for.
 - **Created if missing** — the baseline a new machine has to have *at all*, and
-  after that nobody's business but yours: `fonts.local`, `~/.profile`'s
-  `~/.local/bin` line, `~/.ssh/config`, git's `init.defaultBranch`, `~/.Xresources`.
+  after that nobody's business but yours: `fonts.local`, `settings.local`,
+  `aliases.local`, `~/.profile`'s `~/.local/bin` line, `~/.ssh/config`, git's
+  `init.defaultBranch`, `~/.Xresources`.
   Written only when the file (or, for git, the key) is not there — so even the
   reset leaves what you have alone. See [baseline config](#baseline-config-05-defaults).
 
@@ -297,6 +298,112 @@ repo's own `install.sh`, which draws the identical list right after its clone.
 That path is taken only when `setup.sh` reports it hit that case *and* there is a
 terminal; `boot.sh` never sets it, so it still cannot hang.
 
+## One file for every machine: `settings.local`
+
+Everything you are meant to *choose* lives in **two git-ignored files at the
+root of this repo**, and nothing else on the machine holds a copy you have to go
+and find. You set a value once; this repo writes it into whichever config repo
+needs it.
+
+```bash
+cp settings.local.example settings.local
+cp aliases.local.example  aliases.local
+$EDITOR settings.local
+./setup.sh          # or ./boot.sh — and every boot re-applies it
+```
+
+You do not have to copy them by hand: `basic/05-defaults.sh` puts both there on
+the first run, straight from the `.example` next to them — and their values are
+**live, not commented out**. A fresh machine starts from a working base rather
+than from a blank file it has to fill in before anything happens: an agent (the
+one actually installed on that machine, picked at seed time), an agent folder,
+an editor, a rolled pair of prompt colours, and a dozen aliases. Change what you
+disagree with, comment out what you don't want.
+
+**`settings.local`** is `KEY=VALUE`, one per line. Quotes are optional — use
+them for a value with a `#` in it. A bad value costs you that line and a warning,
+never the run.
+
+| Key | What it sets | Where it lands |
+| --- | --- | --- |
+| `BLE_AGENT` | the coding agent `$mod+c` opens — `claude`, `opencode`, `codex`… arguments allowed. Seeded with whichever of those is actually installed | `~/.i3rc/05-agent.local` → `set $agent` |
+| `BLE_AGENT_DESK` | the folder it opens in, created if missing. Its own folder, never `$HOME`: an agent asks you to trust the directory it starts in | `~/.i3rc/05-agent.local` → `set $agent_desk`, and `$BLE_AGENT_DESK` in both shells |
+| `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
+| `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
+| `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
+| `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
+
+**`aliases.local`** is not `KEY=VALUE` — aliases are shell code, so they get a
+file of their own. It is copied **verbatim** into both shells, which means it has
+to be shell they both understand: plain `alias name="…"` and POSIX functions.
+Anything zsh-only or bash-only belongs in `~/.zsh/zsh-alias.local` or
+`~/.bash/bash-alias.local`, which stay per-machine. Before it is copied anywhere
+it is checked with `bash -n`: this file ends up sourced by every new shell, and a
+missing quote in it would mean no shell on the machine has a prompt. If it does
+not parse, the run says so and **leaves the shell files exactly as they are** —
+the copy already on disk is the last one that worked.
+
+`basic/95-settings.sh` applies both, before `99-font-sizes` in a `setup.sh` run
+and after the pull in a `boot.sh` one. Nothing can push a new prompt into a shell
+that already exists, so open a new terminal; i3 is reloaded for you.
+
+### Your prompt colours, rolled once
+
+Leave the two colour keys out and the first run **rolls a pair for you** and
+writes it back into `settings.local`, with the colour's name in a comment beside
+it:
+
+```
+# Rolled by best-linux-environment on 2026-08-25, once. Delete the line(s) below
+# to get a new colour; edit them to keep one for good (0-255, and the two must differ).
+BLE_PROMPT_COLOR_USER=141   # violet
+BLE_PROMPT_COLOR_PATH=48    # spring green
+```
+
+Written back down, so it is rolled **once** and never again: a prompt that
+changed colour every time you installed something would be a bug, not a feature.
+Every PC ends up with its own pair, which is the point — a glance at the prompt
+tells you which machine the terminal is on.
+
+The two can never come out the same. They cannot even come out the same *hue*:
+the palette is twenty xterm-256 colours across six families, and the roll refuses
+a second colour whose nearest ANSI colour matches the first, so you never get two
+greens two shades apart. Delete both lines to roll again; set one by hand to keep
+it and let the other be rolled.
+
+Both shells get the same pair and the same shape they had before. zsh keeps the
+two-line `gnzh` prompt Oh My Zsh draws — the git branch, the virtualenv, the
+return code, all of it — and only `%n@%m` and `%~` change colour. bash keeps
+stock `user@host:path$` and its window title. Two things stay red whatever the
+roll said, because they are warnings rather than style: **root**, and a **host
+you reached over SSH**. On a terminal with no 256-colour palette both fall back
+to the nearest of the eight ANSI colours.
+
+### It never edits the config repos
+
+Same rule as the font sizes below, for the same reason: every value is written
+into a **separate override file** the config loads *last*, never into the repo
+file it belongs beside. The clones in `~/linux-configuration/` stay clean, so
+`git pull --ff-only` keeps working on every boot.
+
+| Surface | Override this repo writes | How it is loaded |
+| --- | --- | --- |
+| zsh | `~/.zsh/zsh-ble.local` | one line appended to `~/.zshrc`, after the config repo's own |
+| bash | `~/.bash/bash-ble.local` | one line appended to `~/.bashrc`, after the config repo's own |
+| i3 | `~/.i3rc/05-agent.local` | the existing `include ~/.i3rc/*.local` |
+
+The shells are wired through `~/.zshrc` / `~/.bashrc` rather than through the
+config repo's alias file, because **last** is the only place a prompt can be set
+from: bash sets `PS1` at the very end of its own rc, and Oh My Zsh's theme sets
+`PROMPT` at the end of zsh's. Being last is also why an alias in `aliases.local`
+beats one with the same name in `~/.bash/bash-alias.local` — deliberate: this is
+the file you edit when you want *every* machine to change.
+
+The i3 file is called `05-agent.local` so it sorts **before** `config.local`,
+which i3's `include ~/.i3rc/*.local` reads after it. A `set $agent` you put in
+`config.local` by hand therefore still wins — and because that silently ignores
+`settings.local`, the run warns you and names the line to delete.
+
 ## Font sizes per machine: `fonts.local`
 
 The config repos are shared by every PC, and every PC has a different screen. So
@@ -365,8 +472,9 @@ boot runs `./boot.sh`, which:
 1. `git pull`s **this repo** (and re-execs itself if it changed);
 2. `git pull`s each **cloned** config repo and re-runs the `install.sh` it ships,
    so a config you pushed from another machine is applied here;
-3. re-applies **`fonts.local`**, and reloads i3, the bar and dunst if a size
-   moved;
+3. re-applies **`settings.local`** and **`aliases.local`** (the agent `$mod+c`
+   opens, your prompt colours, your shared aliases) and then **`fonts.local`**,
+   reloading i3, the bar and dunst if anything moved;
 4. **reloads what is running** — `i3-msg reload`, `tmux source-file` on every
    running server, `fc-cache`, `xrdb -merge`;
 5. refreshes the binaries apt doesn't manage for us — **yazi**/`ya`, **fzf**,
@@ -552,6 +660,7 @@ in the `necessary` tier and creates each of them **only when it isn't there**.
 | File | What it gets, and why |
 | --- | --- |
 | `fonts.local` | a copy of `fonts.local.example`, every line commented out. Changes nothing until you uncomment one — but the file to edit exists instead of a hint telling you to make it (see [font sizes](#font-sizes-per-machine-fontslocal)) |
+| `settings.local` + `aliases.local` | copies of their `.example` files, **values live** — a working base (agent, agent folder, editor, prompt colours, a dozen aliases), not a blank file. The two files you edit to change every machine at once (see [one file for every machine](#one-file-for-every-machine-settingslocal)) |
 | `~/.local/bin` + `~/.profile` | the directory `lazygit`, `yazi`, `fzf` and `temps` install into, plus the line that puts it on `PATH`. Ubuntu's own `~/.profile` adds it *only if the directory already exists*, so on a fresh machine it never does. The line is **appended** to the `~/.profile` you have; a machine with no `~/.profile` at all gets a minimal one |
 | `~/.ssh/config` | `AddKeysToAgent`, `ServerAliveInterval 60` — so a long remote session doesn't drop silently. Mode `600`, or `ssh` refuses to read it. The key itself belongs to [`20-ssh`](#what-the-necessary-tier-installs) |
 | git | `init.defaultBranch=main`, `pull.rebase=false`, `push.default=simple`, `core.editor=vim` — **per key, not per file**, so a `~/.gitconfig` holding only your name still gets them and a key you set yourself is never touched |
@@ -772,8 +881,9 @@ bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest rele
 
 ## Shared library
 
-Five files, all sourced — never run. `lib/common.sh` holds what a **module**
-needs, `lib/fonts.sh` what the two modules that render text need; the other three
+Six files, all sourced — never run. `lib/common.sh` holds what a **module**
+needs, `lib/fonts.sh` what the two modules that render text need and
+`lib/settings.sh` what the one that applies your choices needs; the other three
 hold what an **entry script** needs, which is what lets `setup.sh` and `boot.sh`
 be thin wrappers over the same modules instead of two copies of the same loop.
 
@@ -798,6 +908,14 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | `BLE_SIZE_*` | this machine's sizes, empty where the file sets none |
 | `BLE_FONT_FAMILY_TEXT` | the one text family of the whole desktop |
 | `fonts_int` | a size plus an offset, rounded — for the px surfaces |
+
+| `lib/settings.sh` | What it does |
+| --- | --- |
+| `settings_load` | parse `settings.local` into `BLE_AGENT`, `BLE_EDITOR`, the prompt colours… — read as data, never sourced, same as `fonts.sh` |
+| `settings_validate` | drop a value that would break the file it is written into (a colour that isn't a number, a relative agent folder) — one bad line, not the run |
+| `settings_seed` | put `settings.local` and `aliases.local` there when they aren't, from the committed `.example` copies |
+| `roll_prompt_colors` | pick the two prompt colours, once — never equal, never the same hue family |
+| `color_name` / `color_fallback8` / `color_zsh_name` | a colour's word, its nearest ANSI colour for an 8-colour terminal, and zsh's spelling of that |
 
 | `lib/registry.sh` | What it does |
 | --- | --- |

@@ -1,0 +1,62 @@
+# The one file you edit to change every machine: `cp settings.local.example
+# settings.local`, edit, then ./setup.sh (./boot.sh and every boot re-apply it).
+# settings.local is git-ignored.
+#
+# Nothing here is a file path you have to go and find. You set a value once, and
+# this repo writes it into whichever config repo needs it — the i3 keybinding,
+# both shells, git. Comment a line out again and that surface goes back to
+# whatever its own repo ships.
+#
+# The values below are LIVE, not examples: this is a working base to start from,
+# not a blank file. Change what you disagree with, comment out what you don't
+# want. KEY=VALUE, one per line; quotes are optional and are how a value keeps
+# a '#'.
+#
+# Font SIZES are not here — they are the one thing that must differ per screen,
+# so they live next door in fonts.local (see fonts.local.example). The font
+# FAMILY is fixed on purpose: basic/50-fonts-cursor.sh installs Cascadia Code NF
+# and removes every other user font, so the whole desktop can only render one.
+
+
+# ── The coding agent ($mod+c) ────────────────────────────────────────────────
+# i3 binds $mod+c to a terminal running your agent, in a folder of its own.
+# Written to ~/.i3rc/05-agent.local, which i3 reads as `set $agent`.
+
+# What to run. Anything on PATH: claude, opencode, codex… Arguments are allowed
+# ("claude --continue"); a pipe or an && is not — wrap those in a script.
+# The first run swaps this for whichever agent is actually on the machine.
+BLE_AGENT=claude
+
+# Where it opens. Its own folder, never $HOME: an agent asks you to trust the
+# directory it starts in, and $HOME is every file you own. Created if missing.
+# Must be absolute; ~ and $HOME are expanded here.
+BLE_AGENT_DESK=~/agent-desk
+
+
+# ── The prompt ───────────────────────────────────────────────────────────────
+# Two xterm-256 colours (0-255) for zsh and bash alike: one for `user@host`, one
+# for the current folder. They must differ — that is the point of having two.
+#
+# Left out on purpose: the first run rolls a pair for you and writes it in at the
+# bottom of this file, so your prompt never changes under you and every PC gets
+# its own. DELETE THOSE TWO LINES AND RE-RUN TO GET A NEW PAIR; set them by hand
+# to keep one for good.
+
+
+# ── The editor ───────────────────────────────────────────────────────────────
+# $EDITOR and $VISUAL in both shells, and git's core.editor.
+BLE_EDITOR=vim
+
+
+# ── Git identity ─────────────────────────────────────────────────────────────
+# The two nobody can guess for you: they end up inside every commit you make, so
+# a default here would be a wrong default. Uncomment and fill them in once, and
+# every machine you set up afterwards has them from its first run.
+#BLE_GIT_NAME=Your Name
+#BLE_GIT_EMAIL=you@example.com
+
+
+# ── Aliases ──────────────────────────────────────────────────────────────────
+# Not here: they are shell code rather than KEY=VALUE, so they have a file of
+# their own — aliases.local, beside this one. It reaches zsh and bash on every
+# machine, the same way this file does, and it too starts from a working base.
