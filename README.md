@@ -704,6 +704,9 @@ repos install into it, and fonts before the tools that render them. Items marked
    **HEIC does not** — a phone's `.heic` is HEVC. Nothing reports a missing codec;
    the image just fails to open, in nsxiv and equally in Loupe, gThumb and the
    file-manager thumbnailer. Installing that one package fixes all of them at once.
+   PDFs are the same idea, one module along: [`75-pdf-viewer`](#what-the-necessary-tier-installs)
+   owns `[opener] pdf` and the `application/pdf` rule, and inserts that rule into
+   the `prepend_rules` array this module writes.
 12. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
 13. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
@@ -722,8 +725,38 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-14. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-15. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+14. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+   places that have to agree on it: yazi's Enter and `xdg-open`. It installs
+   nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
+   not**, because Okular is a `secondary` app — the repo wants it, and still has
+   to leave a working PDF key on a machine that never ticked it. It writes
+   yazi's `[opener] pdf` key (`okular -- %s`, `orphan = true`, so quitting yazi
+   does not take the viewer with it) and points `xdg-mime` at
+   `okularApplication_pdf.desktop` for `application/pdf` — plus
+   `application/x-gzpdf` and `application/x-bzpdf`, a gzipped and a bzipped PDF,
+   which Okular reads and Firefox does not, so those two join the list only on
+   the Okular branch. The Firefox fallback is `firefox %s` with **no `--`**:
+   Okular's Qt parser takes `--` as "no more options", which is what stops a
+   file named `-report.pdf` being read as one, and Firefox has no such notion —
+   it would try to open `--` as a URL. `%s`, not `"$@"`, for the reason spelt
+   out under [`57-image-viewer`](#what-the-necessary-tier-installs).
+   Ticking **`okular`** flips the default **in the same run**: the necessary
+   tier, where this module lives, has already finished by the time a secondary
+   app installs, so [`advanced/okular.sh`](advanced/okular.sh) calls this module
+   again itself. `apt remove okular` later and the next `./setup.sh` hands PDFs
+   back to Firefox — unticking alone does not, because nothing here ever
+   *removes* a package. The rewrite is keyed on the `desc` in the line, so it is
+   only ever a line this repo wrote that gets replaced.
+   `57-image-viewer` owns `[opener] image`, this one owns `[opener] pdf`, and
+   they **share the `[open] prepend_rules` array**, because TOML cannot carry
+   two `[open]` tables: this module *inserts* its `{ mime = "application/pdf",
+   use = "pdf" }` line into the array 57 already wrote rather than opening a
+   second block. A `pdf` opener or an `[open]` block carrying neither of this
+   repo's signatures is treated as hand-written and left alone, with the line to
+   add printed instead — a duplicate key would make yazi throw out the whole
+   config, which costs you far more than the key you already set.
+15. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+16. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -1049,14 +1082,14 @@ server skip, the already-installed check and the final `ok`. See
 The manifest line is what puts it in the list:
 
 ```
-secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader
+secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and the default one
 ```
 
 | App | Source |
 | --- | --- |
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
-| `okular` | Ubuntu repos |
+| `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) |
