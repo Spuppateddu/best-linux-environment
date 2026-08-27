@@ -1,0 +1,384 @@
+#!/usr/bin/env bash
+# b-chrome — headless Google Chrome for scripts and coding agents: a screenshot,
+# a PDF, the rendered DOM, or a DevTools port to drive. No display needed.
+
+# Installed to ~/.local/bin by advanced/google-chrome.sh, next to b-idle.
+set -euo pipefail
+
+SIZE="${B_CHROME_SIZE:-1280,900}"     # viewport, WIDTH,HEIGHT
+WAIT="${B_CHROME_WAIT:-5000}"         # ms of PAGE time to let scripts run
+TIMEOUT="${B_CHROME_TIMEOUT:-60}"     # s of REAL time before the run is killed
+PORT="${B_CHROME_PORT:-9222}"         # DevTools port for `b-chrome cdp`
+CDP_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/b-chrome"
+
+NO_SANDBOX=false      # --no-sandbox asked for on the command line
+RETRY_SANDBOX=true    # fall back to --no-sandbox when the sandbox cannot start
+
+# ── output ───────────────────────────────────────────────────────────────────
+die()  { printf 'b-chrome: %s\n' "$*" >&2; exit 1; }
+note() { printf 'b-chrome: %s\n' "$*" >&2; }
+
+usage() {
+    cat <<'EOF'
+b-chrome — headless Google Chrome for scripts and coding agents.
+
+  b-chrome shot URL [FILE]     screenshot the page        (default shot.png)
+  b-chrome pdf  URL [FILE]     print the page to PDF      (default page.pdf)
+  b-chrome dom  URL            the rendered DOM, to stdout (after JS has run)
+  b-chrome run  [ARGS...]      raw headless Chrome with these same defaults
+  b-chrome cdp  [start|stop|status]
+                               a background browser with a DevTools port, for
+                               Puppeteer/Playwright/CDP (default: start)
+  b-chrome path                the Chrome binary this script uses
+  b-chrome doctor              is it installed, does the sandbox work, is cdp up
+  b-chrome help
+
+Options (before or after the URL):
+  --size WxH      viewport, e.g. --size 1920x1080   (default 1280x900)
+  --wait MS       page time to let scripts run      (default 5000)
+  --port N        DevTools port for cdp             (default 9222)
+  --no-sandbox    drop the Chrome sandbox (last resort — see `b-chrome doctor`)
+  --              everything after it is passed to Chrome untouched
+
+Examples:
+  b-chrome shot http://localhost:3000 /tmp/home.png
+  b-chrome shot http://localhost:3000 --size 390x844      # phone-sized
+  b-chrome dom http://localhost:3000 | grep -i 'data-testid'
+  b-chrome pdf file:///tmp/report.html /tmp/report.pdf
+  b-chrome cdp                                            # prints the endpoints
+  b-chrome cdp stop
+
+Driving it from code, once `b-chrome cdp` is up:
+  puppeteer.connect({ browserURL: 'http://127.0.0.1:9222' })
+  playwright.chromium.connectOverCDP('http://127.0.0.1:9222')
+
+Environment: B_CHROME_BIN, B_CHROME_SIZE, B_CHROME_WAIT, B_CHROME_TIMEOUT,
+B_CHROME_PORT — the same values as the options above.
+EOF
+}
+
+# ── the binary ───────────────────────────────────────────────────────────────
+# Chrome first, then Chromium: this ships with Chrome, but is worth having on a
+# machine that only has the open-source build.
+chrome_bin() {
+    local c
+    # B_CHROME_BIN is an instruction, not a hint: silently using another browser
+    # because the one you named is missing would be a confusing kind of helpful.
+    if [[ -n "${B_CHROME_BIN:-}" ]]; then
+        command -v "$B_CHROME_BIN" >/dev/null 2>&1 && { command -v "$B_CHROME_BIN"; return 0; }
+        die "B_CHROME_BIN is set to '$B_CHROME_BIN', which is not a runnable command."
+    fi
+    for c in google-chrome-stable google-chrome chromium chromium-browser; do
+        command -v "$c" >/dev/null 2>&1 && { command -v "$c"; return 0; }
+    done
+    return 1
+}
+
+need_bin() {
+    chrome_bin || die "no Chrome on PATH — install it with: ./setup.sh only google-chrome"
+}
+
+# --disable-dev-shm-usage: in a container /dev/shm is 64 MB and Chrome dies on
+# anything real. --log-level=3: its GPU chatter off stderr, so an error is real.
+base_flags() {
+    printf '%s\n' \
+        --headless \
+        --disable-gpu \
+        --log-level=3 \
+        --no-first-run \
+        --no-default-browser-check \
+        --disable-dev-shm-usage \
+        --hide-scrollbars \
+        "--window-size=$SIZE"
+}
+
+# ── one run, one throwaway profile ───────────────────────────────────────────
+# A profile of its own per run: it never touches the Chrome you browse with, and
+# two agents can run this at the same time without fighting over a lock.
+one_shot() {
+    local bin profile errfile rc
+    bin="$(need_bin)"
+    profile="$(mktemp -d -t b-chrome-XXXXXX)"
+    errfile="$(mktemp -t b-chrome-err-XXXXXX)"
+
+    local -a flags=()
+    mapfile -t flags < <(base_flags)
+    flags+=("--user-data-dir=$profile")
+    [[ "$NO_SANDBOX" == true ]] && flags+=(--no-sandbox)
+
+    set +e
+    timeout "$TIMEOUT" "$bin" "${flags[@]}" "$@" 2>"$errfile"
+    rc=$?
+    set -e
+
+    # No user namespace (AppArmor, a container) means no sandbox: retry without
+    # it rather than leave the caller stuck, out loud — isolation is really gone.
+    if (( rc != 0 )) && [[ "$NO_SANDBOX" == false && "$RETRY_SANDBOX" == true ]] \
+       && grep -qiE 'sandbox|namespace|SUID|clone' "$errfile"; then
+        note "the Chrome sandbox could not start — retrying with --no-sandbox."
+        note "run 'b-chrome doctor' to see why; until then, open only pages you trust."
+        flags+=(--no-sandbox)
+        set +e
+        timeout "$TIMEOUT" "$bin" "${flags[@]}" "$@" 2>"$errfile"
+        rc=$?
+        set -e
+    fi
+
+    (( rc == 124 )) && note "killed after ${TIMEOUT}s (B_CHROME_TIMEOUT raises that)."
+    (( rc != 0 )) && cat "$errfile" >&2
+    rm -rf "$profile" "$errfile"
+    return $rc
+}
+
+# ── subcommands ──────────────────────────────────────────────────────────────
+cmd_shot() {
+    local url="${1:-}" out="${2:-shot.png}"
+    [[ -n "$url" ]] || die "usage: b-chrome shot URL [FILE]"
+    one_shot "--screenshot=$out" "--virtual-time-budget=$WAIT" "${EXTRA[@]}" "$url" >/dev/null
+    [[ -s "$out" ]] || die "Chrome wrote no image to $out"
+    printf '%s\n' "$out"
+}
+
+cmd_pdf() {
+    local url="${1:-}" out="${2:-page.pdf}"
+    [[ -n "$url" ]] || die "usage: b-chrome pdf URL [FILE]"
+    one_shot "--print-to-pdf=$out" --no-pdf-header-footer \
+        "--virtual-time-budget=$WAIT" "${EXTRA[@]}" "$url" >/dev/null
+    [[ -s "$out" ]] || die "Chrome wrote no PDF to $out"
+    printf '%s\n' "$out"
+}
+
+cmd_dom() {
+    local url="${1:-}"
+    [[ -n "$url" ]] || die "usage: b-chrome dom URL"
+    one_shot --dump-dom "--virtual-time-budget=$WAIT" "${EXTRA[@]}" "$url"
+}
+
+cmd_run() { one_shot "${EXTRA[@]}" "$@"; }
+
+# ── cdp: a browser that stays up, with a DevTools port ───────────────────────
+cdp_pidfile() { printf '%s/pid' "$CDP_DIR"; }
+cdp_profile() { printf '%s/profile' "$CDP_DIR"; }
+cdp_log()     { printf '%s/log' "$CDP_DIR"; }
+
+cdp_pid() {
+    local pid
+    pid="$(cat "$(cdp_pidfile)" 2>/dev/null || true)"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && { printf '%s' "$pid"; return 0; }
+    return 1
+}
+
+# Chrome writes DevToolsActivePort only when it picks the port itself, but it
+# always announces the endpoint on stderr — so the log is the source of truth.
+cdp_wsurl() {
+    grep -m1 -oE 'ws://127\.0\.0\.1:[0-9]+/devtools/browser/[A-Za-z0-9-]+' \
+        "$(cdp_log)" 2>/dev/null || true
+}
+
+cdp_port() {
+    local ws; ws="$(cdp_wsurl)"
+    [[ -n "$ws" ]] || return 1
+    printf '%s' "$ws" | sed -E 's|ws://127\.0\.0\.1:([0-9]+)/.*|\1|'
+}
+
+cdp_endpoints() {
+    local port ws
+    port="$(cdp_port)" || return 1
+    ws="$(cdp_wsurl)"
+    printf 'port  %s\n' "$port"
+    printf 'http  http://127.0.0.1:%s\n' "$port"
+    printf 'ws    %s\n' "$ws"
+    printf 'stop  b-chrome cdp stop\n'
+}
+
+cdp_start() {
+    local bin pid started
+    bin="$(need_bin)"
+
+    if pid="$(cdp_pid)"; then
+        note "already running (pid $pid)."
+        cdp_endpoints
+        return 0
+    fi
+
+    mkdir -p "$CDP_DIR"
+    # A fresh profile every time: a browser started for a test should never
+    # inherit the cookies, storage or crash state of the last one.
+    rm -rf "$(cdp_profile)"
+    mkdir -p "$(cdp_profile)"
+
+    local -a flags=()
+    mapfile -t flags < <(base_flags)
+    # Loopback only, on purpose: a DevTools port is remote control of the
+    # browser, with no authentication in front of it.
+    flags+=("--user-data-dir=$(cdp_profile)"
+            "--remote-debugging-port=$PORT"
+            --remote-debugging-address=127.0.0.1
+            --remote-allow-origins=http://127.0.0.1)
+    [[ "$NO_SANDBOX" == true ]] && flags+=(--no-sandbox)
+
+    launch() {
+        nohup "$bin" "${flags[@]}" "${EXTRA[@]}" about:blank \
+            >"$(cdp_log)" 2>&1 &
+        printf '%s\n' "$!" > "$(cdp_pidfile)"
+    }
+
+    # Up to 20s, and it gives up early if Chrome has died — no point waiting
+    # out the clock for a process that is gone.
+    ready() {
+        local i
+        for i in $(seq 1 80); do
+            [[ -n "$(cdp_wsurl)" ]] && return 0
+            cdp_pid >/dev/null || return 1
+            sleep 0.25
+        done
+        return 1
+    }
+
+    started=false
+    launch
+    if ready; then
+        started=true
+    elif [[ "$NO_SANDBOX" == false && "$RETRY_SANDBOX" == true ]] \
+         && grep -qiE 'sandbox|namespace|SUID|clone' "$(cdp_log)" 2>/dev/null; then
+        note "the Chrome sandbox could not start — retrying with --no-sandbox."
+        note "run 'b-chrome doctor' to see why; until then, open only pages you trust."
+        flags+=(--no-sandbox)
+        rm -rf "$(cdp_profile)"; mkdir -p "$(cdp_profile)"
+        launch
+        ready && started=true
+    fi
+
+    if [[ "$started" == false ]]; then
+        cdp_stop >/dev/null 2>&1 || true
+        note "Chrome did not come up — its log:"
+        tail -20 "$(cdp_log)" >&2 2>/dev/null || true
+        return 1
+    fi
+
+    note "headless Chrome is up (pid $(cdp_pid))."
+    cdp_endpoints
+}
+
+cdp_stop() {
+    local pid
+    if ! pid="$(cdp_pid)"; then
+        rm -f "$(cdp_pidfile)"
+        note "not running."
+        return 0
+    fi
+    kill "$pid" 2>/dev/null || true
+    local i
+    for i in $(seq 1 20); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.25
+    done
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$(cdp_pidfile)"
+    note "stopped (pid $pid)."
+}
+
+cdp_status() {
+    local pid
+    if pid="$(cdp_pid)"; then
+        printf 'running  pid %s\n' "$pid"
+        cdp_endpoints
+    else
+        printf 'stopped  (start it with: b-chrome cdp)\n'
+        return 1
+    fi
+}
+
+cmd_cdp() {
+    case "${1:-start}" in
+        start|'') cdp_start ;;
+        stop)     cdp_stop ;;
+        status)   cdp_status ;;
+        *) die "usage: b-chrome cdp [start|stop|status]" ;;
+    esac
+}
+
+# ── doctor ───────────────────────────────────────────────────────────────────
+cmd_doctor() {
+    local bin rc=0
+    if ! bin="$(chrome_bin)"; then
+        printf '✗ Chrome     not on PATH — ./setup.sh only google-chrome\n'
+        return 1
+    fi
+    printf '✓ binary     %s\n' "$bin"
+    printf '  version    %s\n' "$("$bin" --version 2>/dev/null || echo unknown)"
+
+    # Why a sandbox test fails on 24.04 and later: AppArmor restricts user
+    # namespaces, so Chrome needs a profile allowing `userns` for its own path.
+    local restrict
+    restrict="$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)"
+    if [[ "$restrict" == 1 ]]; then
+        # By folder, not exact path: google-chrome-stable is a symlink to a
+        # wrapper, while the profile names the real binary beside it.
+        local dir
+        dir="$(dirname "$(readlink -f "$bin")")"
+        if grep -rqs -- "$dir/" /etc/apparmor.d/; then
+            printf '✓ apparmor   user namespaces restricted, and Chrome has a profile\n'
+        else
+            printf '! apparmor   user namespaces restricted and NO profile names Chrome\n'
+            printf '             the sandbox will not start — re-run: ./setup.sh only google-chrome\n'
+        fi
+    else
+        printf '✓ apparmor   unprivileged user namespaces are not restricted here\n'
+    fi
+
+    # The only test that settles it: run the thing, sandbox on, no fallback.
+    RETRY_SANDBOX=false
+    if one_shot --dump-dom 'data:text/html,<title>ok</title>' >/dev/null 2>&1; then
+        printf '✓ sandbox    a sandboxed headless run works\n'
+    else
+        printf '! sandbox    a sandboxed run FAILED — b-chrome falls back to --no-sandbox\n'
+        printf '             fine for pages you trust; do not browse the open web like that\n'
+        rc=1
+    fi
+    RETRY_SANDBOX=true
+
+    local pid
+    if pid="$(cdp_pid)"; then
+        printf '✓ cdp        running, pid %s, port %s\n' "$pid" "$(cdp_port)"
+    else
+        printf '· cdp        not running (start it with: b-chrome cdp)\n'
+    fi
+
+    printf '· env        CHROME_PATH=%s\n' "${CHROME_PATH:-<unset>}"
+    printf '· env        PUPPETEER_EXECUTABLE_PATH=%s\n' "${PUPPETEER_EXECUTABLE_PATH:-<unset>}"
+    return $rc
+}
+
+# ── arguments ────────────────────────────────────────────────────────────────
+# Options may sit anywhere; everything after `--` is Chrome's, untouched.
+CMD="${1:-help}"
+[[ $# -gt 0 ]] && shift || true
+
+EXTRA=()
+ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --size)  SIZE="${2//x/,}"; shift 2 ;;
+        --wait)  WAIT="$2"; shift 2 ;;
+        --port)  PORT="$2"; shift 2 ;;
+        --timeout) TIMEOUT="$2"; shift 2 ;;
+        --no-sandbox) NO_SANDBOX=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --) shift; EXTRA+=("$@"); break ;;
+        *) ARGS+=("$1"); shift ;;
+    esac
+done
+
+case "$CMD" in
+    shot)          cmd_shot   "${ARGS[@]}" ;;
+    pdf)           cmd_pdf    "${ARGS[@]}" ;;
+    dom)           cmd_dom    "${ARGS[@]}" ;;
+    run)           cmd_run    "${ARGS[@]}" ;;
+    cdp)           cmd_cdp    "${ARGS[@]}" ;;
+    path)          need_bin ;;
+    version)       "$(need_bin)" --version ;;
+    doctor|check)  cmd_doctor ;;
+    help|-h|--help) usage ;;
+    *) usage >&2; die "unknown command: $CMD" ;;
+esac

@@ -1042,9 +1042,10 @@ being hidden, so the list is an honest picture of the machine. Re-installing is 
 no-op; unticking never uninstalls.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
-the list entirely on a server. `docker`, `lazydocker`, `opencode` and `sshd` are
-the exceptions — CLI, scope `all` — so they still appear on a headless box, and
-can be installed there directly:
+the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd` and
+`google-chrome` are the exceptions — CLI, scope `all` — so they still appear on a
+headless box, and can be installed there directly (Chrome is on that list because
+the point of it here is **headless** use, which needs no display at all):
 
 ```bash
 ./setup.sh only docker      # server-friendly, and pulls in lazydocker too
@@ -1094,6 +1095,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
+| `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |
 | `docker` | [Docker's apt repo](https://docs.docker.com/engine/install/ubuntu/) — CLI, no desktop needed |
 | `lazydocker` | [GitHub release binary](https://github.com/jesseduffield/lazydocker) → `~/.local/bin` — CLI, no desktop needed |
@@ -1126,9 +1128,10 @@ Docker 29.x and packages the subcommands separately, so the module just ensures
 daemon for CE would stop every running container, which is your call to make, not
 a setup script's.
 
-It is the one advanced module that doesn't early-exit when already installed: the
-service and group checks are the parts that actually break, both are idempotent,
-and `./setup.sh` runs the module regardless. If `docker-compose` (v1),
+It is one of the two advanced modules that don't early-exit when already
+installed (`google-chrome` is the other): the service and group checks are the
+parts that actually break, both are idempotent, and `./setup.sh` runs the module
+regardless. If `docker-compose` (v1),
 `docker-doc` or `podman-docker` is installed it stops and tells you what to remove
 rather than removing a running daemon for you — they own `/usr/bin/docker` and
 would make the CE unpack fail. If Docker hasn't published your codename yet, it
@@ -1142,6 +1145,90 @@ the upgrade explicitly:
 ```bash
 bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest release
 ```
+
+### Headless Chrome for a coding agent: `b-chrome`
+
+**`google-chrome`** is in the list for one reason: so an agent — `claude`,
+`opencode`, `codex` — can *look at a page* while it works. Start the dev server,
+take a screenshot, read the DOM after the JavaScript has run, drive the browser
+over the DevTools protocol. No window opens, nothing steals focus, and it works
+over ssh and on a server just as well as on the desktop.
+
+The Chrome deb alone does not give you that. The module adds the two pieces it
+leaves out:
+
+- **the sandbox.** `kernel.apparmor_restrict_unprivileged_userns` has been on
+  since Ubuntu 24.04 and is still on in **26.04**, and Chrome's sandbox is built
+  on exactly the unprivileged user namespace that setting forbids. AppArmor
+  allows it again only for a binary a profile names. On stock 26.04 the
+  `apparmor` package already ships `/etc/apparmor.d/chrome`, so the module
+  usually finds the job done and says so; a machine without that file (a
+  container, a stripped image) gets one written here — `userns`,
+  `flags=(unconfined)`: it confines nothing, it only gives Chrome a name
+  AppArmor can grant the namespace to — and loaded. The module reads the
+  **sysctl**, never the release number, so this answers for whatever the machine
+  actually is. Without it every headless run falls back to `--no-sandbox`.
+- **`b-chrome`** ([`chrome-headless/b-chrome`](chrome-headless/b-chrome) in this
+  repo, installed into `~/.local/bin` next to `b-idle`), which is what you and
+  the agent actually call:
+
+```bash
+b-chrome shot http://localhost:3000 /tmp/home.png   # screenshot → prints the path
+b-chrome shot http://localhost:3000 --size 390x844  # phone-sized viewport
+b-chrome dom  http://localhost:3000                 # rendered DOM, to stdout
+b-chrome pdf  file:///tmp/report.html out.pdf       # print to PDF
+b-chrome cdp                                        # background browser + DevTools port
+b-chrome doctor                                     # installed? sandbox working? cdp up?
+b-chrome help
+```
+
+Every one-shot run gets a **throwaway profile**, so it never touches the Chrome
+you browse with and two agents can run at once without fighting over a lock.
+`--wait MS` (default 5000) is how much *page* time scripts get before the DOM is
+read; `--timeout S` (default 60) is the real-world clock that kills a run that
+hangs.
+
+`b-chrome cdp` is the one that stays up: a headless browser with a DevTools port
+bound to **127.0.0.1 only** (that port is unauthenticated remote control of the
+browser), printing exactly what a driver needs:
+
+```
+port  9222
+http  http://127.0.0.1:9222
+ws    ws://127.0.0.1:9222/devtools/browser/04d415c4-…
+stop  b-chrome cdp stop
+```
+
+```js
+await puppeteer.connect({ browserURL: 'http://127.0.0.1:9222' })
+await chromium.connectOverCDP('http://127.0.0.1:9222')          // Playwright
+```
+
+So that those two use **this** Chrome instead of downloading a second copy of it,
+the module appends `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to
+`~/.<shell>/<shell>-alias.local` — machine-local and gitignored, the same file
+`b-temp` lands in. Never over a value you already set, and deleting the line
+undoes it.
+
+If the sandbox still cannot start (a container, a machine where the AppArmor
+profile could not be written), `b-chrome` retries the run with `--no-sandbox` and
+**says so on stderr** rather than failing — an agent stays unblocked, and you are
+told that isolation is gone. `b-chrome doctor` explains which of those two worlds
+you are in.
+
+The apt source it writes is **deb822** (`/etc/apt/sources.list.d/google-chrome.sources`),
+at the exact path Chrome's own postinst manages on 26.04: the package rewrites
+that same file after the install, so the machine keeps one source for the repo
+rather than the duplicate apt complains about at every update. On an older Chrome
+deb, which writes a `.list` of its own instead, the module removes its copy after
+the install for the same reason.
+
+Two things it deliberately does not do: it never becomes your default browser —
+Chrome's deb registers itself as an `x-www-browser` alternative, so the module
+reads `xdg-settings get default-web-browser` before installing and puts the old
+value back if it changed — and it installs nothing on arm64, where Google
+publishes no Linux build (it says so and points at Chromium, which `b-chrome`
+also drives).
 
 ## Shared library
 
