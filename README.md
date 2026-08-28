@@ -755,8 +755,33 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-15. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-16. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+15. **`76-text-editor`** — **which program opens a text file**, in the same two
+   places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
+   it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
+   a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
+   is `text/*`, so both fall through to the catch-all and out to `xdg-open`. And
+   `xdg-open` has no default for those types either, so it falls back to
+   `mimeopen`, which walks up to the parent type `text/plain` and takes the first
+   entry in `mimeinfo.cache` — `okularApplication_txt.desktop`, because Okular
+   claims `text/plain` and sorts first. Tick `okular` for your PDFs and every
+   `.yaml`, `.md`, `.log` and `.conf` on the machine starts opening in a PDF
+   reader. So this module adds one `[open]` rule pointing the text-ish
+   `application/*` types at yazi's `edit` opener, and points `xdg-mime` at a
+   generated `~/.local/share/applications/ble-vim.desktop` for `text/plain`,
+   `text/markdown`, the three yaml spellings, `application/toml`,
+   `application/sql` and `application/x-shellscript`.
+   The desktop file is **generated and not Ubuntu's `vim.desktop`**, because
+   `vim.desktop` is `Terminal=true` and `xdg-open` **ignores that key** — it runs
+   `Exec` as-is, so vim would land on whatever stdout it was handed instead of a
+   window. Ours is `alacritty -e vim %F` (`x-terminal-emulator -e vim %F` when
+   Alacritty is absent), `NoDisplay=true` so it stays out of the app menu next to
+   Ubuntu's own Vim entry. It shares the `[open] prepend_rules` array with
+   `57-image-viewer` and `75-pdf-viewer` the same way those two share it, and
+   leaves a hand-written `[open]` block alone with the line to add printed
+   instead. On a **server** the yazi half still runs and the `xdg-mime` half is
+   skipped — there is nothing to open a window with.
+16. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+17. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -1090,7 +1115,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | --- | --- |
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
-| `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run |
+| `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) |
