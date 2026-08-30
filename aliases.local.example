@@ -16,7 +16,7 @@
 # ~/.zsh/zsh-alias.local or ~/.bash/bash-alias.local, which stay per-machine.
 #
 # Names already taken by the shell config repos, so not re-used here: v, r, ta,
-# tn, calc, lz, ld, gs, gp, b-temp, b-idle, b-reload.
+# tn, calc, lz, ld, gs, gp, b-temp, b-idle, b-reload, fn.
 
 
 # ── Listing ──────────────────────────────────────────────────────────────────
