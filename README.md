@@ -434,9 +434,9 @@ which i3's `include ~/.i3rc/*.local` reads after it. A `set $agent` you put in
 
 Every generated `.local` this repo drops into `~/.i3rc/` follows the same rule,
 and the numbers are the whole ordering contract: `05-agent.local`,
-`06-colors.local` and `07-image-viewer.local` are read after `config`, so a
+`06-colors.local`, `07-image-viewer.local` and `08-video-player.local` are read after `config`, so a
 `for_window` in one of them overrides the catch-all that floats and borders
-every window; `config.local` is read after all three, so a hand-written line
+every window; `config.local` is read after all four, so a hand-written line
 there still wins; and `90-tiling-mode.local` — written by the i3 repo's own
 `desktop_mode.sh`, not by anything here — sorts last of all, which is what lets
 the tiling desktop undo the floating rules without any of these files knowing.
@@ -707,8 +707,23 @@ repos install into it, and fonts before the tools that render them. Items marked
    PDFs are the same idea, one module along: [`75-pdf-viewer`](#what-the-necessary-tier-installs)
    owns `[opener] pdf` and the `application/pdf` rule, and inserts that rule into
    the `prepend_rules` array this module writes.
-12. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-13. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+12. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
+   have to agree on which program plays a video. It owns yazi's `[opener] video`
+   key (Enter on a video → `vlc -- %s`, `orphan = true`, `%s` so a
+   multi-selection becomes one playlist) and inserts a `{ mime = "video/*", use =
+   "video" }` line into the shared `[open] prepend_rules` array, the way
+   `75-pdf-viewer` does. Without it yazi's own preset sends a video to
+   `xdg-open`, and `xdg-open` has no default for video types, so it walks
+   `mimeinfo.cache` and hands the file to whichever browser registered last —
+   which is why an `.mp4` used to open in Firefox. It writes
+   `~/.i3rc/08-video-player.local` — `for_window [class="(?i)^vlc$"] border
+   pixel 1` — for the reasons under `57-image-viewer`, and points `xdg-mime` at
+   `vlc.desktop` for the common video types (`mp4`, `mkv`, `webm`, `mov`,
+   `avi`, `mpeg`, `flv`, `wmv`, `3gp`, `ogv`, `m4v`). Audio is left alone.
+   A `video` opener or an `[open]` block this repo did not write is left as it
+   is, with the line to add printed instead.
+13. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+14. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -725,7 +740,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-14. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+15. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
    places that have to agree on it: yazi's Enter and `xdg-open`. It installs
    nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
    not**, because Okular is a `secondary` app — the repo wants it, and still has
@@ -755,7 +770,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-15. **`76-text-editor`** — **which program opens a text file**, in the same two
+16. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -780,8 +795,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-16. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-17. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+17. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+18. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
