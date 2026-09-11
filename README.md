@@ -927,7 +927,7 @@ you picked — so a zsh machine would never have got it. One copy, every machine
 | Headless, or no X at all | **10 min**, counted from the first check after boot |
 | Someone was on ssh | never while connected, then **10 min** after the last one left |
 | Media playing | never, for as long as it plays |
-| An agent or a tmux job that is printing | never, until it has been quiet 20 min |
+| An agent that is busy, or a tmux job that is printing | never, until it has been quiet 20 min |
 | Less than 15 min since boot | never — you were probably about to log in |
 
 The waiting time is **not one number**: it comes from what was last happening on
@@ -950,7 +950,10 @@ And it will not power off **at all** while:
   that has been quiet for hours still counts as in use, so a box you left a
   build running on cannot power off underneath you. Connections are found
   through logind, and the ssh sockets themselves for the ones that open no
-  session — so a non-standard ssh port needs no configuration. Set
+  session — so a non-standard ssh port needs no configuration. A session you
+  logged out of but that left a process behind (a tmux server, a `nohup` job)
+  stays listed by logind as `closing`; that is not a connection, and what it
+  left behind is judged by the agent and tmux rules instead. Set
   `BLOCK_ON_SSH=false` on a machine something keeps a permanent ssh link to;
 - **for 10 minutes after the last ssh connection closed** (`SSH_GRACE_MINUTES`).
   A desktop or a login screen counts its idle time in X, and logging out of ssh
@@ -963,19 +966,24 @@ And it will not power off **at all** while:
   drop it to `IDLE` within a second of the audio stopping. Players that mute
   themselves are caught by the freedesktop *idle* inhibitor they take out
   instead (`mpv`, VLC, a browser playing fullscreen video);
-- **a coding agent is running and has printed something in the last 20 min**
+- **a coding agent is running and has been busy in the last 20 min**
   (`BLOCK_ON_AGENT`, `AGENT_SILENT_MINUTES`) — `claude`, `opencode`, `codex` and
   friends, matched by process name. This is the one case the load average
-  provably cannot catch: an agent waiting on its API uses no CPU at all, for
+  provably cannot catch: an agent waiting on its API uses almost no CPU, for
   minutes at a time, and powering the machine off under it throws the work away.
-  The silence half matters just as much in the other direction: an agent sitting
+  The idle half matters just as much in the other direction: an agent sitting
   at a prompt waiting for *you* is not working, and should not keep the machine
-  up all night. Set `AGENT_SILENT_MINUTES=0` to go back to "any running agent
-  blocks for ever";
+  up all night. Busy is measured in CPU, not in printing, because a full-screen
+  agent repaints its prompt for ever: every check compares the process's CPU
+  time with the previous check, and a minute at or above `AGENT_BUSY_PERCENT`
+  (3% of one core) restarts the 20-minute clock. An agent at its prompt sits
+  at 1-2%; one streaming an answer or running a tool sits far above. Set
+  `AGENT_SILENT_MINUTES=0` to go back to "any running agent blocks for ever";
 - **a tmux pane is running something that is not a shell, and printing**
   (`BLOCK_ON_MUX`, `MUX_SILENT_MINUTES`) — the long job you left in a detached
   window. An idle prompt does not count, and neither does a job that has gone
-  silent for 20 minutes;
+  silent for 20 minutes. A pane running one of the agents above is left to the
+  agent rule, which knows repainting is not working;
 - **the machine booted less than 15 minutes ago** (`MIN_UPTIME_MINUTES`). These
   boxes are woken by Wake-on-LAN and by the BIOS after a blackout; a headless
   wake that powered off again before you could connect would leave you with a
@@ -998,10 +1006,10 @@ coding agent. `tmux` hands us each pane's tty directly; for a bare process we as
 
 Two honest limits:
 
-- **A full-screen program that redraws is never silent.** An agent that repaints
-  a status bar or a spinner keeps stamping its tty whether it is thinking or
-  waiting for you, so the expiry never fires for it. `b-idle` shows you which
-  kind yours is.
+- **A full-screen program that redraws is never silent.** A program that repaints
+  a status bar or a spinner keeps stamping its tty whether it is working or
+  waiting for you, so for a tmux pane the expiry never fires for it. The agents
+  in `AGENTS` are the known offenders, and they are judged by CPU instead.
 - **A job with no terminal at all** — output piped to a file, or started as a
   service — cannot be judged this way, so it counts as *in use*. Powering off
   underneath it is the worse mistake.

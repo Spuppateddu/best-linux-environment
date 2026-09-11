@@ -93,6 +93,10 @@ else
 fi
 
 U256="$BLE_PROMPT_COLOR_USER"; P256="$BLE_PROMPT_COLOR_PATH"
+# Computed once, unconditionally: section 4 wants it only when Alacritty is
+# cloned, but the shell blocks below want it on every machine, headless ones
+# included — that's what lets a machine's own colour ride an SSH session.
+CURSOR_HEX="$(color_hex "$BLE_CURSOR_COLOR")"
 U8="$(color_fallback8 "$U256")"; P8="$(color_fallback8 "$P256")"
 UZ="$(color_zsh_name "$U8")";    PZ="$(color_zsh_name "$P8")"
 
@@ -141,11 +145,28 @@ if [[ $- == *i* ]]; then
             PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
             ;;
     esac
+
+    # OSC 12: paint the terminal cursor in THIS machine's colour for the length
+    # of the SSH session, so you can tell which box you are on by the cursor
+    # alone. OSC 112 on exit puts it back to the terminal's own default — which
+    # is the local machine's colour, already painted by Alacritty's config —
+    # so a box with no best-linux-environment never sends anything and the
+    # cursor just stays whatever the local machine set. Nested SSH resets to
+    # that same local default rather than the previous hop's colour.
+    if [[ -n "$SSH_CLIENT" || -n "$SSH2_CLIENT" ]]; then
+        case "$TERM" in
+            xterm*|rxvt*|alacritty*|tmux*|screen*)
+                printf '\e]12;#@CURSOR_HEX@\a'
+                trap 'printf "\e]112\a"' EXIT
+                ;;
+        esac
+    fi
 fi
 BASH_BLOCK
 )"
     b="${b//@U256@/$U256}"; b="${b//@P256@/$P256}"
     b="${b//@U8@/$U8}";     b="${b//@P8@/$P8}"
+    b="${b//@CURSOR_HEX@/$CURSOR_HEX}"
     printf '%s\n' "$b"
 }
 
@@ -197,11 +218,28 @@ if [[ -o interactive ]]; then
 ╰─${pr_op} "
     RPROMPT="%(?..%F{red}%? ↵%f)"
   }
+
+  # OSC 12: paint the terminal cursor in THIS machine's colour for the length
+  # of the SSH session, so you can tell which box you are on by the cursor
+  # alone. OSC 112 on exit puts it back to the terminal's own default — which
+  # is the local machine's colour, already painted by Alacritty's config —
+  # so a box with no best-linux-environment never sends anything and the
+  # cursor just stays whatever the local machine set. Nested SSH resets to
+  # that same local default rather than the previous hop's colour.
+  if [[ -n "$SSH_CLIENT" || -n "$SSH2_CLIENT" ]]; then
+    case "$TERM" in
+      xterm*|rxvt*|alacritty*|tmux*|screen*)
+        printf '\e]12;#@CURSOR_HEX@\a'
+        trap 'printf "\e]112\a"' EXIT
+        ;;
+    esac
+  fi
 fi
 ZSH_BLOCK
 )"
     b="${b//@U256@/$U256}"; b="${b//@P256@/$P256}"
     b="${b//@UZ@/$UZ}";     b="${b//@PZ@/$PZ}"
+    b="${b//@CURSOR_HEX@/$CURSOR_HEX}"
     printf '%s\n' "$b"
 }
 
@@ -349,7 +387,6 @@ ALA="$HOME/.alacritty"
 if [[ ! -d "$ALA" ]]; then
     skip "${ALA/#$HOME/\~} not cloned yet — no terminal cursor to colour (./setup.sh clones it)."
 elif hooked "$ALA/alacritty.toml" "colors.local.toml"; then
-    cursor_hex="$(color_hex "$BLE_CURSOR_COLOR")"
     write_gen "$ALA/colors.local.toml" <<EOF
 # Written by best-linux-environment — settings.local, BLE_CURSOR_COLOR.
 # Do NOT edit: every run rewrites it. Change the colour in
@@ -358,7 +395,7 @@ elif hooked "$ALA/alacritty.toml" "colors.local.toml"; then
 # Imported after ~/.cache/alacritty-theme.toml, so \$mod+Shift+t can keep
 # swapping dark and light without taking this colour with it.
 [colors.cursor]
-cursor = '0x$cursor_hex'
+cursor = '0x$CURSOR_HEX'
 # The character the block sits on. Kept dark rather than left to Alacritty's
 # default: every colour in the palette is a bright one, so dark always reads.
 text = '0x1d2021'
