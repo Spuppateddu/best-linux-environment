@@ -42,7 +42,10 @@ BLE_AGENT_DESK=~/agent-desk
 #
 #   BLE_PROMPT_COLOR_USER   `user@host` in the prompt, in zsh and bash alike
 #   BLE_PROMPT_COLOR_PATH   the current folder in the prompt
-#   BLE_CURSOR_COLOR        the block cursor in the terminal
+#   BLE_CURSOR_COLOR        the block cursor in the terminal — also sent over
+#                           SSH via OSC 12, so the cursor shows whichever
+#                           machine's colour you are logged into (falls back
+#                           to your local colour on a box without this repo)
 #   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3
 #
 # The two prompt colours must differ, and are rolled so they differ in HUE and

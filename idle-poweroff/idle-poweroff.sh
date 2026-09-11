@@ -7,9 +7,9 @@ usage() {
 idle-poweroff — powers the machine off once nobody is using it.
 
 Waits 1 h at an unlocked desktop, 10 min with the screen locked or no screen at
-all. Never while an ssh client is connected, media is playing, a coding agent or
-a tmux job is printing, or the load is high — nor for 10 min after the last ssh
-client left. Warns first, then acts.
+all. Never while an ssh client is connected, media is playing, a coding agent is
+busy, a tmux job is printing, or the load is high — nor for 10 min after the
+last ssh client left. Warns first, then acts.
 
 Usage: idle-poweroff [--status|--dry-run]   Settings: /etc/idle-poweroff.conf
 EOF
@@ -49,9 +49,12 @@ BLOCK_ON_MEDIA=true
 # API sits at 0.00 for minutes at a time and still must not be interrupted.
 BLOCK_ON_AGENT=true
 AGENTS="claude opencode codex aider crush goose"
-# An agent silent this long is waiting for YOU, not working, so it stops
+# An agent idle this long is waiting for YOU, not working, so it stops
 # holding the machine up. 0 turns the expiry off; any agent then blocks.
 AGENT_SILENT_MINUTES=20
+# "Working" is CPU, not printing: a full-screen agent repaints its prompt for
+# ever, at one or two percent of a core; one streaming an answer sits far above.
+AGENT_BUSY_PERCENT=3
 # And so does tmux or screen — attached, or with a pane running something that
 # is not just a shell prompt waiting for you.
 BLOCK_ON_MUX=true
@@ -104,10 +107,11 @@ log() {
 }
 # Write NOW into a state file, or nothing. Only root can write there, and bash
 # prints redirection errors itself, so 2>/dev/null on the printf never helps.
-stamp() {
+stamp() { stamp_text "$1" "$NOW"; }
+stamp_text() {
     mkdir -p "$STATE_DIR" 2>/dev/null || return 0
     [ -w "$STATE_DIR" ] || return 0
-    printf '%s\n' "$NOW" > "$1" 2>/dev/null || true
+    printf '%s\n' "$2" > "$1" 2>/dev/null || true
 }
 human() {
     local s=$1
@@ -182,6 +186,11 @@ ssh_connected() {
             [ -n "$sid" ] || continue
             [ "$(loginctl show-session "$sid" -p Remote --value 2>/dev/null)" = yes ] \
                 || continue
+            # `closing`: the client logged out, but something it started (a tmux
+            # server) is still alive. Nobody is connected; tmux is judged below.
+            case "$(loginctl show-session "$sid" -p State --value 2>/dev/null)" in
+                active|online) ;; *) continue ;;
+            esac
             user=$(loginctl show-session "$sid" -p Name --value 2>/dev/null)
             host=$(loginctl show-session "$sid" -p RemoteHost --value 2>/dev/null)
             printf '%s@%s, session %s\n' "${user:-?}" "${host:-remote}" "$sid"
@@ -273,30 +282,59 @@ media_playing() {
 }
 
 # A coding agent at work — the one thing MAX_LOAD cannot catch, since an agent
-# blocked on an HTTP response uses no CPU at all for minutes at a time.
+# blocked on an HTTP response uses no CPU at all for minutes at a time. Judged
+# by CPU, not by printing: a full-screen agent repaints its status line whether
+# it is thinking or waiting for you, so its terminal is never silent.
+# Per-process history lives in /run: "cpu-ticks when last-busy".
+HZ=$(getconf CLK_TCK 2>/dev/null)
+case "$HZ" in ''|*[!0-9]*) HZ=100 ;; esac
 agent_running() {
     [ "$BLOCK_ON_AGENT" = true ] || return 1
-    local name pid tty silent
+    local name pid ticks f prev_ticks prev_ts busy_ts pct idle seen=""
     for name in $AGENTS; do
         # -x so `claude` matches the agent and not `claude-notes.md` in an editor.
         while read -r pid; do
             [ -n "$pid" ] || continue
+            seen="$seen $pid"
             if [ "$AGENT_SILENT_SECS" -le 0 ]; then
                 printf '%s is running\n' "$name"
                 return 0
             fi
-            tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
-            if ! silent=$(tty_silent_secs "$tty"); then
-                # Nothing to watch — output piped to a file, or a service. We
-                # cannot tell working from parked, so we leave it alone.
-                printf '%s is running with no terminal to watch\n' "$name"
-                return 0
+            # Own time plus that of children already reaped, so a tool that ran
+            # for minutes lands as a burst the moment it exits.
+            ticks=$(awk '{ print $14 + $15 + $16 + $17 }' "/proc/$pid/stat" 2>/dev/null)
+            case "$ticks" in ''|*[!0-9]*) continue ;; esac   # gone since pgrep
+            f="$STATE_DIR/agent-$pid"
+            prev_ticks=""; prev_ts=""; busy_ts=""
+            [ -r "$f" ] && read -r prev_ticks prev_ts busy_ts < "$f"
+            case "$prev_ticks:$prev_ts:$busy_ts" in
+                *[!0-9:]*|*::*|:*|*:) prev_ticks="" ;;
+            esac
+            if [ -z "$prev_ticks" ]; then
+                # First sight: nothing to compare with, so assume it is working.
+                busy_ts=$NOW
+                pct="?"
+            else
+                pct=$(awk -v t="$ticks" -v pt="$prev_ticks" -v n="$NOW" -v pn="$prev_ts" \
+                    -v hz="$HZ" 'BEGIN { d = n - pn; if (d < 1) d = 1
+                                         printf "%.1f", (t - pt) * 100 / hz / d }')
+                if awk -v p="$pct" -v m="$AGENT_BUSY_PERCENT" 'BEGIN { exit !(p >= m) }'; then
+                    busy_ts=$NOW
+                fi
             fi
-            if [ "$silent" -lt "$AGENT_SILENT_SECS" ]; then
-                printf '%s printed something %s ago\n' "$name" "$(human "$silent")"
+            stamp_text "$f" "$ticks $NOW $busy_ts"
+            idle=$(( NOW - busy_ts ))
+            [ "$idle" -lt 0 ] && idle=0
+            if [ "$idle" -lt "$AGENT_SILENT_SECS" ]; then
+                printf '%s was busy %s ago, %s%% cpu now\n' "$name" "$(human "$idle")" "$pct"
                 return 0
             fi
         done < <(pgrep -x "$name" 2>/dev/null)
+    done
+    # History of agents that have exited.
+    for f in "$STATE_DIR"/agent-*; do
+        [ -e "$f" ] || continue
+        case " $seen " in *" ${f##*/agent-} "*) ;; *) rm -f "$f" 2>/dev/null ;; esac
     done
     return 1
 }
@@ -315,6 +353,8 @@ mux_active() {
                 [ -n "$pcmd" ] || continue
                 # An idle prompt is a window you forgot, not work in progress.
                 case " $MUX_IDLE_SHELLS " in *" $pcmd "*) continue ;; esac
+                # An agent repaints for ever; agent_running judges it by CPU.
+                case " $AGENTS " in *" $pcmd "*) continue ;; esac
                 if [ "$MUX_SILENT_SECS" -gt 0 ]; then
                     silent=$(tty_silent_secs "$ptty") || silent=0
                     [ "$silent" -lt "$MUX_SILENT_SECS" ] || continue
