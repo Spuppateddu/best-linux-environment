@@ -458,6 +458,8 @@ every window; `config.local` is read after all four, so a hand-written line
 there still wins; and `90-tiling-mode.local` — written by the i3 repo's own
 `desktop_mode.sh`, not by anything here — sorts last of all, which is what lets
 the tiling desktop undo the floating rules without any of these files knowing.
+The same script's `00-tiling-border.local` (the thinner tiled border) sorts
+first of all for the mirror reason: every per-app border above still beats it.
 
 ## Font sizes per machine: `fonts.local`
 
