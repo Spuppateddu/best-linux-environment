@@ -47,7 +47,8 @@ BLE_AGENT_DESK=~/agent-desk
 #                           machine's colour you are logged into (falls back
 #                           to your local colour on a box without this repo)
 #   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3
-#   BLE_I3_UNFOCUSED_COLOR  every other window's border and title bar in i3
+#   BLE_I3_UNFOCUSED_COLOR  every other window's border and title bar in i3,
+#                           in the floating desktop — tiled, they stay grey
 #
 # The two prompt colours must differ, and are rolled so they differ in HUE and
 # not merely in number — telling the machine from the path is the point of

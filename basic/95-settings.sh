@@ -299,7 +299,7 @@ i3_agent_file() {
 }
 
 # What ~/.i3rc/06-colors.local holds, on stdout: focused and unfocused windows
-# in the two rolled colours. Different hues, so the focused one still stands out.
+# in the two rolled colours. Tiling mode greys the unfocused ones back (90- wins).
 i3_colors_file() {
     local hex unhex text untext
     hex="#$(color_hex "$BLE_I3_BORDER_COLOR")";      text="#$(color_text_on "$BLE_I3_BORDER_COLOR")"

@@ -335,7 +335,7 @@ never the run.
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
 | `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
-| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
+| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -383,7 +383,7 @@ Five surfaces, one palette of twenty xterm-256 colours across six families:
 | `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
 | `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
 | `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator | the **focused** class |
-| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance |
+| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
 
 The two prompt colours can never come out the same. They cannot even come out
 the same *hue*: the roll refuses a second colour whose nearest ANSI colour
@@ -457,7 +457,8 @@ and the numbers are the whole ordering contract: `05-agent.local`,
 every window; `config.local` is read after all four, so a hand-written line
 there still wins; and `90-tiling-mode.local` — written by the i3 repo's own
 `desktop_mode.sh`, not by anything here — sorts last of all, which is what lets
-the tiling desktop undo the floating rules without any of these files knowing.
+the tiling desktop undo the floating rules without any of these files knowing,
+and grey the unfocused windows over `06-colors.local` the same way.
 The same script's `00-tiling-border.local` (the thinner tiled border) sorts
 first of all for the mirror reason: every per-app border above still beats it.
 
