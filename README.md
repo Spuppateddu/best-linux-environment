@@ -64,10 +64,13 @@ of yes/no prompts you have to sit through. A run goes:
    call. Not asked about.
 2. **Every question, together** — starting with the shell (zsh or bash), then two
    checkbox lists (your config repos, then the extra apps), plus vim's language
-   support and Firefox's add-ons as two more, instead of a prompt each.
+   support and Firefox's add-ons as two more, instead of a prompt each. Then
+   whether to keep your rolled colours or roll them all again.
 3. **Install** — from here nothing stops to ask. The answers are already in hand,
    including the ones the config repos' own installers would have wanted.
-4. **Result** — what went in, what failed, what you ticked that still isn't there.
+4. **Result** — what went in, what failed, what you ticked that still isn't
+   there, and your five colours, each with a swatch, so what was rolled is on
+   screen and not only in a file.
 
 The shell comes first, because every list after it depends on the answer. It is
 the one question here with exactly one answer, so it is the one list you cannot
@@ -332,6 +335,7 @@ never the run.
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
 | `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
+| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -357,12 +361,13 @@ it:
 
 ```
 # Rolled by best-linux-environment on 2026-08-25, once. Delete a line below to get a
-# new colour for that one surface; edit it to keep the colour for good (0-255,
-# and the two prompt colours must differ).
+# new colour for that one surface; edit it to keep the colour for good (0-255;
+# the two prompt colours must differ, and so must the two i3 ones).
 BLE_PROMPT_COLOR_USER=141   # violet — user@host in the prompt
 BLE_PROMPT_COLOR_PATH=48    # spring green — the current folder in the prompt
-BLE_CURSOR_COLOR=214        # amber — the terminal cursor
 BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3
+BLE_I3_UNFOCUSED_COLOR=172  # orange — the unfocused windows in i3
+BLE_CURSOR_COLOR=214        # amber — the terminal cursor
 ```
 
 Written back down, so each is rolled **once** and never again: a desktop that
@@ -370,20 +375,33 @@ changed colour every time you installed something would be a bug, not a feature.
 Every PC ends up with its own set, which is the point — a glance at the prompt,
 the cursor or the window you are typing in tells you which machine you are on.
 
-Four surfaces, one palette of twenty xterm-256 colours across six families:
+Five surfaces, one palette of twenty xterm-256 colours across six families:
 
 | Key | What it paints | How you see it |
 | --- | --- | --- |
 | `BLE_PROMPT_COLOR_USER` | `user@host` in the prompt | zsh and bash alike |
 | `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
 | `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
-| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator | only the **focused** class, so "which window has the keyboard" reads at a glance |
+| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator | the **focused** class |
+| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance |
 
 The two prompt colours can never come out the same. They cannot even come out
 the same *hue*: the roll refuses a second colour whose nearest ANSI colour
-matches the first, so you never get two greens two shades apart. The other two
-have no such rule — they land on surfaces of their own, with nothing to be
-different from. Delete a line to roll that one again; set it by hand to keep it.
+matches the first, so you never get two greens two shades apart. The two i3
+colours follow the same rule, for the same reason. The cursor has no such rule —
+it lands on a surface of its own, with nothing to be different from. Delete a
+line to roll that one again; set it by hand to keep it.
+
+**Rolling them all again.** `./setup.sh` asks, once it has something to keep:
+*keep them* (the default) or *roll them all again*. The second answer deletes
+every colour line from `settings.local` — the ones you set by hand too — and the
+same run rolls five new ones and writes them back. Nothing else in the file is
+touched. Either way the run ends by listing all five, swatch and name, under
+**4/4 Result**.
+
+The title-bar text picks itself from the colour under it: white on a dark
+colour, near-black on a light one. So a number you set by hand outside the
+palette — a `17` navy, a `236` grey — still gets a title you can read.
 
 **The cursor and the theme toggle.** `$mod+Shift+t` runs
 `~/.i3rc/scripts/theme.sh`, which rewrites `~/.cache/alacritty-theme.toml` from
@@ -393,11 +411,11 @@ wins. The toggle keeps owning dark and light; your rolled cursor colour rides
 over both. That import line lives in the Alacritty repo, and `95-settings.sh`
 warns instead of writing the file when it is missing — one owner per file.
 
-**The i3 window colour** goes to `~/.i3rc/06-colors.local`, picked up by that
+**The i3 window colours** go to `~/.i3rc/06-colors.local`, picked up by that
 repo's `include ~/.i3rc/*.local`. `06-` sorts after the `05-` files and before
-`config.local`, so a `client.focused` line you put in `config.local` by hand
-still wins — and the run tells you when there is one, because otherwise
-`settings.local` looks broken.
+`config.local`, so a `client.focused` or `client.unfocused` line you put in
+`config.local` by hand still wins — and the run tells you when there is one,
+because otherwise `settings.local` looks broken.
 
 Both shells get the same pair and the same shape they had before. zsh keeps the
 two-line `gnzh` prompt Oh My Zsh draws — the git branch, the virtualenv, the

@@ -21,7 +21,7 @@ BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
 BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
-    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR
+    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 )
 
 # Every key above that holds an xterm-256 colour. Validated together, rolled
@@ -29,13 +29,23 @@ BLE_SETTING_KEYS=(
 # to a new surface is one line here and one write in basic/95-settings.sh.
 BLE_COLOR_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
-    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR
+    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
+)
+
+# What each colour paints, for the comment written beside it in settings.local
+# and for the list printed at the end of a run. One line per key above.
+declare -A BLE_COLOR_WHAT=(
+    [BLE_PROMPT_COLOR_USER]="user@host in the prompt"
+    [BLE_PROMPT_COLOR_PATH]="the current folder in the prompt"
+    [BLE_CURSOR_COLOR]="the terminal cursor"
+    [BLE_I3_BORDER_COLOR]="the focused window in i3"
+    [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3"
 )
 
 BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
-BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""
+BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -111,6 +121,14 @@ settings_validate() {
         warn "settings.local: both prompt colours are $BLE_PROMPT_COLOR_USER — they must differ."
         warn "Dropping BLE_PROMPT_COLOR_PATH; a new one is rolled for you."
         BLE_PROMPT_COLOR_PATH=""
+    fi
+
+    # Same rule for the two i3 classes: painted alike, no window would tell you
+    # which one has the keyboard, and that is the only reason they are coloured.
+    if [[ -n "$BLE_I3_BORDER_COLOR" && "$BLE_I3_BORDER_COLOR" == "$BLE_I3_UNFOCUSED_COLOR" ]]; then
+        warn "settings.local: both i3 window colours are $BLE_I3_BORDER_COLOR — they must differ."
+        warn "Dropping BLE_I3_UNFOCUSED_COLOR; a new one is rolled for you."
+        BLE_I3_UNFOCUSED_COLOR=""
     fi
 
     # i3 starts the agent with no shell, so ~ is ours to expand, and a relative
@@ -222,6 +240,53 @@ color_hex() {
     printf '%02x%02x%02x' "$r" "$g" "$b"
 }
 
+# color_text_on N  — rrggbb for text painted ON colour N: white on a dark one,
+# near-black on a light one. Perceived brightness 0-255, 128 is the middle.
+color_text_on() {
+    local hex r g b lum
+    hex="$(color_hex "$1")"
+    r=$(( 16#${hex:0:2} )); g=$(( 16#${hex:2:2} )); b=$(( 16#${hex:4:2} ))
+    lum=$(( (299 * r + 587 * g + 114 * b) / 1000 ))
+    if (( lum < 128 )); then printf 'ffffff'; else printf '1d2021'; fi
+}
+
+# color_swatch N  — a block painted in colour N, for a terminal that has colours;
+# nothing on one that has not, so a log file does not fill with escapes.
+color_swatch() {
+    [[ -n "$C_OFF" ]] || return 0
+    printf '\033[48;5;%sm    \033[0m' "$1"
+}
+
+# settings_show_colors  — every colour, one per line, with its swatch, number,
+# name and surface. What the end of a run prints so you can see what you got.
+settings_show_colors() {
+    local k
+    for k in "${BLE_COLOR_KEYS[@]}"; do
+        [[ -n "${!k}" ]] || continue
+        printf '  %s %s%3s  %-13s %s%s\n' "$(color_swatch "${!k}")" "$C_DIM" \
+            "${!k}" "$(color_name "${!k}")" "${BLE_COLOR_WHAT[$k]}" "$C_OFF"
+    done
+}
+
+# settings_forget_colors  — drop every KEY= colour line (pinned ones too) and
+# every "# Rolled by …" comment block from settings.local; nothing else moves.
+settings_forget_colors() {
+    local k keys="" tmp
+    [[ -f "$BLE_SETTINGS_LOCAL" ]] || return 0
+    for k in "${BLE_COLOR_KEYS[@]}"; do keys+="${keys:+|}$k"; done
+    tmp="$(mktemp)"
+    awk -v keys="^[[:space:]]*($keys)[[:space:]]*=" '
+        /^# Rolled by best-linux-environment on / { skip = 1; next }
+        skip && /^#/ { next }
+        { skip = 0 }
+        $0 ~ keys { next }
+        /^[[:space:]]*$/ { if (blank) next; blank = 1; print; next }
+        { blank = 0; print }
+    ' "$BLE_SETTINGS_LOCAL" > "$tmp" && cat "$tmp" > "$BLE_SETTINGS_LOCAL"
+    rm -f "$tmp"
+    for k in "${BLE_COLOR_KEYS[@]}"; do printf -v "$k" '%s' ""; done
+}
+
 # roll_color KEY  — one colour out of the palette for KEY, when KEY has none yet.
 # No pairing rule, unlike the prompt below: these land one to a surface, so there
 # is nothing for them to have to look different from.
@@ -231,29 +296,27 @@ roll_color() {
     printf -v "$1" '%s' "${BLE_PROMPT_PALETTE[RANDOM % n]}"
 }
 
-# roll_prompt_colors  — pick the two, once. Sets BLE_PROMPT_COLOR_USER and
-# BLE_PROMPT_COLOR_PATH, keeping whichever is already set. The pair must differ
-# in HUE, not only in number: two greens two shades apart read as one colour, and
-# telling the machine from the path is the whole reason for colouring them.
-roll_prompt_colors() {
-    local n="${#BLE_PROMPT_PALETTE[@]}" tries=0 pick
+# roll_color_pair KEY_A KEY_B  — pick two, once, keeping whichever is set. They
+# must differ in HUE, not only in number: two greens two shades apart read as one.
+roll_color_pair() {
+    local a="$1" b="$2" n="${#BLE_PROMPT_PALETTE[@]}" tries=0 pick
 
-    while [[ -z "$BLE_PROMPT_COLOR_USER" ]]; do
-        BLE_PROMPT_COLOR_USER="${BLE_PROMPT_PALETTE[RANDOM % n]}"
+    while [[ -z "${!a}" ]]; do
+        printf -v "$a" '%s' "${BLE_PROMPT_PALETTE[RANDOM % n]}"
     done
 
-    while [[ -z "$BLE_PROMPT_COLOR_PATH" ]]; do
+    while [[ -z "${!b}" ]]; do
         pick="${BLE_PROMPT_PALETTE[RANDOM % n]}"
         tries=$(( tries + 1 ))
         # Same colour: never, at any number of tries.
-        [[ "$pick" == "$BLE_PROMPT_COLOR_USER" ]] && continue
+        [[ "$pick" == "${!a}" ]] && continue
         # Same hue family: refused while there is still room to look. After 50
         # tries take the different number — a pair that differs is the promise.
         if (( tries < 50 )) &&
-           [[ "$(color_fallback8 "$pick")" == "$(color_fallback8 "$BLE_PROMPT_COLOR_USER")" ]]; then
+           [[ "$(color_fallback8 "$pick")" == "$(color_fallback8 "${!a}")" ]]; then
             continue
         fi
-        BLE_PROMPT_COLOR_PATH="$pick"
+        printf -v "$b" '%s' "$pick"
     done
 }
 

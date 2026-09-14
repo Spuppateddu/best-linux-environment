@@ -36,14 +36,16 @@ hooked() {
 # colour goes back into settings.local, and a colour that changed on you at
 # every boot would be a bug rather than a feature.
 #
-# What each one paints, for the comment written beside it and for the report
-# below. Every key in BLE_COLOR_KEYS needs a line here.
-declare -A COLOR_WHAT=(
-    [BLE_PROMPT_COLOR_USER]="user@host in the prompt"
-    [BLE_PROMPT_COLOR_PATH]="the current folder in the prompt"
-    [BLE_CURSOR_COLOR]="the terminal cursor"
-    [BLE_I3_BORDER_COLOR]="the focused window in i3"
-)
+# "Roll again" from ./setup.sh: every colour goes, pinned ones too. Under
+# --dry-run only the values are forgotten, so the preview shows the roll.
+if [[ "${BLE_ROLL_COLORS:-false}" == true ]]; then
+    if [[ "$DRY_RUN" == true ]]; then
+        for k in "${BLE_COLOR_KEYS[@]}"; do printf -v "$k" '%s' ""; done
+    else
+        settings_forget_colors
+    fi
+    step "Rolling every colour again, as asked."
+fi
 
 # Which ones already had a value, taken BEFORE the roll: only a colour that was
 # actually rolled is written back, so one you pinned by hand stays where you put
@@ -51,9 +53,10 @@ declare -A COLOR_WHAT=(
 declare -A HAD=()
 for k in "${BLE_COLOR_KEYS[@]}"; do HAD[$k]="${!k}"; done
 
-roll_prompt_colors                  # the pair — never equal, never the same hue
+# The two pairs — never equal, never the same hue. The cursor stands alone.
+roll_color_pair BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
+roll_color_pair BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 roll_color BLE_CURSOR_COLOR
-roll_color BLE_I3_BORDER_COLOR
 
 ROLLED=()
 for k in "${BLE_COLOR_KEYS[@]}"; do
@@ -63,7 +66,7 @@ done
 if [[ ${#ROLLED[@]} -eq 0 ]]; then
     step "Colours: all ${#BLE_COLOR_KEYS[@]} are yours, from settings.local."
     for k in "${BLE_COLOR_KEYS[@]}"; do
-        printf '%s    %s (%s) — %s%s\n' "$C_DIM" "${!k}" "$(color_name "${!k}")" "${COLOR_WHAT[$k]}" "$C_OFF"
+        printf '%s    %s (%s) — %s%s\n' "$C_DIM" "${!k}" "$(color_name "${!k}")" "${BLE_COLOR_WHAT[$k]}" "$C_OFF"
     done
 elif [[ "$DRY_RUN" == true ]]; then
     # Before the "no file" arm below: under --dry-run the seed above only
@@ -80,14 +83,14 @@ else
     # rewrite a file that is yours.
     {
         printf '\n# Rolled by best-linux-environment on %s, once. Delete a line below to get a\n' "$(date '+%F')"
-        printf '# new colour for that one surface; edit it to keep the colour for good (0-255,\n'
-        printf '# and the two prompt colours must differ).\n'
+        printf '# new colour for that one surface; edit it to keep the colour for good (0-255;\n'
+        printf '# the two prompt colours must differ, and so must the two i3 ones).\n'
         for k in "${ROLLED[@]}"; do
-            printf '%s=%s   # %s — %s\n' "$k" "${!k}" "$(color_name "${!k}")" "${COLOR_WHAT[$k]}"
+            printf '%s=%s   # %s — %s\n' "$k" "${!k}" "$(color_name "${!k}")" "${BLE_COLOR_WHAT[$k]}"
         done
     } >> "$BLE_SETTINGS_LOCAL"
     for k in "${ROLLED[@]}"; do
-        ok "Rolled ${COLOR_WHAT[$k]}: $(color_name "${!k}")."
+        ok "Rolled ${BLE_COLOR_WHAT[$k]}: $(color_name "${!k}")."
     done
     ok "Kept in ${BLE_SETTINGS_LOCAL/#$HOME/\~} — they will not change again."
 fi
@@ -295,21 +298,26 @@ i3_agent_file() {
     return 0
 }
 
-# What ~/.i3rc/06-colors.local holds, on stdout: the focused window, in the
-# colour settings.local rolled for this machine. Only the FOCUSED class — the
-# unfocused ones stay the config's greys, because "which window has the keyboard"
-# is the whole thing this colour is here to say.
+# What ~/.i3rc/06-colors.local holds, on stdout: focused and unfocused windows
+# in the two rolled colours. Different hues, so the focused one still stands out.
 i3_colors_file() {
-    local hex; hex="#$(color_hex "$BLE_I3_BORDER_COLOR")"
-    printf '# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.\n'
+    local hex unhex text untext
+    hex="#$(color_hex "$BLE_I3_BORDER_COLOR")";      text="#$(color_text_on "$BLE_I3_BORDER_COLOR")"
+    unhex="#$(color_hex "$BLE_I3_UNFOCUSED_COLOR")"; untext="#$(color_text_on "$BLE_I3_UNFOCUSED_COLOR")"
+    printf '# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR\n'
+    printf '# and BLE_I3_UNFOCUSED_COLOR.\n'
     printf '# Do NOT edit: every run rewrites it. Change the colour in\n'
     printf '# %s/settings.local, then re-run.\n' "${BLE_ROOT/#$HOME/\~}"
     printf '#\n'
     printf '# Named 06- so config.local, which i3 reads after it, still wins.\n'
     printf '# Fields: border, background, text, indicator, child_border.\n'
-    printf '# The text is the title bar, kept dark on purpose: every colour in the\n'
-    printf '# palette is a bright one, so a dark title always reads on it.\n'
-    printf 'client.focused %s %s #1d2021 %s %s\n' "$hex" "$hex" "$hex" "$hex"
+    printf '# The text is the title bar: white on a dark colour, near-black on a\n'
+    printf '# light one, so the title always reads whatever number you pick.\n'
+    printf 'client.focused          %s %s %s %s %s\n' "$hex" "$hex" "$text" "$hex" "$hex"
+    # focused_inactive: the window that would get the keyboard in a container
+    # you are not in. Not focused, so it takes the unfocused colour.
+    printf 'client.focused_inactive %s %s %s %s %s\n' "$unhex" "$unhex" "$untext" "$unhex" "$unhex"
+    printf 'client.unfocused        %s %s %s %s %s\n' "$unhex" "$unhex" "$untext" "$unhex" "$unhex"
     return 0
 }
 
@@ -404,7 +412,7 @@ EOF
     # to reload here — the cursor changes colour in the windows already open.
 fi
 
-# ── 5. i3: the agent key ($mod+c), and the focused window's colour ───────────
+# ── 5. i3: the agent key ($mod+c), and the window colours ────────────────────
 # 05- so it sorts before config.local, which i3's `include ~/.i3rc/*.local`
 # reads after it: a value you put in config.local by hand still wins.
 I3="$HOME/.i3rc"
@@ -424,8 +432,8 @@ else
         skip "Set one there (BLE_AGENT=claude) rather than in ~/.i3rc/config.local."
     fi
 
-    # The focused window's colour. Always written: the roll above always leaves
-    # BLE_I3_BORDER_COLOR with a value, so there is no "unset" case to drop.
+    # The window colours. Always written: the roll above always leaves both
+    # i3 keys with a value, so there is no "unset" case to drop.
     write_gen "$I3/06-colors.local" <<< "$(i3_colors_file)"
     [[ "$GEN_CHANGED" == true ]] && CHANGED_I3=true
 
@@ -440,11 +448,12 @@ else
             warn "Delete its 'set \$$var …' line to let settings.local decide."
         done
 
-        # Same trap, for the colour: config.local sorts after 06-colors.local.
-        if grep -Eq '^[[:space:]]*client\.focused[[:space:]]' "$I3/config.local"; then
-            warn "~/.i3rc/config.local also sets client.focused — that one wins, and settings.local's colour is ignored."
-            warn "Delete its 'client.focused …' line to let settings.local decide."
-        fi
+        # Same trap, for the colours: config.local sorts after 06-colors.local.
+        for cls in focused focused_inactive unfocused; do
+            grep -Eq "^[[:space:]]*client\.$cls[[:space:]]" "$I3/config.local" || continue
+            warn "~/.i3rc/config.local also sets client.$cls — that one wins, and settings.local's colour is ignored."
+            warn "Delete its 'client.$cls …' line to let settings.local decide."
+        done
     fi
 
     # Made here as well as by the i3 repo's own setup, so the key works on a

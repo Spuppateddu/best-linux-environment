@@ -18,8 +18,9 @@ It goes in this order, and the order is the point:
 
   2. Every question, together, once.  Two checkbox lists — your config repos,
      then the extra applications — plus vim's per-language support as a third
-     list rather than four yes/no prompts. Arrow keys to move, space to tick.
-     Anything already on the machine is shown as such instead of asked about.
+     list rather than four yes/no prompts, and whether to roll your colours
+     again. Arrow keys to move, space to tick. Anything already on the machine
+     is shown as such instead of asked about.
 
   3. Install what you ticked.  From here on nothing stops to ask: the answers
      are already in hand, including the ones the tool repos' own installers
@@ -345,6 +346,20 @@ checklist "Secondary — extra applications" "Nothing else depends on these; lea
 SEC_PICK=()
 while read -r n; do SEC_PICK+=("${SEC_IDX[$n]}"); done < <(chk_picked)
 
+# Your colours: keep them or roll them all again. Asked only when there is
+# something to keep; a first run has no file yet and rolls without asking.
+export BLE_ROLL_COLORS=false
+if [[ -f "$BLE_ROOT/settings.local" ]] &&
+   grep -Eq '^[[:space:]]*BLE_[A-Z0-9_]*_COLOR[[:space:]]*=' "$BLE_ROOT/settings.local"; then
+    chk_reset
+    chk_add "Keep them — the prompt, cursor and i3 colours stay as they are" 1 "current"
+    chk_add "Roll them all again — every colour, the ones you set by hand too" 0 ""
+    radiolist "Colours" \
+        "Rolled once and written to settings.local. Rolling again rewrites every colour line there; the rest of the file is untouched."
+    [[ "$(chk_picked)" == 1 ]] && BLE_ROLL_COLORS=true
+    [[ "$BLE_ROLL_COLORS" == true ]] && step "Colours → rolled again at the end of section 3"
+fi
+
 # The boot cron, asked the same way as everything else and only while it is
 # still a question.
 WANT_CRON=0
@@ -423,6 +438,15 @@ elif [[ ${#MISSING[@]} -gt 0 ]]; then
     warn "Scroll up for the reason (no sudo, no install candidate, a failed download)."
 else
     ok "Everything asked for is installed."
+fi
+
+# The colours as they are now, read again since 95-settings.sh may have just
+# rolled them. Under --dry-run nothing was written, so this is the old set.
+source "$BLE_ROOT/lib/settings.sh"
+if [[ -n "$BLE_PROMPT_COLOR_USER$BLE_PROMPT_COLOR_PATH$BLE_CURSOR_COLOR$BLE_I3_BORDER_COLOR$BLE_I3_UNFOCUSED_COLOR" ]]; then
+    step "Your colours (settings.local — delete a line there and re-run to roll that one, or answer 'roll them all again' next time):"
+    settings_show_colors
+    [[ "$DRY_RUN" == true && "$BLE_ROLL_COLORS" == true ]] && skip "Dry run — these would all have been rolled again."
 fi
 
 finish
