@@ -336,6 +336,8 @@ never the run.
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
 | `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
 | `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
+| `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
+| `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -425,6 +427,35 @@ roll said, because they are warnings rather than style: **root**, and a **host
 you reached over SSH**. On a terminal with no 256-colour palette both fall back
 to the nearest of the eight ANSI colours.
 
+### The title bars
+
+Two bars can sit above a window on this desktop: the one **i3** draws, and the
+one the **app** draws itself. A Firefox window had both. Each has a key, and
+both take `true` or `false` (`yes`/`no`, `on`/`off` and `1`/`0` are read too):
+
+| Key | `false` means | What you lose |
+| --- | --- | --- |
+| `BLE_I3_TITLEBAR` | every window keeps its border but loses the bar with the window name in it — 3px floating, 2px tiled, in both desktops | the bar you grab to move a floating window. `$mod`+left-drag still moves it, and the border is still the mouse resize handle |
+| `BLE_FIREFOX_TITLEBAR` | Firefox puts its tabs up in the title bar instead of drawing a strip above them — its own way of having no title bar | nothing; restart Firefox to see it |
+
+Leave a key out and the app keeps whatever its own repo ships — title bars on.
+
+`BLE_I3_TITLEBAR=false` writes `~/.i3rc/00-no-titlebar.local`, which turns
+`config`'s `border normal 3` into `border pixel 3`: same width, no bar. The name
+puts it **first** of all the `.local` files, so `00-tiling-border.local`, the
+per-app `pixel 1` files and `config.local` are all still read after it. The
+file's *presence* is also the flag the i3 repo's own `desktop_mode.sh` reads —
+that is what keeps the tiling desktop's thinner 2px border *and* drops its
+titles, on every switch, without either repo hard-coding the other's answer.
+Windows already open are swapped over too, because an i3 rule only fires when a
+window is mapped; a per-app border is left alone, matched on its width.
+
+`BLE_FIREFOX_TITLEBAR` lands in `~/.firefox/user.settings.local.js`, a second
+git-ignored prefs file that repo's `install.sh` appends to `user.js` after
+`user.local.js` — the sizes from `fonts.local` in one file, the choices from
+`settings.local` in the other, one owner each. Changing it re-runs that repo's
+installer so the pref reaches the profile.
+
 ### It never edits the config repos
 
 Same rule as the font sizes below, for the same reason: every value is written
@@ -436,7 +467,8 @@ file it belongs beside. The clones in `~/linux-configuration/` stay clean, so
 | --- | --- | --- |
 | zsh | `~/.zsh/zsh-ble.local` | one line appended to `~/.zshrc`, after the config repo's own |
 | bash | `~/.bash/bash-ble.local` | one line appended to `~/.bashrc`, after the config repo's own |
-| i3 | `~/.i3rc/05-agent.local` | the existing `include ~/.i3rc/*.local` |
+| i3 | `~/.i3rc/05-agent.local`, `06-colors.local`, `00-no-titlebar.local` | the existing `include ~/.i3rc/*.local` |
+| Firefox | `~/.firefox/user.settings.local.js` | appended to `user.js` by that repo's `install.sh` |
 
 The shells are wired through `~/.zshrc` / `~/.bashrc` rather than through the
 config repo's alias file, because **last** is the only place a prompt can be set
@@ -451,7 +483,8 @@ which i3's `include ~/.i3rc/*.local` reads after it. A `set $agent` you put in
 `settings.local`, the run warns you and names the line to delete.
 
 Every generated `.local` this repo drops into `~/.i3rc/` follows the same rule,
-and the numbers are the whole ordering contract: `05-agent.local`,
+and the numbers are the whole ordering contract: `00-no-titlebar.local`,
+`05-agent.local`,
 `06-colors.local`, `07-image-viewer.local` and `08-video-player.local` are read after `config`, so a
 `for_window` in one of them overrides the catch-all that floats and borders
 every window; `config.local` is read after all four, so a hand-written line
@@ -460,7 +493,9 @@ there still wins; and `90-tiling-mode.local` — written by the i3 repo's own
 the tiling desktop undo the floating rules without any of these files knowing,
 and grey the unfocused windows over `06-colors.local` the same way.
 The same script's `00-tiling-border.local` (the thinner tiled border) sorts
-first of all for the mirror reason: every per-app border above still beats it.
+first of all for the mirror reason: every per-app border above still beats it —
+bar `00-no-titlebar.local`, which is named to sort before *that* one, so the
+tiled border keeps its own width and only the title bar goes.
 
 ## Font sizes per machine: `fonts.local`
 
@@ -1162,7 +1197,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
-| `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) |
+| `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |

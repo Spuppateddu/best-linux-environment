@@ -58,6 +58,28 @@ BLE_AGENT_DESK=~/agent-desk
 # Title text picks itself: white on a dark colour, near-black on a light one.
 
 
+# ── The title bars ───────────────────────────────────────────────────────────
+# Two bars can sit above a window here: the one i3 draws, and the one the app
+# draws itself. Both can go, and each has its own key.
+#
+#   BLE_I3_TITLEBAR        i3's bar, the one with the window name in it. false
+#                          keeps the border (3px floating, 2px tiled — still
+#                          your mouse resize handle) and drops only the bar, in
+#                          both desktops. You then move a window with
+#                          $mod+left-drag rather than by grabbing the bar.
+#                          Lands in ~/.i3rc/00-no-titlebar.local.
+#   BLE_FIREFOX_TITLEBAR   the strip Firefox draws above its own tabs. false
+#                          puts the tabs up there instead — Firefox's own way
+#                          of having no title bar. Lands in
+#                          ~/.firefox/user.settings.local.js as
+#                          browser.tabs.inTitlebar. Restart Firefox to see it.
+#
+# true on either key puts that bar back; comment the line out and the app keeps
+# whatever its own config repo ships.
+BLE_I3_TITLEBAR=false
+BLE_FIREFOX_TITLEBAR=false
+
+
 # ── The editor ───────────────────────────────────────────────────────────────
 # $EDITOR and $VISUAL in both shells, and git's core.editor.
 BLE_EDITOR=vim

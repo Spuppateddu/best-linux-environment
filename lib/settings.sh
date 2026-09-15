@@ -22,7 +22,12 @@ BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
+    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR
 )
+
+# Every key above that holds a yes/no. Normalised to true/false when the file is
+# read, so a module tests one spelling and you may write any of the usual ones.
+BLE_BOOL_KEYS=(BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR)
 
 # Every key above that holds an xterm-256 colour. Validated together, rolled
 # together, and written back into settings.local together — so adding a colour
@@ -46,6 +51,7 @@ BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
+BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -113,6 +119,19 @@ settings_validate() {
             warn "settings.local: '$k=$v' is not a number 0-255 — ignoring it."
             printf -v "$k" '%s' ""
         fi
+    done
+
+    # A word that is neither yes nor no would land in an i3 border style or a
+    # Firefox pref, where it means nothing and the surface simply misbehaves.
+    for k in "${BLE_BOOL_KEYS[@]}"; do
+        v="${!k}"
+        [[ -z "$v" ]] && continue
+        case "${v,,}" in
+            true|yes|on|1)  printf -v "$k" '%s' true ;;
+            false|no|off|0) printf -v "$k" '%s' false ;;
+            *)  warn "settings.local: '$k=$v' is not true or false — ignoring it."
+                printf -v "$k" '%s' "" ;;
+        esac
     done
 
     # Equal colours are the one thing the prompt must never have: user@host and

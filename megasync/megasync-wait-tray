@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Starts MEGAsync only once a system tray is listening. Started before one
+# exists, MEGAsync opens a frameless window no tiling WM can focus — a dead UI.
+set -u
+
+# The tray's bus name, claimed by eww, waybar, KDE, the GNOME appindicator
+# extension. No tray anywhere: the wait times out and MEGAsync starts anyway.
+NAME=org.kde.StatusNotifierWatcher
+TIMEOUT=${MEGASYNC_TRAY_TIMEOUT:-60}
+
+if command -v gdbus >/dev/null 2>&1; then
+    gdbus wait --session "$NAME" --timeout "$TIMEOUT" 2>/dev/null
+else
+    for ((i = 0; i < TIMEOUT * 4; i++)); do
+        busctl --user list 2>/dev/null | grep -q "^$NAME " && break
+        sleep 0.25
+    done
+fi
+
+# The bus name lands a moment before the host accepts items; starting inside
+# that gap brings the dead window back.
+sleep "${MEGASYNC_TRAY_SETTLE:-2}"
+
+exec megasync "$@"

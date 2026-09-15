@@ -321,6 +321,44 @@ i3_colors_file() {
     return 0
 }
 
+# What ~/.i3rc/00-no-titlebar.local holds, on stdout: config's own 3px border in
+# the style that draws no title bar. Its presence is the whole flag.
+i3_titlebar_file() {
+    printf '# Written by best-linux-environment — settings.local, BLE_I3_TITLEBAR=false.\n'
+    printf '# Do NOT edit: every run rewrites it. Set the key to true to get titles back.\n'
+    printf '\n'
+    printf '# Named 00-no-titlebar: 00-tiling-border.local, 07-, 08- and config.local are\n'
+    printf '# read after it, and desktop_mode.sh reads the file itself as the flag.\n'
+    printf '\n'
+    printf '# pixel, not normal: the same width as config gives, minus the title bar.\n'
+    printf 'for_window [class=".*"] border pixel 3\n'
+    printf 'default_floating_border pixel 3\n'
+    printf 'default_border          pixel 3\n'
+    return 0
+}
+
+# i3_sweep_titlebar FROM TO  — rules only fire when a window is mapped, so swap
+# the style on the open ones too. Width kept, so a per-app 1px is never touched.
+i3_sweep_titlebar() {
+    local from="$1" to="$2" cmd="" id w
+    if ! has_cmd jq; then
+        skip "jq not installed — windows already open keep their title bar until reopened."
+        return 0
+    fi
+    while read -r id w; do
+        [[ -n "$id" ]] && cmd+="[con_id=$id] border $to $w; "
+    done < <(i3-msg -t get_tree 2>/dev/null | jq -r --arg from "$from" '
+        def desc: recurse(.nodes[]?, .floating_nodes[]?);
+        desc | select(.window != null)
+             | select(.border == $from)
+             | select(.current_border_width == 2 or .current_border_width == 3)
+             | "\(.id) \(.current_border_width)"' 2>/dev/null)
+    [[ -n "$cmd" ]] || return 0
+    i3-msg "${cmd%; }" >/dev/null 2>&1 \
+        && ok "Windows already open swapped to 'border $to' too." \
+        || warn "Could not swap the border on the windows already open."
+}
+
 # The line that loads it, appended once to the rc file. Guarded on the file
 # existing, so removing this repo cannot leave you with a shell that errors.
 rc_line() {
@@ -412,7 +450,7 @@ EOF
     # to reload here — the cursor changes colour in the windows already open.
 fi
 
-# ── 5. i3: the agent key ($mod+c), and the window colours ────────────────────
+# ── 5. i3: the agent key ($mod+c), the window colours, the title bars ────────
 # 05- so it sorts before config.local, which i3's `include ~/.i3rc/*.local`
 # reads after it: a value you put in config.local by hand still wins.
 I3="$HOME/.i3rc"
@@ -436,6 +474,20 @@ else
     # i3 keys with a value, so there is no "unset" case to drop.
     write_gen "$I3/06-colors.local" <<< "$(i3_colors_file)"
     [[ "$GEN_CHANGED" == true ]] && CHANGED_I3=true
+
+    # The title bars. The file's presence is the flag, for i3 and for the
+    # tiling switch alike — there is no "titles on" file, only its absence.
+    if [[ "$BLE_I3_TITLEBAR" == false ]]; then
+        write_gen "$I3/00-no-titlebar.local" <<< "$(i3_titlebar_file)"
+        hooked "$I3/scripts/desktop_mode.sh" "00-no-titlebar.local" || \
+            warn "The tiling desktop will put the title bars back on its next switch."
+    else
+        drop_gen "$I3/00-no-titlebar.local" "~/.i3rc/config"
+    fi
+    if [[ "$GEN_CHANGED" == true ]]; then
+        CHANGED_I3=true
+        SWEEP_TITLEBAR=true
+    fi
 
     # The one thing that silently undoes this file. config.local sorts after it,
     # so a `set $agent` left in there wins and settings.local looks broken.
@@ -475,7 +527,30 @@ else
     fi
 fi
 
-# ── 6. git ───────────────────────────────────────────────────────────────────
+# ── 6. Firefox: its own title bar ────────────────────────────────────────────
+# The repo's install.sh appends user.settings.local.js to user.js, where the
+# last pref wins — same trick fonts.local uses next door for the sizes.
+FF="$HOME/.firefox"
+CHANGED_FIREFOX=false
+if [[ ! -d "$FF" ]]; then
+    skip "${FF/#$HOME/\~} not cloned yet — no Firefox pref to set (./setup.sh clones it)."
+elif hooked "$FF/install.sh" "user.settings.local.js"; then
+    if [[ -n "$BLE_FIREFOX_TITLEBAR" ]]; then
+        # 1 puts the tabs in the title bar, so Firefox draws none of its own; 0
+        # gives it back. i3 draws a title bar of its own either way.
+        [[ "$BLE_FIREFOX_TITLEBAR" == true ]] && IN_TITLEBAR=0 || IN_TITLEBAR=1
+        write_gen "$FF/user.settings.local.js" <<EOF
+// Written by best-linux-environment — settings.local, BLE_FIREFOX_TITLEBAR.
+// Do NOT edit: every run rewrites it. Change the key there, then re-run.
+user_pref("browser.tabs.inTitlebar", $IN_TITLEBAR);
+EOF
+    else
+        drop_gen "$FF/user.settings.local.js" "~/.firefox/user.js"
+    fi
+    CHANGED_FIREFOX="$GEN_CHANGED"
+fi
+
+# ── 7. git ───────────────────────────────────────────────────────────────────
 # Asserted, not seeded: basic/05-defaults.sh sets what is missing and leaves
 # your own values alone, but a value in settings.local IS your own value, said
 # once for every machine.
@@ -500,13 +575,28 @@ else
     git_assert core.editor "$BLE_EDITOR"
 fi
 
-# ── 7. apply it to what is running ───────────────────────────────────────────
+# ── 8. apply it to what is running ───────────────────────────────────────────
 [[ "$DRY_RUN" == true ]] && { ok "Settings ready."; exit 0; }
 
 if [[ "${CHANGED_I3:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd i3-msg \
    && i3-msg -t get_version >/dev/null 2>&1; then
     i3-msg -q reload >/dev/null 2>&1 && ok "i3 reloaded — \$mod+c uses the new settings." \
         || warn "i3 reload failed."
+    if [[ "${SWEEP_TITLEBAR:-false}" == true ]]; then
+        if [[ "$BLE_I3_TITLEBAR" == false ]]; then
+            i3_sweep_titlebar normal pixel
+        else
+            i3_sweep_titlebar pixel normal
+        fi
+    fi
+fi
+
+# Firefox reads its prefs out of the profile, and only its own install.sh puts
+# them there. Re-run for that one repo, and only when the pref actually moved.
+if [[ "$CHANGED_FIREFOX" == true && -x "$FF/install.sh" ]]; then
+    step "Re-applying the Firefox config, so the new pref reaches the profile"
+    bash "$BLE_ROOT/basic/10-tools.sh" firefox || warn "Could not re-apply ~/.firefox."
+    warn "Restart Firefox to see it."
 fi
 
 # Nothing can push a new prompt into a shell that already exists, so say it
