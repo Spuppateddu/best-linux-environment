@@ -321,7 +321,7 @@ i3_colors_file() {
     return 0
 }
 
-# What ~/.i3rc/00-no-titlebar.local holds, on stdout: config's own 3px border in
+# What ~/.i3rc/00-no-titlebar.local holds, on stdout: config's own 2px border in
 # the style that draws no title bar. Its presence is the whole flag.
 i3_titlebar_file() {
     printf '# Written by best-linux-environment — settings.local, BLE_I3_TITLEBAR=false.\n'
@@ -331,9 +331,9 @@ i3_titlebar_file() {
     printf '# read after it, and desktop_mode.sh reads the file itself as the flag.\n'
     printf '\n'
     printf '# pixel, not normal: the same width as config gives, minus the title bar.\n'
-    printf 'for_window [class=".*"] border pixel 3\n'
-    printf 'default_floating_border pixel 3\n'
-    printf 'default_border          pixel 3\n'
+    printf 'for_window [class=".*"] border pixel 2\n'
+    printf 'default_floating_border pixel 2\n'
+    printf 'default_border          pixel 2\n'
     return 0
 }
 

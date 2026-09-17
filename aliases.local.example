@@ -2,8 +2,7 @@
 # edit, then ./setup.sh (./boot.sh and every boot re-apply it). aliases.local is
 # git-ignored, so nothing here is pushed anywhere.
 #
-# Everything below is LIVE, not an example — a working base to start from.
-# Delete what you don't want, add what you do.
+# It starts nearly empty on purpose: add only the aliases you actually want.
 #
 # This file is copied verbatim into ~/.zsh/zsh-ble.local and
 # ~/.bash/bash-ble.local, which both shells load LAST — after Oh My Zsh, after
@@ -16,34 +15,8 @@
 # ~/.zsh/zsh-alias.local or ~/.bash/bash-alias.local, which stay per-machine.
 #
 # Names already taken by the shell config repos, so not re-used here: v, r, ta,
-# tn, calc, lz, ld, gs, gp, b-temp, b-idle, b-reload, fn.
+# tn, calc, lz, ld, b-temp, b-idle, b-reload, fn.
 
-
-# ── Listing ──────────────────────────────────────────────────────────────────
-alias ll="ls -alF"
-alias la="ls -A"
-alias l="ls -CF"
-
-
-# ── Moving around ────────────────────────────────────────────────────────────
-alias ..="cd .."
-alias ...="cd ../.."
-alias ....="cd ../../.."
 
 # The agent folder, from settings.local's BLE_AGENT_DESK.
 alias desk='cd "$BLE_AGENT_DESK"'
-
-# Make a directory and step into it. A function, because an alias cannot take an
-# argument in the middle. POSIX syntax, so zsh and bash both read it.
-mkcd() {
-    mkdir -p -- "$1" && cd -- "$1"
-}
-
-
-# ── Git ──────────────────────────────────────────────────────────────────────
-# gs, gp, lz and ld already come from the config repo's own alias file.
-alias gd="git diff"
-alias gco="git checkout"
-alias gb="git branch"
-alias gl="git log --oneline --graph --decorate -20"
-

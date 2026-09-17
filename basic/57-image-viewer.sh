@@ -97,7 +97,7 @@ i3_viewer_file() {
     printf '# Written by best-linux-environment — basic/57-image-viewer.sh.\n'
     printf '# Do NOT edit: every run rewrites it.\n'
     printf '#\n'
-    printf '# config floats every window with `border normal 3` — a real title bar you\n'
+    printf '# config floats every window with `border normal 2` — a real title bar you\n'
     printf '# can grab, which is right for an editor and wrong for a picture: the bar is\n'
     printf '# then the widest thing between you and the image. This drops the viewer to a\n'
     printf '# 1px edge. Still the focused colour 06-colors.local sets, still a mouse\n'
@@ -109,8 +109,8 @@ i3_viewer_file() {
     printf '#\n'
     printf '# That only works while those are TWO rules in config:\n'
     printf '#   for_window [class=".*"] floating enable\n'
-    printf '#   for_window [class=".*"] border normal 3\n'
-    printf '# and NOT one chained `floating enable, border normal 3`. i3 re-runs the whole\n'
+    printf '#   for_window [class=".*"] border normal 2\n'
+    printf '# and NOT one chained `floating enable, border normal 2`. i3 re-runs the whole\n'
     printf '# assignment list from *inside* a command list, right after `floating enable`\n'
     printf '# finishes — so the chained form resumes afterwards and puts its own border\n'
     printf '# back over this one. Being read last is not enough. Nothing reports it; the\n'
@@ -152,7 +152,7 @@ else
         warn "inside that command list, then resumes and puts the catch-all's border back."
         warn "Split it into two lines in the i3 repo, same order, nothing else changed:"
         warn '    for_window [class=".*"] floating enable'
-        warn '    for_window [class=".*"] border normal 3'
+        warn '    for_window [class=".*"] border normal 2'
     fi
 fi
 

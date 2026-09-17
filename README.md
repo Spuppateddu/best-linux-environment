@@ -441,7 +441,7 @@ both take `true` or `false` (`yes`/`no`, `on`/`off` and `1`/`0` are read too):
 Leave a key out and the app keeps whatever its own repo ships — title bars on.
 
 `BLE_I3_TITLEBAR=false` writes `~/.i3rc/00-no-titlebar.local`, which turns
-`config`'s `border normal 3` into `border pixel 3`: same width, no bar. The name
+`config`'s `border normal 2` into `border pixel 2`: same width, no bar. The name
 puts it **first** of all the `.local` files, so `00-tiling-border.local`, the
 per-app `pixel 1` files and `config.local` are all still read after it. The
 file's *presence* is also the flag the i3 repo's own `desktop_mode.sh` reads —
@@ -739,12 +739,12 @@ repos install into it, and fonts before the tools that render them. Items marked
    file), `%s1` (just the first) and `%d1` (its parent dir); `strings $(command
    -v yazi)` around `[opener]` is the authority for the version you have. It writes `~/.i3rc/07-image-viewer.local` —
    `for_window [class="(?i)^nsxiv$"] border pixel 1` — because the i3 config
-   floats every window with `border normal 3`, and a title bar is the widest
+   floats every window with `border normal 2`, and a title bar is the widest
    thing between you and a photo; `07-` sorts after `06-colors.local` and before
    `config.local`, so `border none` there still wins, and after
    `90-tiling-mode.local` nothing changes for the tiling desktop. That rule only
    bites while the i3 config's catch-all is **two** `for_window` lines rather
-   than one chained `floating enable, border normal 3`: i3 re-runs the whole
+   than one chained `floating enable, border normal 2`: i3 re-runs the whole
    assignment list from *inside* a command list, right after `floating enable`
    finishes, so the chained form resumes afterwards and puts its own border back
    over any per-app rule — being read last is not enough, and nothing reports
