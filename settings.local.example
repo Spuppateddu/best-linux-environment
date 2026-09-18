@@ -63,7 +63,7 @@ BLE_AGENT_DESK=~/agent-desk
 # draws itself. Both can go, and each has its own key.
 #
 #   BLE_I3_TITLEBAR        i3's bar, the one with the window name in it. false
-#                          keeps the border (3px floating, 2px tiled — still
+#                          keeps the border (3px, 4px when focused — still
 #                          your mouse resize handle) and drops only the bar, in
 #                          both desktops. You then move a window with
 #                          $mod+left-drag rather than by grabbing the bar.

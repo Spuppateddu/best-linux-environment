@@ -146,7 +146,7 @@ i3_player_file() {
     printf '# Written by best-linux-environment — basic/58-video-player.sh.\n'
     printf '# Do NOT edit: every run rewrites it.\n'
     printf '#\n'
-    printf '# config floats every window with `border normal 2`; on a player that is\n'
+    printf '# config floats every window with `border normal 3`; on a player that is\n'
     printf '# only lost picture. Same rule and caveats as 07-image-viewer.local.\n'
     printf 'for_window [class="(?i)^vlc$"] border pixel 1\n'
 }
