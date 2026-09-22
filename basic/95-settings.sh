@@ -337,6 +337,20 @@ i3_titlebar_file() {
     return 0
 }
 
+# What ~/.i3rc/eww/bar.local.conf holds, on stdout: which monitors the top bar
+# opens on. Not an i3 directive — eww is a program of its own, and that repo's
+# scripts/eww_lib.sh reads this file rather than i3 reading a *.local include.
+i3_bar_file() {
+    printf '# Written by best-linux-environment — settings.local, BLE_I3_BAR.\n'
+    printf '# Do NOT edit: every run rewrites it. Change the key there, then re-run.\n'
+    printf '#\n'
+    printf '# all  — one bar per monitor, each showing its own workspaces.\n'
+    printf '# main — the primary monitor only, with the other monitors workspaces\n'
+    printf '#        on it as detached cards.\n'
+    printf 'BAR_SCREENS=%s\n' "$BLE_I3_BAR"
+    return 0
+}
+
 # i3_sweep_titlebar FROM TO  — rules only fire when a window is mapped, so swap
 # the style on the open ones too. Width kept, so a per-app 1px is never touched.
 i3_sweep_titlebar() {
@@ -489,6 +503,18 @@ else
         SWEEP_TITLEBAR=true
     fi
 
+    # The monitors the top bar opens on. No i3 reload can move it — the bar is
+    # eww, so a change here re-runs that repo's own launcher in section 8.
+    if [[ -n "$BLE_I3_BAR" ]]; then
+        if hooked "$I3/scripts/eww_lib.sh" "bar.local.conf"; then
+            write_gen "$I3/eww/bar.local.conf" <<< "$(i3_bar_file)"
+            CHANGED_BAR="$GEN_CHANGED"
+        fi
+    else
+        drop_gen "$I3/eww/bar.local.conf" "~/.i3rc/scripts/eww_lib.sh"
+        CHANGED_BAR="$GEN_CHANGED"
+    fi
+
     # The one thing that silently undoes this file. config.local sorts after it,
     # so a `set $agent` left in there wins and settings.local looks broken.
     if [[ -f "$I3/config.local" ]]; then
@@ -589,6 +615,16 @@ if [[ "${CHANGED_I3:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd i3-msg \
             i3_sweep_titlebar pixel normal
         fi
     fi
+fi
+
+# The bar is eww, not i3: an i3 reload does not move it, only its own launcher
+# does — and that one is a no-op when the bars are already where they belong.
+if [[ "${CHANGED_BAR:-false}" == true && -n "${DISPLAY:-}" && -x "$I3/scripts/launch_eww.sh" ]] \
+   && has_cmd i3-msg && i3-msg -t get_version >/dev/null 2>&1; then
+    step "Re-opening the top bar: ${BLE_I3_BAR:-whatever the i3 repo says}"
+    "$I3/scripts/launch_eww.sh" >/dev/null 2>&1 \
+        && ok "Top bar: $([[ "$BLE_I3_BAR" == main ]] && printf 'the primary monitor only.' || printf 'one per monitor.')" \
+        || warn "Could not re-open the bar — \$mod+Shift+b twice does it."
 fi
 
 # Firefox reads its prefs out of the profile, and only its own install.sh puts

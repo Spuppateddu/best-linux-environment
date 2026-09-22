@@ -22,7 +22,7 @@ BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
-    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR
+    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -51,7 +51,7 @@ BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
-BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""
+BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -133,6 +133,17 @@ settings_validate() {
                 printf -v "$k" '%s' "" ;;
         esac
     done
+
+    # Which monitors the top bar opens on. The word is written into eww's
+    # bar.local.conf, where anything but `all` or `main` leaves the bar as it was.
+    if [[ -n "$BLE_I3_BAR" ]]; then
+        case "${BLE_I3_BAR,,}" in
+            all|both|every|everywhere) BLE_I3_BAR=all ;;
+            main|primary|one)          BLE_I3_BAR=main ;;
+            *)  warn "settings.local: 'BLE_I3_BAR=$BLE_I3_BAR' is not all or main — ignoring it."
+                BLE_I3_BAR="" ;;
+        esac
+    fi
 
     # Equal colours are the one thing the prompt must never have: user@host and
     # the path would run together into one unreadable line.

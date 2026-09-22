@@ -338,6 +338,7 @@ never the run.
 | `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
+| `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -456,6 +457,25 @@ git-ignored prefs file that repo's `install.sh` appends to `user.js` after
 `settings.local` in the other, one owner each. Changing it re-runs that repo's
 installer so the pref reaches the profile.
 
+### The top bar, on one monitor or on all of them
+
+`BLE_I3_BAR` says which monitors get the bar across the top of the screen:
+
+| Value | What you get |
+| --- | --- |
+| `all` | one bar per monitor, each showing that monitor's own workspaces, its own clock popup and its own tray |
+| `main` | the primary monitor only. The other monitors' workspaces ride on it as small cards with a monitor glyph, so you still see them |
+
+`both` is read as `all` and `primary` as `main`. Leave the key out and the i3
+repo decides, which is one bar per monitor.
+
+It lands in `~/.i3rc/eww/bar.local.conf`, a git-ignored one-liner
+(`BAR_SCREENS=all`) — **not** a `*.local` i3 include like the keys above it. The
+bar is [eww](https://github.com/elkowar/eww), a program of its own, so no i3
+reload can move it: the file is read by that repo's `scripts/eww_lib.sh`, and
+changing the key re-runs its `scripts/launch_eww.sh` to re-open the bars where
+they now belong. `$mod+Shift+b` still hides and shows every bar at once.
+
 ### It never edits the config repos
 
 Same rule as the font sizes below, for the same reason: every value is written
@@ -468,6 +488,7 @@ file it belongs beside. The clones in `~/linux-configuration/` stay clean, so
 | zsh | `~/.zsh/zsh-ble.local` | one line appended to `~/.zshrc`, after the config repo's own |
 | bash | `~/.bash/bash-ble.local` | one line appended to `~/.bashrc`, after the config repo's own |
 | i3 | `~/.i3rc/05-agent.local`, `06-colors.local`, `00-no-titlebar.local` | the existing `include ~/.i3rc/*.local` |
+| eww (the top bar) | `~/.i3rc/eww/bar.local.conf` | read by that repo's `scripts/eww_lib.sh` when it opens the bars |
 | Firefox | `~/.firefox/user.settings.local.js` | appended to `user.js` by that repo's `install.sh` |
 
 The shells are wired through `~/.zshrc` / `~/.bashrc` rather than through the
