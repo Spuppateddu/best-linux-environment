@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Three-finger swipe on a touchpad → the next or previous i3 workspace.
+# Started once per login by ~/.config/autostart/ble-trackpad-gestures.desktop,
+# which i3's `dex --autostart` runs. Installed by advanced/magic-trackpad.sh.
+#
+# It reads libinput's own event stream, so you must be in the 'input' group.
+set -uo pipefail
+
+# How far the fingers must travel sideways, in libinput's units,
+# before a swipe counts. Smaller = more sensitive.
+THRESHOLD="${BLE_SWIPE_THRESHOLD:-40}"
+
+# One copy per machine, however many times it is started.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/ble-trackpad-gestures.lock"
+flock -n 9 || exit 0
+
+# Without I3SOCK, i3-msg finds i3 through the X root window, so a copy left over
+# from an earlier login still reaches the i3 of the current one.
+unset I3SOCK
+
+# Reads libinput's lines on stdin and switches workspace at the end of a swipe.
+# The lines look like this — the number after the type is a repeat counter that
+# only some lines have, so the tab before the finger count is the anchor:
+#  event9   GESTURE_SWIPE_UPDATE      2  +6.690s<TAB>3 365.02/-0.43 (68.44/-0.08 unaccelerated)
+#  event9   GESTURE_SWIPE_END            +6.723s<TAB>3
+# Whole units are plenty here, so the decimals are dropped: bash has no floats.
+swipes() {
+    local line dx=0 dy=0 tab=$'\t'
+    local update="${tab}3 +(-?[0-9]+)\\.[0-9]+/ *(-?[0-9]+)\\."
+    while IFS= read -r line; do
+        case "$line" in
+            *GESTURE_SWIPE_BEGIN*) dx=0 dy=0 ;;
+            *GESTURE_SWIPE_UPDATE*)
+                [[ "$line" =~ $update ]] || continue
+                dx=$(( dx + BASH_REMATCH[1] )) dy=$(( dy + BASH_REMATCH[2] ))
+                ;;
+            *GESTURE_SWIPE_END*"${tab}3")    # not "3 cancelled", not 4 fingers
+                (( dx * dx < dy * dy )) && continue    # mostly up or down: not ours
+                # Like macOS: the fingers push the current desktop away, so a
+                # swipe to the left brings in the one on the right.
+                if (( dx <= -THRESHOLD )); then
+                    i3-msg -q workspace next
+                elif (( dx >= THRESHOLD )); then
+                    i3-msg -q workspace prev
+                fi
+                ;;
+        esac
+    done
+}
+
+# libinput exits if its devices vanish (the trackpad unplugged, a suspend).
+# Start it again rather than lose gestures for the rest of the session — but stop
+# once i3 is gone, so a logout does not leave this running forever.
+while i3-msg -t get_version >/dev/null 2>&1; do
+    # stdbuf: through a pipe libinput buffers its output, and a swipe would only
+    # arrive a few kilobytes later. The reader is bash, not awk: Ubuntu's awk is
+    # mawk, which reads a pipe in big blocks and so sits on every swipe.
+    stdbuf -oL libinput debug-events 2>/dev/null | swipes
+    sleep 2
+done

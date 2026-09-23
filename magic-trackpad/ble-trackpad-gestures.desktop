@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Trackpad gestures
+Comment=Three-finger swipe left/right switches i3 workspace (best-linux-environment)
+Exec=sh -c '"$HOME/.local/bin/ble-trackpad-gestures"'
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -1222,6 +1222,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
 | `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
+| `magic-trackpad` | Ubuntu repos (`libinput-tools`) + the files in `magic-trackpad/` — classic scrolling and three-finger swipes to change workspace, [below](#-magic-trackpad) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
@@ -1276,6 +1277,32 @@ the upgrade explicitly:
 ```bash
 bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest release
 ```
+
+### 🖐 Magic Trackpad
+
+Tick **`magic-trackpad`** and an Apple Magic Trackpad works the way it does on a
+Mac. Everything it installs is in [`magic-trackpad/`](magic-trackpad/):
+
+- **Classic scrolling.** libinput turns natural scrolling on by default for
+  Apple trackpads — and only for them — so fingers up moves the page down, the
+  other way from a mouse wheel. `50-magic-trackpad.conf` goes to
+  `/etc/X11/xorg.conf.d/` and sets `NaturalScrolling` to `false`, so fingers up
+  scrolls up. It matches the device name `Magic Trackpad`, so every model gets
+  it and no other mouse or touchpad is touched.
+- **Three-finger swipe → i3 workspace.** Swipe left for the next workspace,
+  swipe right for the previous one — the same as `$mod+Ctrl+→` and `$mod+Ctrl+←`.
+  X gives i3 no gestures, so `ble-trackpad-gestures` (in `~/.local/bin`) reads
+  them from `libinput debug-events` and calls `i3-msg`. It starts at login from
+  `~/.config/autostart/ble-trackpad-gestures.desktop`, which i3's
+  `dex --autostart` runs. Up and down swipes, and 2- or 4-finger ones, are left
+  alone. `BLE_SWIPE_THRESHOLD` (default `40`) is how far the fingers
+  must travel before a swipe counts.
+
+Reading gestures needs the **`input` group**, so the module adds you to it. That
+lets any program you run read every keyboard and mouse too — the usual price of
+any gesture tool on X. Nothing applies until you **log out and back in** (or
+reboot): X reads `xorg.conf.d` only when it starts, and a new group only reaches
+a new login.
 
 ### Headless Chrome for a coding agent: `b-chrome`
 
