@@ -234,6 +234,8 @@ for i in "${CORE_IDX[@]}"; do
         zsh-config|bash-config)
             [[ "${M_ID[$i]}" == "${SHELL_ID[$BLE_SHELL]}" ]] || continue
             ;;
+        # Not asked here: they follow their browser in the secondary list below.
+        chrome-config|brave-config) continue ;;
     esac
     CORE_KEEP+=("$i")
 done
@@ -346,6 +348,50 @@ checklist "Secondary — extra applications" "Nothing else depends on these; lea
 SEC_PICK=()
 while read -r n; do SEC_PICK+=("${SEC_IDX[$n]}"); done < <(chk_picked)
 
+# A browser's config repo, and its extension question, only for a browser ticked above.
+# Not ticked means nothing: no question, no clone, no config.
+declare -A BROWSER_APP=([chrome-config]=google-chrome [brave-config]=brave)
+declare -A BROWSER_NAME=([chrome-config]=Chrome [brave-config]=Brave)
+BROWSER_PICK=()
+for cfg in chrome-config brave-config; do
+    cfg_idx="$(mod_index_of "$cfg" || true)"
+    app_idx="$(mod_index_of "${BROWSER_APP[$cfg]}" || true)"
+    [[ -n "$cfg_idx" && -n "$app_idx" ]] || continue
+    in_list "$app_idx" ${SEC_PICK[@]+"${SEC_PICK[@]}"} || continue
+    BROWSER_PICK+=("$cfg_idx")
+
+    name="${BROWSER_NAME[$cfg]}"; key="${cfg%-config}"; KEY="${key^^}"
+    conf="$HOME/.$key/extensions.conf"
+    # Read here so the list opens on the last choice; only the repo's installer writes it.
+    state="$HOME/.cache/$key-config/extensions"
+    if [[ ! -f "$conf" ]]; then
+        # First run: the repo is cloned in section 3, so its own installer asks instead.
+        skip "$name extensions: the config repo isn't cloned yet — its installer asks you in section 3."
+        export "BLE_${KEY}_ASK_LATER=true"
+        continue
+    fi
+    slugs=()
+    chk_reset
+    while IFS='|' read -r id slug label def; do
+        [[ -z "$id" || "$id" == \#* ]] && continue
+        slugs+=("$slug")
+        if [[ -f "$state" ]]; then
+            if grep -Fxq "$slug" "$state"; then chk_add "$label" 1 "chosen before"; else chk_add "$label" 0 ""; fi
+        elif [[ "${def:-1}" == 1 ]]; then
+            chk_add "$label" 1 ""
+        else
+            chk_add "$label" 0 ""
+        fi
+    done < "$conf"
+    checklist "$name — which extensions to install" \
+        "Installed by $name's policy and kept updated. Unticking one never uninstalls it — do that in $name's extensions page."
+    picked=()
+    while read -r n; do picked+=("${slugs[$n]}"); done < <(chk_picked)
+    # An empty answer is "none": passing no flag would let the installer re-add the defaults.
+    if [[ ${#picked[@]} -eq 0 ]]; then answer=none; else answer="$(IFS=,; printf '%s' "${picked[*]}")"; fi
+    export "BLE_${KEY}_EXTENSIONS=$answer"
+done
+
 # Your colours: keep them or roll them all again. Asked only when there is
 # something to keep; a first run has no file yet and rolls without asking.
 export BLE_ROLL_COLORS=false
@@ -404,6 +450,14 @@ else
     skip "No secondary apps ticked."
 fi
 
+# After the secondary apps, because each one configures a browser installed just above.
+for i in ${BROWSER_PICK[@]+"${BROWSER_PICK[@]}"}; do
+    key="${M_ID[$i]%-config}"; var="BLE_${key^^}_EXTENSIONS"
+    step "${M_ID[$i]}${!var:+ → extensions: ${!var}}"
+    mod_run "$i" || FAILED+=("${M_ID[$i]}")
+    remember "${M_ID[$i]}"
+done
+
 # Last, and not modules.conf entries: these two write INTO the config repos the
 # tiers above clone, so they only have somewhere to write once those are on disk.
 bash "$BLE_ROOT/basic/95-settings.sh" || FAILED+=("settings")
@@ -425,7 +479,7 @@ for i in "${!M_ID[@]}"; do
     [[ "${M_CHECK[$i]}" == '-' || -z "${M_CHECK[$i]}" ]] && continue
     case "${M_TIER[$i]}" in
         necessary) ;;   # always attempted, so always worth verifying
-        core)      in_list "$i" ${CORE_PICK[@]+"${CORE_PICK[@]}"} || continue ;;
+        core)      in_list "$i" ${CORE_PICK[@]+"${CORE_PICK[@]}"} ${BROWSER_PICK[@]+"${BROWSER_PICK[@]}"} || continue ;;
         secondary) in_list "$i" ${SEC_PICK[@]+"${SEC_PICK[@]}"}   || continue ;;
     esac
     mod_installed "$i" || MISSING+=("${M_ID[$i]}")

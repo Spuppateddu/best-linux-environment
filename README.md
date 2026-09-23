@@ -185,6 +185,8 @@ cloned together into `~/linux-configuration/` (list in
 | alacritty | [`configuration-alacritty`](https://github.com/Spuppateddu/configuration-alacritty) | `~/linux-configuration/alacritty` | `~/.alacritty` |
 | i3 | [`configuration-i3`](https://github.com/Spuppateddu/configuration-i3) | `~/linux-configuration/i3` | `~/.i3rc` |
 | firefox | [`configuration-firefox`](https://github.com/Spuppateddu/configuration-firefox) | `~/linux-configuration/firefox` | `~/.firefox` |
+| chrome | [`configuration-chrome`](https://github.com/Spuppateddu/configuration-chrome) | `~/linux-configuration/chrome` | `~/.chrome` |
+| brave | [`configuration-brave`](https://github.com/Spuppateddu/configuration-brave) | `~/linux-configuration/brave` | `~/.brave` |
 
 `~/.firefox` is the *config repo*, not `~/.mozilla` — that one is Firefox's own
 profile directory, which the repo writes into and must never be.
@@ -285,7 +287,11 @@ Those installers are always handed `/dev/null` for stdin, never your terminal.
 Every question they would ask is one `setup.sh` has already asked: vim's
 language support arrives as `--languages=php,javascript,…` from the checkbox
 list, and Firefox's add-ons as `--extensions=ublock-origin,vimium-ff,…` from
-another, rather than either stopping the run to ask. That is also what makes
+another, rather than either stopping the run to ask. Chrome's and Brave's
+extensions arrive the same way (`--extensions=vimium,bitwarden,…`), but their
+list is asked only when you tick Google Chrome or Brave in the secondary list —
+their config repos (`~/.chrome`, `~/.brave`) are not in the core list at all:
+they follow their browser, and a browser you didn't tick gets nothing. That is also what makes
 `boot.sh` incapable of hanging on a prompt nobody is there to answer.
 
 Both flags are omitted on the `boot.sh` path, because that run asks nothing —

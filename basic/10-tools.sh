@@ -39,6 +39,8 @@ tool_args() {
     case "$1" in
         vim)     [[ -n "${BLE_VIM_LANGUAGES:-}" ]]     && printf -- '--languages=%s' "$BLE_VIM_LANGUAGES" ;;
         firefox) [[ -n "${BLE_FIREFOX_EXTENSIONS:-}" ]] && printf -- '--extensions=%s' "$BLE_FIREFOX_EXTENSIONS" ;;
+        chrome)  [[ -n "${BLE_CHROME_EXTENSIONS:-}" ]]  && printf -- '--extensions=%s' "$BLE_CHROME_EXTENSIONS" ;;
+        brave)   [[ -n "${BLE_BRAVE_EXTENSIONS:-}" ]]   && printf -- '--extensions=%s' "$BLE_BRAVE_EXTENSIONS" ;;
         zsh|bash) [[ "$1" == "$BLE_SHELL" ]] || printf -- '--no-login-shell' ;;
     esac
     # "Printed nothing" is a normal answer, but an unmatched `[[ -n … ]] &&` leaves
@@ -46,11 +48,13 @@ tool_args() {
     return 0
 }
 
-# The one installer allowed to keep the terminal: firefox's add-on catalogue only
-# arrives with its clone, so on a first run it asks once. boot.sh never sets this.
+# The installers allowed to keep the terminal: a browser's extension catalogue only
+# arrives with its clone, so on a first run it asks once. boot.sh never sets these.
 tool_asks_for_itself() {
     case "$1" in
         firefox) [[ "${BLE_FIREFOX_ASK_LATER:-}" == true && -t 0 && -t 1 ]] ;;
+        chrome)  [[ "${BLE_CHROME_ASK_LATER:-}" == true && -t 0 && -t 1 ]] ;;
+        brave)   [[ "${BLE_BRAVE_ASK_LATER:-}" == true && -t 0 && -t 1 ]] ;;
         *)       false ;;
     esac
 }
