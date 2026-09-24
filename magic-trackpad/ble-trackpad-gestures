@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Three-finger swipe on a touchpad → the next or previous i3 workspace.
+# Three-finger swipe on a touchpad, in a browser → the tab on the left or right.
 # Started once per login by ~/.config/autostart/ble-trackpad-gestures.desktop,
 # which i3's `dex --autostart` runs. Installed by advanced/magic-trackpad.sh.
 #
@@ -18,7 +18,17 @@ flock -n 9 || exit 0
 # from an earlier login still reaches the i3 of the current one.
 unset I3SOCK
 
-# Reads libinput's lines on stdin and switches workspace at the end of a swipe.
+# Chrome, Brave and Firefox all take Ctrl+PageUp/PageDown as previous/next tab.
+BROWSERS='^(firefox.*|google-chrome.*|chromium.*|brave-browser.*)$'
+
+# tab KEY  — send Ctrl+KEY, but only when the focused window is a browser.
+tab() {
+    local class
+    class="$(xdotool getactivewindow getwindowclassname 2>/dev/null)" || return 0
+    [[ "${class,,}" =~ $BROWSERS ]] && xdotool key --clearmodifiers "ctrl+$1"
+}
+
+# Reads libinput's lines on stdin and changes tab at the end of a swipe.
 # The lines look like this — the number after the type is a repeat counter that
 # only some lines have, so the tab before the finger count is the anchor:
 #  event9   GESTURE_SWIPE_UPDATE      2  +6.690s<TAB>3 365.02/-0.43 (68.44/-0.08 unaccelerated)
@@ -36,12 +46,11 @@ swipes() {
                 ;;
             *GESTURE_SWIPE_END*"${tab}3")    # not "3 cancelled", not 4 fingers
                 (( dx * dx < dy * dy )) && continue    # mostly up or down: not ours
-                # Like macOS: the fingers push the current desktop away, so a
-                # swipe to the left brings in the one on the right.
+                # Not inverted: a swipe to the left goes to the tab on the left.
                 if (( dx <= -THRESHOLD )); then
-                    i3-msg -q workspace next
+                    tab Prior
                 elif (( dx >= THRESHOLD )); then
-                    i3-msg -q workspace prev
+                    tab Next
                 fi
                 ;;
         esac

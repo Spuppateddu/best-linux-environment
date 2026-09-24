@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Apple Magic Trackpad: classic (non-natural) scrolling, and a three-finger swipe left/right
-# to change i3 workspace. The files it installs live in magic-trackpad/.
+# Apple Magic Trackpad: classic scrolling, two-finger back/forward in Firefox, and a
+# three-finger swipe left/right to change browser tab. The files live in magic-trackpad/.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -9,7 +9,10 @@ XORG_CONF=/etc/X11/xorg.conf.d/50-magic-trackpad.conf
 GESTURES="$HOME/.local/bin/ble-trackpad-gestures"
 AUTOSTART="$HOME/.config/autostart/ble-trackpad-gestures.desktop"
 
-is_installed() { [[ -e "$XORG_CONF" && -x "$GESTURES" && -e "$AUTOSTART" ]]; }
+is_installed() {
+    [[ -e "$XORG_CONF" && -x "$GESTURES" && -e "$AUTOSTART" ]] && command -v xdotool >/dev/null \
+        && grep -qx 'export MOZ_USE_XINPUT2=1' "$HOME/.xsessionrc" 2>/dev/null
+}
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
 title "Magic Trackpad"
@@ -26,6 +29,10 @@ fi
 # i3 runs `dex --autostart` at login, and dex starts everything in this folder.
 config_write "$AUTOSTART" < "$SRC/ble-trackpad-gestures.desktop"
 
+# Firefox on X only swipes back/forward with two fingers when it reads the
+# trackpad through XInput2, which is still opt-in. Chrome does it on its own.
+xsessionrc_export MOZ_USE_XINPUT2 1
+
 # ── the root half ────────────────────────────────────────────────────────────
 if ! can_sudo; then
     skip "No terminal to authenticate sudo — the root half is left as it is."
@@ -33,8 +40,8 @@ if ! can_sudo; then
     exit 0
 fi
 
-# `libinput debug-events`, which the gesture script reads.
-apt_ensure libinput-tools
+# `libinput debug-events`, which the gesture script reads, and xdotool to press the tab keys.
+apt_ensure libinput-tools xdotool
 
 if cmp -s "$SRC/50-magic-trackpad.conf" "$XORG_CONF"; then
     skip "$XORG_CONF already current."
