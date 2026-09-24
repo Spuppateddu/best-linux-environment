@@ -19,12 +19,14 @@ flock -n 9 || exit 0
 unset I3SOCK
 
 # Chrome, Brave and Firefox all take Ctrl+PageUp/PageDown as previous/next tab.
-BROWSERS='^(firefox.*|google-chrome.*|chromium.*|brave-browser.*)$'
+BROWSERS='"(firefox[^"]*|google-chrome[^"]*|chromium[^"]*|brave-browser[^"]*)"$'
 
 # tab KEY  — send Ctrl+KEY, but only when the focused window is a browser.
+# xprop prints: WM_CLASS(STRING) = "Navigator", "firefox" (Ubuntu's xdotool can't).
 tab() {
-    local class
-    class="$(xdotool getactivewindow getwindowclassname 2>/dev/null)" || return 0
+    local win class
+    win="$(xdotool getactivewindow 2>/dev/null)" || return 0
+    class="$(xprop -id "$win" WM_CLASS 2>/dev/null)" || return 0
     [[ "${class,,}" =~ $BROWSERS ]] && xdotool key --clearmodifiers "ctrl+$1"
 }
 

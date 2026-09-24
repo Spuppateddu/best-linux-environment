@@ -10,7 +10,7 @@ GESTURES="$HOME/.local/bin/ble-trackpad-gestures"
 AUTOSTART="$HOME/.config/autostart/ble-trackpad-gestures.desktop"
 
 is_installed() {
-    [[ -e "$XORG_CONF" && -x "$GESTURES" && -e "$AUTOSTART" ]] && command -v xdotool >/dev/null \
+    [[ -e "$XORG_CONF" && -x "$GESTURES" && -e "$AUTOSTART" ]] && command -v xdotool xprop >/dev/null \
         && grep -qx 'export MOZ_USE_XINPUT2=1' "$HOME/.xsessionrc" 2>/dev/null
 }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
@@ -40,8 +40,8 @@ if ! can_sudo; then
     exit 0
 fi
 
-# `libinput debug-events`, which the gesture script reads, and xdotool to press the tab keys.
-apt_ensure libinput-tools xdotool
+# `libinput debug-events`, which the gesture script reads; xdotool and xprop for the tab keys.
+apt_ensure libinput-tools xdotool x11-utils
 
 if cmp -s "$SRC/50-magic-trackpad.conf" "$XORG_CONF"; then
     skip "$XORG_CONF already current."
