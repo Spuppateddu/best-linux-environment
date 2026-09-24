@@ -1222,7 +1222,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
 | `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
-| `magic-trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `magic-trackpad/` — classic scrolling, two-finger back/forward in Firefox and three-finger swipes to change browser tab, [below](#-magic-trackpad) |
+| `magic-trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `magic-trackpad/` — classic scrolling, two-finger back/forward in Firefox and three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces, [below](#-magic-trackpad) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
@@ -1300,9 +1300,22 @@ Mac. Everything it installs is in [`magic-trackpad/`](magic-trackpad/):
   `libinput debug-events`, and when the focused window is a browser it presses
   `Ctrl+PageUp` / `Ctrl+PageDown` with `xdotool`. It starts at login from
   `~/.config/autostart/ble-trackpad-gestures.desktop`, which i3's
-  `dex --autostart` runs. Up and down swipes, and 2- or 4-finger ones, are left
-  alone. `BLE_SWIPE_THRESHOLD` (default `40`) is how far the fingers
-  must travel before a swipe counts.
+  `dex --autostart` runs. Three-finger up and down swipes are left alone.
+  `BLE_SWIPE_THRESHOLD` (default `40`) is how far the fingers must travel
+  before a swipe counts.
+- **Four-finger swipe → fullscreen.** Swipe up and the focused window goes
+  fullscreen (`i3-msg fullscreen enable`); swipe down and it comes back. It works
+  on any window, not just browsers.
+- **Four-finger swipe left / right → workspace.** Swipe left for the workspace on
+  the left, right for the one on the right — **on the focused monitor only**
+  (`i3-msg workspace prev_on_output` / `next_on_output`). Plain `workspace next`
+  walks the workspaces of every monitor, so it jumps to the other screen.
+- **Laptop touchpads too.** The script reads every touchpad, not only the Magic
+  Trackpad, so the three- and four-finger swipes also work on a laptop's own
+  touchpad — if it can count that many fingers. Most touchpads from the last
+  ten years can (ThinkPad Synaptics and Elan ones included). To check yours, run
+  `libinput debug-events` and swipe with four fingers: if you see
+  `GESTURE_SWIPE_BEGIN … 4`, it works. Classic scrolling stays Magic-Trackpad-only.
 
 Reading gestures needs the **`input` group**, so the module adds you to it. That
 lets any program you run read every keyboard and mouse too — the usual price of

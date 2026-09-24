@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Three-finger swipe on a touchpad, in a browser → the tab on the left or right.
+# Three-finger swipe left/right, in a browser → the tab on the left or right.
+# Four-finger swipe up/down → the focused window goes fullscreen / back.
+# Four-finger swipe left/right → the workspace on the left or right, this monitor only.
 # Started once per login by ~/.config/autostart/ble-trackpad-gestures.desktop,
 # which i3's `dex --autostart` runs. Installed by advanced/magic-trackpad.sh.
 #
 # It reads libinput's own event stream, so you must be in the 'input' group.
 set -uo pipefail
 
-# How far the fingers must travel sideways, in libinput's units,
+# How far the fingers must travel, in libinput's units,
 # before a swipe counts. Smaller = more sensitive.
 THRESHOLD="${BLE_SWIPE_THRESHOLD:-40}"
 
@@ -30,7 +32,7 @@ tab() {
     [[ "${class,,}" =~ $BROWSERS ]] && xdotool key --clearmodifiers "ctrl+$1"
 }
 
-# Reads libinput's lines on stdin and changes tab at the end of a swipe.
+# Reads libinput's lines on stdin and acts at the end of a swipe.
 # The lines look like this — the number after the type is a repeat counter that
 # only some lines have, so the tab before the finger count is the anchor:
 #  event9   GESTURE_SWIPE_UPDATE      2  +6.690s<TAB>3 365.02/-0.43 (68.44/-0.08 unaccelerated)
@@ -38,7 +40,7 @@ tab() {
 # Whole units are plenty here, so the decimals are dropped: bash has no floats.
 swipes() {
     local line dx=0 dy=0 tab=$'\t'
-    local update="${tab}3 +(-?[0-9]+)\\.[0-9]+/ *(-?[0-9]+)\\."
+    local update="${tab}[34] +(-?[0-9]+)\\.[0-9]+/ *(-?[0-9]+)\\."
     while IFS= read -r line; do
         case "$line" in
             *GESTURE_SWIPE_BEGIN*) dx=0 dy=0 ;;
@@ -46,13 +48,28 @@ swipes() {
                 [[ "$line" =~ $update ]] || continue
                 dx=$(( dx + BASH_REMATCH[1] )) dy=$(( dy + BASH_REMATCH[2] ))
                 ;;
-            *GESTURE_SWIPE_END*"${tab}3")    # not "3 cancelled", not 4 fingers
+            *GESTURE_SWIPE_END*"${tab}3")    # not "3 cancelled"
                 (( dx * dx < dy * dy )) && continue    # mostly up or down: not ours
                 # Not inverted: a swipe to the left goes to the tab on the left.
                 if (( dx <= -THRESHOLD )); then
                     tab Prior
                 elif (( dx >= THRESHOLD )); then
                     tab Next
+                fi
+                ;;
+            *GESTURE_SWIPE_END*"${tab}4")
+                # Sideways: the workspace on the left or right, on this monitor only.
+                if (( dx * dx > dy * dy )); then
+                    if (( dx <= -THRESHOLD )); then
+                        i3-msg -q workspace prev_on_output
+                    elif (( dx >= THRESHOLD )); then
+                        i3-msg -q workspace next_on_output
+                    fi
+                # libinput's y grows downwards, so fingers moving up give dy < 0.
+                elif (( dy <= -THRESHOLD )); then
+                    i3-msg -q fullscreen enable
+                elif (( dy >= THRESHOLD )); then
+                    i3-msg -q fullscreen disable
                 fi
                 ;;
         esac

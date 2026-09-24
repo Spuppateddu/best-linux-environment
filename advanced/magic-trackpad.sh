@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Apple Magic Trackpad: classic scrolling, two-finger back/forward in Firefox, and a
-# three-finger swipe left/right to change browser tab. The files live in magic-trackpad/.
+# Apple Magic Trackpad: classic scrolling, two-finger back/forward in Firefox, three-finger
+# swipes for browser tabs, four-finger ones for fullscreen and workspaces. Files in magic-trackpad/.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
