@@ -1222,7 +1222,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
 | `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
-| `magic-trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `magic-trackpad/` — classic scrolling, two-finger back/forward in Firefox and three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces, [below](#-magic-trackpad) |
+| `trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `trackpad/` — gestures for any trackpad or laptop touchpad: two-finger back/forward in Firefox, three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces; classic scrolling on an Apple Magic Trackpad, [below](#-trackpad--touchpad-gestures) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
@@ -1278,14 +1278,16 @@ the upgrade explicitly:
 bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest release
 ```
 
-### 🖐 Magic Trackpad
+### 🖐 Trackpad / touchpad gestures
 
-Tick **`magic-trackpad`** and an Apple Magic Trackpad works the way it does on a
-Mac. Everything it installs is in [`magic-trackpad/`](magic-trackpad/):
+Tick **`trackpad`** and your trackpad or laptop touchpad gets Mac-like gestures.
+They work on any touchpad libinput can read. Only the classic scrolling is
+specific to the Apple Magic Trackpad. Everything it installs is in
+[`trackpad/`](trackpad/):
 
-- **Classic scrolling.** libinput turns natural scrolling on by default for
-  Apple trackpads — and only for them — so fingers up moves the page down, the
-  other way from a mouse wheel. `50-magic-trackpad.conf` goes to
+- **Classic scrolling — Apple Magic Trackpad only.** libinput turns natural
+  scrolling on by default for Apple trackpads — and only for them — so fingers
+  up moves the page down, the other way from a mouse wheel. `50-magic-trackpad.conf` goes to
   `/etc/X11/xorg.conf.d/` and sets `NaturalScrolling` to `false`, so fingers up
   scrolls up. It matches the device name `Magic Trackpad`, so every model gets
   it and no other mouse or touchpad is touched.
@@ -1310,9 +1312,9 @@ Mac. Everything it installs is in [`magic-trackpad/`](magic-trackpad/):
   the left, right for the one on the right — **on the focused monitor only**
   (`i3-msg workspace prev_on_output` / `next_on_output`). Plain `workspace next`
   walks the workspaces of every monitor, so it jumps to the other screen.
-- **Laptop touchpads too.** The script reads every touchpad, not only the Magic
-  Trackpad, so the three- and four-finger swipes also work on a laptop's own
-  touchpad — if it can count that many fingers. Most touchpads from the last
+- **Any touchpad, if it counts the fingers.** The script reads every touchpad,
+  external or built into a laptop, so the three- and four-finger swipes work on
+  any of them — if it can count that many fingers. Most touchpads from the last
   ten years can (ThinkPad Synaptics and Elan ones included). To check yours, run
   `libinput debug-events` and swipe with four fingers: if you see
   `GESTURE_SWIPE_BEGIN … 4`, it works. Classic scrolling stays Magic-Trackpad-only.

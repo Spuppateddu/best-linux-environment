@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Apple Magic Trackpad: classic scrolling, two-finger back/forward in Firefox, three-finger
-# swipes for browser tabs, four-finger ones for fullscreen and workspaces. Files in magic-trackpad/.
+# Gestures for any trackpad/touchpad: two-finger back/forward in Firefox, three-finger swipes for tabs,
+# four-finger ones for fullscreen and workspaces. Classic scrolling on a Magic Trackpad only. Files in trackpad/.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
-SRC="$BLE_ROOT/magic-trackpad"
+SRC="$BLE_ROOT/trackpad"
 XORG_CONF=/etc/X11/xorg.conf.d/50-magic-trackpad.conf
 GESTURES="$HOME/.local/bin/ble-trackpad-gestures"
 AUTOSTART="$HOME/.config/autostart/ble-trackpad-gestures.desktop"
@@ -15,8 +15,8 @@ is_installed() {
 }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 
-title "Magic Trackpad"
-require_desktop "Magic Trackpad"
+title "Trackpad / touchpad gestures"
+require_desktop "Trackpad / touchpad gestures"
 
 # ── the user half: works without root ───────────────────────────────────────
 run mkdir -p "$HOME/.local/bin"
@@ -48,7 +48,7 @@ if cmp -s "$SRC/50-magic-trackpad.conf" "$XORG_CONF"; then
 else
     step "installing $XORG_CONF"
     run sudo install -D -m 0644 -o root -g root "$SRC/50-magic-trackpad.conf" "$XORG_CONF"
-    ok "Classic scrolling set — it applies from the next login."
+    ok "Classic scrolling set for the Apple Magic Trackpad — it applies from the next login."
 fi
 
 # Reading /dev/input needs the 'input' group. Note that any program you run can
@@ -60,4 +60,4 @@ else
     ok "Added $USER to the 'input' group — it applies from the next login."
 fi
 
-ok "Magic Trackpad ready. Log out and back in (or reboot) for all of it to apply."
+ok "Trackpad / touchpad gestures ready. Log out and back in (or reboot) for all of it to apply."

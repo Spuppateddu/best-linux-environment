@@ -3,7 +3,7 @@
 # Four-finger swipe up/down → the focused window goes fullscreen / back.
 # Four-finger swipe left/right → the workspace on the left or right, this monitor only.
 # Started once per login by ~/.config/autostart/ble-trackpad-gestures.desktop,
-# which i3's `dex --autostart` runs. Installed by advanced/magic-trackpad.sh.
+# which i3's `dex --autostart` runs. Installed by advanced/trackpad.sh.
 #
 # It reads libinput's own event stream, so you must be in the 'input' group.
 set -uo pipefail
