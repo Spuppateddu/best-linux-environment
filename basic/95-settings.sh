@@ -438,7 +438,7 @@ if [[ "$SHELL_DONE" == false && "${FAILED_ALIASES:-false}" != true ]]; then
     skip "No shell config repo is wired in — run ./setup.sh and pick zsh or bash."
 fi
 
-# ── 4. the terminal cursor and text (Alacritty) ──────────────────────────────
+# ── 4. the terminal cursor (Alacritty) ───────────────────────────────────────
 # Alacritty merges its imports and the LAST one wins, so this file is listed
 # after ~/.cache/alacritty-theme.toml — the file $mod+Shift+t rewrites. That
 # ordering is the whole trick: the theme toggle keeps owning the dark/light
@@ -447,27 +447,18 @@ ALA="$HOME/.alacritty"
 if [[ ! -d "$ALA" ]]; then
     skip "${ALA/#$HOME/\~} not cloned yet — no terminal cursor to colour (./setup.sh clones it)."
 elif hooked "$ALA/alacritty.toml" "colors.local.toml"; then
-    # No BLE_TEXT_COLOR, no [colors.primary]: the theme's own foreground stays.
-    TEXT_BLOCK=""
-    if [[ -n "$BLE_TEXT_COLOR" ]]; then
-        TEXT_BLOCK="
-# BLE_TEXT_COLOR: the plain text. The background stays the theme's.
-[colors.primary]
-foreground = '0x$(color_hex "$BLE_TEXT_COLOR")'"
-    fi
     write_gen "$ALA/colors.local.toml" <<EOF
-# Written by best-linux-environment — settings.local, BLE_CURSOR_COLOR and
-# BLE_TEXT_COLOR. Do NOT edit: every run rewrites it. Change the colours in
+# Written by best-linux-environment — settings.local, BLE_CURSOR_COLOR.
+# Do NOT edit: every run rewrites it. Change the colour in
 # ${BLE_ROOT/#$HOME/\~}/settings.local, then re-run.
 #
 # Imported after ~/.cache/alacritty-theme.toml, so \$mod+Shift+t can keep
-# swapping dark and light without taking these colours with it.
+# swapping dark and light without taking this colour with it.
 [colors.cursor]
 cursor = '0x$CURSOR_HEX'
 # The character the block sits on. Kept dark rather than left to Alacritty's
 # default: every colour in the palette is a bright one, so dark always reads.
 text = '0x1d2021'
-$TEXT_BLOCK
 EOF
     # Alacritty watches its own imports and re-reads them, so there is nothing
     # to reload here — the cursor changes colour in the windows already open.

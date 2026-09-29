@@ -21,7 +21,7 @@ BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
 BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
-    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR BLE_TEXT_COLOR
+    BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR
 )
 
@@ -51,7 +51,6 @@ BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
-BLE_TEXT_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
@@ -121,15 +120,6 @@ settings_validate() {
             printf -v "$k" '%s' ""
         fi
     done
-
-    # The text colour is a colour too, but not one of BLE_COLOR_KEYS: those get
-    # rolled, and "roll them all again" deletes them. Text you read all day is
-    # chosen, never rolled, so it is checked here on its own.
-    if [[ -n "$BLE_TEXT_COLOR" ]] &&
-       { [[ ! "$BLE_TEXT_COLOR" =~ ^[0-9]+$ ]] || (( BLE_TEXT_COLOR > 255 )); }; then
-        warn "settings.local: 'BLE_TEXT_COLOR=$BLE_TEXT_COLOR' is not a number 0-255 — ignoring it."
-        BLE_TEXT_COLOR=""
-    fi
 
     # A word that is neither yes nor no would land in an i3 border style or a
     # Firefox pref, where it means nothing and the surface simply misbehaves.

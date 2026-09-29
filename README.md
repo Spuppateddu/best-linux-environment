@@ -340,7 +340,6 @@ never the run.
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
-| `BLE_TEXT_COLOR` | the colour of the plain text in the terminal (0-255). Never rolled: left out, the theme's own text colour stays | `~/.alacritty/colors.local.toml` → `[colors.primary]` `foreground` |
 | `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
 | `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
@@ -418,8 +417,7 @@ palette — a `17` navy, a `236` grey — still gets a title you can read.
 scratch every time — cursor colour included. So `colors.local.toml` is listed
 **after** it in `~/.alacritty/alacritty.toml`'s `import`, where the later import
 wins. The toggle keeps owning dark and light; your rolled cursor colour rides
-over both. `BLE_TEXT_COLOR` lands in the same file and rides over both the same
-way — so pick a text colour that reads on the light theme too. That import line lives in the Alacritty repo, and `95-settings.sh`
+over both. That import line lives in the Alacritty repo, and `95-settings.sh`
 warns instead of writing the file when it is missing — one owner per file.
 
 **The i3 window colours** go to `~/.i3rc/06-colors.local`, picked up by that

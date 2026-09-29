@@ -58,16 +58,6 @@ BLE_AGENT_DESK=~/agent-desk
 # Title text picks itself: white on a dark colour, near-black on a light one.
 
 
-# ── The text colour ──────────────────────────────────────────────────────────
-# The plain text in the terminal (Alacritty's foreground), an xterm-256 colour
-# (0-255). Unlike the five above it is NEVER rolled, and "roll them all again"
-# leaves it alone: text you read all day is chosen, not drawn at random. Comment
-# it out to go back to the theme's own text colour. It stays over $mod+Shift+t,
-# so pick one that reads on the light theme too.
-# 68 is Ultramarines blue, made bright enough to read on the dark background.
-BLE_TEXT_COLOR=68
-
-
 # ── The title bars ───────────────────────────────────────────────────────────
 # Two bars can sit above a window here: the one i3 draws, and the one the app
 # draws itself. Both can go, and each has its own key.
