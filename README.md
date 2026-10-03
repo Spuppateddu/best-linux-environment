@@ -335,7 +335,7 @@ never the run.
 
 | Key | What it sets | Where it lands |
 | --- | --- | --- |
-| `BLE_AGENT` | the coding agent `$mod+c` opens — `claude`, `opencode`, `codex`… arguments allowed. Seeded with whichever of those is actually installed | `~/.i3rc/05-agent.local` → `set $agent` |
+| `BLE_AGENT` | the coding agent `$mod+c` opens, as a new window of a tmux session named after it — `claude`, `opencode`, `codex`… arguments allowed. Seeded with whichever of those is actually installed | `~/.i3rc/05-agent.local` → `set $agent` |
 | `BLE_AGENT_DESK` | the folder it opens in, created if missing. Its own folder, never `$HOME`: an agent asks you to trust the directory it starts in | `~/.i3rc/05-agent.local` → `set $agent_desk`, and `$BLE_AGENT_DESK` in both shells |
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
