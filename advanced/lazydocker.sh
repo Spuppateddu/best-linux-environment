@@ -12,6 +12,17 @@ UPGRADE=false
 case "${1:-}" in
     --check)   is_installed && exit 0 || exit 1 ;;
     --upgrade) UPGRADE=true ;;
+    --uninstall)
+        title "lazydocker — uninstall"
+        if have_local_bin lazydocker; then
+            remove_files "$HOME/.local/bin/lazydocker"
+            ok "lazydocker removed."
+        elif has_cmd lazydocker; then
+            fail "lazydocker at $(command -v lazydocker) is not ours — remove it with its package manager."
+            exit 1
+        fi
+        exit 0
+        ;;
 esac
 
 title "lazydocker"

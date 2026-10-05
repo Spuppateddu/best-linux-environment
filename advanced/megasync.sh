@@ -10,6 +10,16 @@ AUTOSTART="$HOME/.config/autostart/megasync.desktop"
 
 is_installed() { apt_installed megasync; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "MEGAsync — uninstall"
+    apt_remove megasync
+    apt_repo_drop mega.nz
+    # The package's own postinst swaps our list for these two, outside dpkg's records.
+    remove_files --sudo /etc/apt/sources.list.d/megaio.sources /etc/apt/keyrings/meganz-archive-keyring.gpg
+    remove_files "$WRAPPER" "$AUTOSTART"
+    ok "MEGAsync removed. Your synced folders and your cloud files are not touched."
+    exit 0
+fi
 
 title "MEGAsync"
 require_desktop "MEGAsync"

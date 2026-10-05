@@ -248,6 +248,48 @@ apt_ensure() {
 
 apt_installed() { dpkg -s "$1" >/dev/null 2>&1; }
 
+# apt_remove pkg...  — remove only the installed ones, in one call. `remove`, not
+# `purge`: files under /etc stay, so a later reinstall picks up where it left off.
+apt_remove() {
+    local present=() pkg
+    for pkg in "$@"; do apt_installed "$pkg" && present+=("$pkg"); done
+    if [[ ${#present[@]} -eq 0 ]]; then
+        skip "apt: nothing to remove (${*})."
+        return 0
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would remove:%s %s\n' "$C_DIM" "$C_OFF" "${present[*]}"
+        return 0
+    fi
+    if ! can_sudo; then
+        warn "sudo unavailable (non-interactive) — skipped apt remove: ${present[*]}"
+        return 1
+    fi
+    step "apt: removing ${#present[@]} package(s): ${present[*]}"
+    sudo apt-get remove -y "${present[@]}"
+    ok "apt: removed ${present[*]}."
+}
+
+# remove_files [--sudo] FILE...  — delete files a module wrote; missing ones are
+# skipped. --sudo for the ones under /etc and /usr.
+remove_files() {
+    local sudo=() f present=()
+    [[ "${1:-}" == --sudo ]] && { sudo=(sudo); shift; }
+    for f in "$@"; do [[ -e "$f" || -L "$f" ]] && present+=("$f"); done
+    [[ ${#present[@]} -gt 0 ]] || return 0
+    if [[ ${#sudo[@]} -gt 0 && "$DRY_RUN" != true ]] && ! can_sudo; then
+        warn "sudo unavailable — left in place: ${present[*]}"
+        return 1
+    fi
+    run ${sudo[@]+"${sudo[@]}"} rm -f "${present[@]}"
+    [[ "$DRY_RUN" == true ]] || ok "removed ${present[*]/#$HOME/\~}"
+}
+
+# apt_repo_drop NAME  — undo apt_repo_add NAME: its keyring and its source list.
+apt_repo_drop() {
+    remove_files --sudo "/usr/share/keyrings/$1.gpg" "/etc/apt/sources.list.d/$1.list"
+}
+
 # apt_repo_add NAME KEY_URL DEB_LINE  — dearmored keyring at /usr/share/keyrings/
 # NAME.gpg plus the source list. DEB_LINE must say signed-by= that same keyring.
 apt_repo_add() {
@@ -281,6 +323,13 @@ apt_app_module() {
         apt_ensure "$pkg"
     fi
     ok "$label ready."
+}
+
+# apt_app_uninstall PKG LABEL  — the opposite of apt_app_module.
+apt_app_uninstall() {
+    title "$2 — uninstall"
+    apt_remove "$1"
+    ok "$2 removed. Its settings in your home folder are kept."
 }
 
 # ── prebuilt downloads ──────────────────────────────────────────────────────

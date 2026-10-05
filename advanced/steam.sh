@@ -5,6 +5,13 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 is_installed() { apt_installed steam-installer || apt_installed steam-launcher || has_cmd steam; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "Steam — uninstall"
+    # i386 and multiverse stay: other packages may need them.
+    apt_remove steam-installer steam-launcher
+    ok "Steam removed. Your games stay in ~/.steam and ~/.local/share/Steam — delete them by hand to free the space."
+    exit 0
+fi
 
 title "Steam"
 require_desktop "Steam"

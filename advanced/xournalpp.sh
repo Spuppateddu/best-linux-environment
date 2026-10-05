@@ -5,5 +5,6 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 is_installed() { apt_installed xournalpp; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+[[ "${1:-}" == --uninstall ]] && { apt_app_uninstall xournalpp "Xournal++"; exit 0; }
 
 apt_app_module xournalpp "Xournal++" --desktop

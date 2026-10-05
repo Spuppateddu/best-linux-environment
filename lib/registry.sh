@@ -134,3 +134,21 @@ mod_run() {
     done < <(mod_actions "$i")
     return "$rc"
 }
+
+# mod_can_uninstall IDX  — 0 when the entry's script has an --uninstall mode.
+mod_can_uninstall() {
+    local script
+    script="$(mod_first_script "$1")" || return 1
+    [[ -f "$script" ]] && grep -q -- '--uninstall' "$script"
+}
+
+# mod_uninstall IDX  — run the entry's script with --uninstall. Non-zero on failure.
+mod_uninstall() {
+    local script
+    if ! mod_can_uninstall "$1"; then
+        fail "'${M_ID[$1]}' has no --uninstall mode — remove it by hand."
+        return 1
+    fi
+    script="$(mod_first_script "$1")"
+    bash "$script" --uninstall
+}

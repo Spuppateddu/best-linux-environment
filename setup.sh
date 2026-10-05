@@ -16,11 +16,11 @@ It goes in this order, and the order is the point:
      alacritty, firefox and flameshot; the zshrc calls yazi and lazygit). A
      missing one of those is a broken environment, not a preference.
 
-  2. Every question, together, once.  Two checkbox lists — your config repos,
-     then the extra applications — plus vim's per-language support as a third
-     list rather than four yes/no prompts, and whether to roll your colours
-     again. Arrow keys to move, space to tick. Anything already on the machine
-     is shown as such instead of asked about.
+  2. Every question, together, once.  A checkbox list of extra applications,
+     plus vim's per-language support as a second list rather than four yes/no
+     prompts, and whether to roll your colours again. Arrow keys to move, space
+     to tick. Your config repos are not asked: they always go in. Unticking an
+     app that is installed asks once more, then uninstalls it in step 3.
 
   3. Install what you ticked.  From here on nothing stops to ask: the answers
      are already in hand, including the ones the tool repos' own installers
@@ -103,14 +103,21 @@ remember() {
     mkdir -p "$BLE_STATE_DIR"
     was_chosen "$1" || printf '%s\n' "$1" >> "$CHOSEN_FILE"
 }
+# forget ID  — the opposite: an unticked app must not come back as "chosen before".
+forget() {
+    [[ "$DRY_RUN" == true ]] && return 0
+    was_chosen "$1" || return 0
+    local keep; keep="$(grep -Fxv -- "$1" "$CHOSEN_FILE" || true)"
+    printf '%s' "${keep:+$keep$'\n'}" > "$CHOSEN_FILE"
+}
 
 # ── --list ───────────────────────────────────────────────────────────────────
 if [[ "$LIST_ONLY" == true ]]; then
     for tier in necessary core secondary; do
         case "$tier" in
             necessary) title "NECESSARY — always installed, never asked" ;;
-            core)      title "CORE — your config repos (checkbox list, all pre-ticked)" ;;
-            secondary) title "SECONDARY — extra apps (checkbox list, none pre-ticked)" ;;
+            core)      title "CORE — your config repos (always installed, never asked)" ;;
+            secondary) title "SECONDARY — extra apps (checkbox list; unticking uninstalls, after a confirm)" ;;
         esac
         while read -r i; do
             if mod_installed "$i"; then mark="${C_GREEN}✓${C_OFF}"; else mark="${C_DIM}·${C_OFF}"; fi
@@ -241,17 +248,11 @@ for i in "${CORE_IDX[@]}"; do
 done
 CORE_IDX=(${CORE_KEEP[@]+"${CORE_KEEP[@]}"})
 
-# Core: all pre-ticked. The list is there to let you say no to one repo, not to
-# make you re-choose your whole environment.
-chk_reset
-for i in "${CORE_IDX[@]}"; do
-    if mod_installed "$i"; then chk_add "${M_LABEL[$i]}" 1 "✓ installed"; else chk_add "${M_LABEL[$i]}" 1 ""; fi
-done
-checklist "Core — your config repos" "Cloned into ~/linux-configuration/ and symlinked into place."
-# chk_picked, not `(( CHK_STATE[n] )) && …`: an arithmetic test on an unticked row
-# returns non-zero and ends the run under `set -e`. See the note in lib/ui.sh.
-CORE_PICK=()
-while read -r n; do CORE_PICK+=("${CORE_IDX[$n]}"); done < <(chk_picked)
+# Core: not asked. The necessary tier exists for these repos, so they ARE the
+# environment. To drop one for good, delete its line in modules.conf.
+CORE_PICK=(${CORE_IDX[@]+"${CORE_IDX[@]}"})
+core_names=(); for i in "${CORE_PICK[@]}"; do core_names+=("${M_ID[$i]}"); done
+step "Core config repos, always installed: ${core_names[*]}"
 
 # Vim's languages — one list here instead of four prompts mid-run, passed down
 # as --languages=… so vim's own installer never gets to ask.
@@ -333,10 +334,12 @@ if [[ -n "$FF_IDX" ]] && in_list "$FF_IDX" ${CORE_PICK[@]+"${CORE_PICK[@]}"}; th
 fi
 
 # Secondary: nothing pre-ticked but what is already here or was ticked before.
-# Unticking never uninstalls, so those ticks are just an honest picture.
+# Unticking an installed one asks again below, then uninstalls it in section 3.
+declare -A SEC_HAD=()
 chk_reset
 for i in "${SEC_IDX[@]}"; do
     if mod_installed "$i"; then
+        SEC_HAD[$i]=1
         chk_add "${M_LABEL[$i]}" 1 "✓ installed"
     elif was_chosen "${M_ID[$i]}"; then
         chk_add "${M_LABEL[$i]}" 1 "chosen before"
@@ -345,8 +348,28 @@ for i in "${SEC_IDX[@]}"; do
     fi
 done
 checklist "Secondary — extra applications" "Nothing else depends on these; leaving them all unticked still gives you a complete environment."
+# chk_picked, not `(( CHK_STATE[n] )) && …`: an arithmetic test on an unticked row
+# returns non-zero and ends the run under `set -e`. See the note in lib/ui.sh.
 SEC_PICK=()
 while read -r n; do SEC_PICK+=("${SEC_IDX[$n]}"); done < <(chk_picked)
+
+# Installed but unticked: the permission question. Nothing pre-ticked, so a bare
+# enter — or no terminal at all — removes nothing.
+SEC_UNTICKED=(); SEC_GONE=(); SEC_REMOVE=()
+for i in "${SEC_IDX[@]}"; do
+    in_list "$i" ${SEC_PICK[@]+"${SEC_PICK[@]}"} && continue
+    SEC_UNTICKED+=("$i")
+    [[ -n "${SEC_HAD[$i]:-}" ]] && SEC_GONE+=("$i")
+done
+if [[ ${#SEC_GONE[@]} -gt 0 ]]; then
+    chk_reset
+    for i in "${SEC_GONE[@]}"; do
+        if mod_can_uninstall "$i"; then chk_add "${M_LABEL[$i]}" 0 "✓ installed"; else chk_add "${M_LABEL[$i]}" 0 "can't — remove by hand"; fi
+    done
+    checklist "Uninstall — you unticked these, and they are installed" \
+        "Tick each one to REMOVE in section 3. Left unticked, it stays and nothing changes. Your data is kept either way."
+    while read -r n; do SEC_REMOVE+=("${SEC_GONE[$n]}"); done < <(chk_picked)
+fi
 
 # A browser's config repo, and its extension question, only for a browser ticked above.
 # Not ticked means nothing: no question, no clone, no config.
@@ -440,6 +463,15 @@ else
     skip "No core repos ticked."
 fi
 
+# Before the installs, so a removed PDF viewer or browser hands its defaults back first.
+for i in ${SEC_UNTICKED[@]+"${SEC_UNTICKED[@]}"}; do forget "${M_ID[$i]}"; done
+if [[ ${#SEC_REMOVE[@]} -gt 0 ]]; then
+    step "Uninstalling: ${#SEC_REMOVE[@]} app(s)"
+    for i in "${SEC_REMOVE[@]}"; do
+        mod_uninstall "$i" || FAILED+=("${M_ID[$i]} (uninstall)")
+    done
+fi
+
 if [[ ${#SEC_PICK[@]} -gt 0 ]]; then
     step "Secondary: ${#SEC_PICK[@]} app(s)"
     for i in "${SEC_PICK[@]}"; do
@@ -485,8 +517,23 @@ for i in "${!M_ID[@]}"; do
     mod_installed "$i" || MISSING+=("${M_ID[$i]}")
 done
 
+STILL_HERE=()
+for i in ${SEC_REMOVE[@]+"${SEC_REMOVE[@]}"}; do
+    mod_installed "$i" && STILL_HERE+=("${M_ID[$i]}")
+done
+
 if [[ "$DRY_RUN" == true ]]; then
     skip "Dry run — nothing was installed, so nothing is verified."
+else
+    if [[ ${#STILL_HERE[@]} -gt 0 ]]; then
+        warn "Asked to uninstall but still here: ${STILL_HERE[*]} — scroll up for the reason."
+    elif [[ ${#SEC_REMOVE[@]} -gt 0 ]]; then
+        ok "Uninstalled what you asked. 'sudo apt autoremove' frees the packages they pulled in."
+    fi
+fi
+
+if [[ "$DRY_RUN" == true ]]; then
+    :
 elif [[ ${#MISSING[@]} -gt 0 ]]; then
     warn "Asked for but still not installed: ${MISSING[*]}"
     warn "Scroll up for the reason (no sudo, no install candidate, a failed download)."

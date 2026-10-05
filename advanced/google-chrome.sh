@@ -10,6 +10,27 @@ is_installed() { apt_installed google-chrome-stable; }
 SRC="$BLE_ROOT/chrome-headless"
 CHROME_BIN=/opt/google/chrome/chrome
 
+if [[ "${1:-}" == --uninstall ]]; then
+    title "Google Chrome — uninstall"
+    apt_remove google-chrome-stable
+    remove_files --sudo /etc/apt/sources.list.d/google-chrome.sources \
+        /etc/apt/sources.list.d/google-chrome.list /usr/share/keyrings/google-chrome.gpg
+    # Only a profile this script wrote: stock 26.04 ships its own in the apparmor package.
+    if grep -qs 'Written by best-linux-environment' /etc/apparmor.d/chrome; then
+        remove_files --sudo /etc/apparmor.d/chrome
+    fi
+    remove_files "$HOME/.local/bin/b-chrome"
+    # Only the lines section 4 below wrote — they all carry this same comment.
+    for shell_name in zsh bash; do
+        local_file="$HOME/.$shell_name/$shell_name-alias.local"
+        grep -qs 'b-chrome / Puppeteer — delete this line to undo' "$local_file" || continue
+        run sed -i '/# b-chrome \/ Puppeteer — delete this line to undo$/d' "$local_file"
+        [[ "$DRY_RUN" == true ]] || ok "CHROME_PATH and PUPPETEER_EXECUTABLE_PATH dropped from ${local_file/#$HOME/\~}."
+    done
+    ok "Google Chrome removed. Your profile and the ~/.chrome config repo are kept."
+    exit 0
+fi
+
 title "Google Chrome (headless, for coding agents)"
 
 # Like docker.sh, no early exit when the browser is there: the profile and
