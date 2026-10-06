@@ -1241,9 +1241,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
-| `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`) + Playwright's own Firefox build — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp) |
-| `playwright-display` | `b-pw-display` → `~/.local/bin` + Playwright's Firefox build (brings `nodejs` + `npm`) — the desktop half of a browser driven from another host, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
-| `playwright-remote` | a `playwright-remote` MCP in Claude Code + a note in `~/.claude/CLAUDE.md` — the host half; installs no browser, no desktop needed |
+| `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |
 | `docker` | [Docker's apt repo](https://docs.docker.com/engine/install/ubuntu/) — CLI, no desktop needed |
@@ -1480,18 +1478,23 @@ page, so you watch fields fill and pages change, not a cursor.
 ### A Firefox here, driven by an agent on another host: playwright-remote
 
 For a coding agent that runs on a headless box you ssh into, while the Firefox
-window it drives opens on **your** screen. Two modules, one per side:
+window it drives opens on **your** screen. One module, `playwright-mcp`, does
+the right half on each side, by profile:
 
-- **`playwright-display`** (your desktop): installs `b-pw-display`. Run
+- **your desktop**: next to the local setup above, it installs `b-pw-display`. Run
   `b-pw-display <user>@<host>` instead of plain `ssh`. It starts a headed
   Playwright Firefox server on `127.0.0.1:9323/firefox`, then ssh's in with
   `-R 9323:127.0.0.1:9323`, so the host sees that port as its own. Leave the ssh
   session and the server stops. `b-pw-display --status` says if it is up.
-- **`playwright-remote`** (the host): registers a Claude Code MCP named
-  `playwright-remote` that runs `@playwright/mcp@latest --endpoint ws://127.0.0.1:9323/firefox`,
-  and adds a marked block to `~/.claude/CLAUDE.md`. That block tells every session
-  on the host how the browser is reached and, when the tunnel is down, to ask you
-  to reconnect with `b-pw-display` — or to install `playwright-display` on your PC.
+- **the host** (server profile): installs no browser. It registers an MCP named
+  `playwright-remote` that runs `@playwright/mcp@latest --endpoint ws://127.0.0.1:9323/firefox`
+  in every agent that is installed (Claude Code, opencode, Codex), and adds a
+  marked block to `~/.claude/CLAUDE.md`. That block tells every session on the
+  host how the browser is reached and, when the tunnel is down, to ask you to
+  reconnect with `b-pw-display` — or to install `playwright-mcp` on your PC.
+
+The tunnel opens only when you use `b-pw-display`: whoever is logged in on the
+host while it is up can drive that Firefox, so use it on hosts you trust.
 
 Things to know:
 
@@ -1502,7 +1505,7 @@ Things to know:
   into the same host fails with *remote port forwarding failed*. Another port:
   `PW_DISPLAY_PORT=9324` on both sides (re-run the host module with it set).
 - **No saved logins.** The server starts a fresh Firefox each time, unlike the
-  shared profile of `playwright-mcp`. Snapshots and screenshots stay on the host,
+  shared profile of the local setup. Snapshots and screenshots stay on the host,
   in `~/.cache/playwright-mcp`.
 
 ## Shared library

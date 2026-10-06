@@ -9,7 +9,7 @@ screen of the PC that ssh'd into this machine, through `ws://127.0.0.1:9323/fire
 - Tunnel down, or a tool fails with "connect ECONNREFUSED 127.0.0.1:9323": tell the
   user to leave this ssh session and reconnect from their PC with
   `b-pw-display <user>@<this host>` (it opens Firefox there and ssh's in with the tunnel).
-- Their PC has no `b-pw-display`: tell them to install the `playwright-display` module
+- Their PC has no `b-pw-display`: tell them to install the `playwright-mcp` module
   of best-linux-environment there (`./setup.sh`, tick it). It needs a desktop session
   and node/npx.
 - "Playwright version mismatch": both sides use `@playwright/mcp@latest`; tell the user

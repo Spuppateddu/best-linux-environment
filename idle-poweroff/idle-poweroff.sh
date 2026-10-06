@@ -585,6 +585,21 @@ if [ "$MODE" = dry ]; then
     exit 0
 fi
 
+# Netplan's .link sets WoL off and udev can re-apply it after boot, so arm it
+# again now, or the magic packet that should wake this box is ignored.
+arm_wol() {
+    has_cmd ethtool || return 0
+    local dev iface
+    for dev in /sys/class/net/*/device; do
+        iface=$(basename "$(dirname "$dev")")
+        ethtool "$iface" 2>/dev/null | grep -qE '^[[:space:]]*Supports Wake-on:.*g' || continue
+        ethtool -s "$iface" wol g 2>/dev/null \
+            && log "Wake-on-LAN armed on $iface" \
+            || log "could not arm Wake-on-LAN on $iface"
+    done
+}
+
 log "still idle after the warning — powering off"
 rm -f "$WARNED" "$IDLE_SINCE"
+arm_wol
 systemctl poweroff
