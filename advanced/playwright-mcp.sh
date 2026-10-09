@@ -16,6 +16,10 @@ PW_PORT="${PW_DISPLAY_PORT:-9323}"
 
 DISPLAY_SRC="$BLE_ROOT/playwright-remote/b-pw-display"
 DISPLAY_DST="$HOME/.local/bin/b-pw-display"
+# Starts Playwright's Firefox on the first free i3 workspace, so an agent's window
+# never covers the one you work on. Used by the MCP here and by b-pw-display.
+FIREFOX_SRC="$BLE_ROOT/playwright-remote/b-pw-firefox"
+FIREFOX_DST="$HOME/.local/bin/b-pw-firefox"
 NOTE_SRC="$BLE_ROOT/playwright-remote/claude-note.md"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 NOTE_START='<!-- playwright-remote (best-linux-environment) -->'
@@ -25,7 +29,7 @@ NOTE_END='<!-- /playwright-remote -->'
 # ssh -R tunnel — no browser is installed here.
 if is_desktop; then
     MCP_NAME=playwright
-    PW_ARGS=(-y "$PW_PKG" --browser firefox --output-dir "$PW_OUT" --user-data-dir "$PW_PROFILE")
+    PW_ARGS=(-y "$PW_PKG" --browser firefox --executable-path "$FIREFOX_DST" --output-dir "$PW_OUT" --user-data-dir "$PW_PROFILE")
 else
     MCP_NAME=playwright-remote
     PW_ARGS=(-y "$PW_PKG" --endpoint "ws://127.0.0.1:$PW_PORT/firefox" --output-dir "$PW_OUT")
@@ -111,7 +115,7 @@ if [[ "${1:-}" == --uninstall ]]; then
     fi
     # Only the Firefox build: other Playwright browsers in that cache belong to your projects.
     # $PW_OUT holds the shared profile; ms-playwright-mcp the per-folder ones of older setups.
-    for d in "$PW_CACHE"/firefox-* "$PW_OUT" "$HOME/.cache/ms-playwright-mcp"/mcp-firefox-* "$DISPLAY_DST"; do
+    for d in "$PW_CACHE"/firefox-* "$PW_OUT" "$HOME/.cache/ms-playwright-mcp"/mcp-firefox-* "$DISPLAY_DST" "$FIREFOX_DST"; do
         [[ -e "$d" ]] || continue
         run rm -rf "$d"
         [[ "$DRY_RUN" == true ]] || ok "removed ${d/#$HOME/\~}"
@@ -242,15 +246,18 @@ args = [${toml_args%, }]"
     fi
 fi
 
-# ── 3a. desktop: b-pw-display, to lend this screen to a host ─────────────────
+# ── 3a. desktop: b-pw-firefox, and b-pw-display to lend this screen to a host ─
 if is_desktop; then
-    if cmp -s "$DISPLAY_SRC" "$DISPLAY_DST"; then
-        skip "b-pw-display already current."
-    else
-        run mkdir -p "$HOME/.local/bin"
-        run install -m 0755 "$DISPLAY_SRC" "$DISPLAY_DST"
-        ok "b-pw-display installed to ~/.local/bin."
-    fi
+    for pair in "$FIREFOX_SRC:$FIREFOX_DST" "$DISPLAY_SRC:$DISPLAY_DST"; do
+        src="${pair%%:*}" dst="${pair#*:}"
+        if cmp -s "$src" "$dst"; then
+            skip "$(basename "$dst") already current."
+        else
+            run mkdir -p "$HOME/.local/bin"
+            run install -m 0755 "$src" "$dst"
+            ok "$(basename "$dst") installed to ~/.local/bin."
+        fi
+    done
     ok "Playwright MCP ready — restart the agent, then ask it to open a page."
     ok "For an agent on another host: b-pw-display <user>@<host> instead of ssh."
     exit 0

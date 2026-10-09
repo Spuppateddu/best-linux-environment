@@ -1187,10 +1187,10 @@ settings. Packages are `apt-get remove`d, not purged, and `apt autoremove` is le
 to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
-the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd` and
-`google-chrome` are the exceptions — CLI, scope `all` — so they still appear on a
-headless box, and can be installed there directly (Chrome is on that list because
-the point of it here is **headless** use, which needs no display at all):
+the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd`,
+`google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
+still appear on a headless box, and can be installed there directly (Chrome is on
+that list because `chrome-headless` needs it, and **headless** use needs no display):
 
 ```bash
 ./setup.sh only docker      # server-friendly, and pulls in lazydocker too
@@ -1242,7 +1242,8 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
 | `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
-| `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
+| `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
+| `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |
 | `docker` | [Docker's apt repo](https://docs.docker.com/engine/install/ubuntu/) — CLI, no desktop needed |
 | `lazydocker` | [GitHub release binary](https://github.com/jesseduffield/lazydocker) → `~/.local/bin` — CLI, no desktop needed |
@@ -1276,7 +1277,7 @@ daemon for CE would stop every running container, which is your call to make, no
 a setup script's.
 
 It is one of the two advanced modules that don't early-exit when already
-installed (`google-chrome` is the other): the service and group checks are the
+installed (`chrome-headless` is the other): the service and group checks are the
 parts that actually break, both are idempotent, and `./setup.sh` runs the module
 regardless. If `docker-compose` (v1),
 `docker-doc` or `podman-docker` is installed it stops and tells you what to remove
@@ -1342,14 +1343,20 @@ new group only reaches a new login.
 
 ### Headless Chrome for a coding agent: `b-chrome`
 
-**`google-chrome`** is in the list for one reason: so an agent — `claude`,
+**`chrome-headless`** is a separate entry from **`google-chrome`**, so you can
+have the browser alone, or the browser plus the parts an AI agent needs. Ticking
+`chrome-headless` ticks `google-chrome` too: it can't work without it. Removing
+`chrome-headless` keeps the browser; removing `google-chrome` takes the headless
+parts with it.
+
+It is in the list for one reason: so an agent — `claude`,
 `opencode`, `codex` — can *look at a page* while it works. Start the dev server,
 take a screenshot, read the DOM after the JavaScript has run, drive the browser
 over the DevTools protocol. No window opens, nothing steals focus, and it works
 over ssh and on a server just as well as on the desktop.
 
-The Chrome deb alone does not give you that. The module adds the two pieces it
-leaves out:
+The Chrome deb alone does not give you that. `chrome-headless` adds the two
+pieces it leaves out:
 
 - **the sandbox.** `kernel.apparmor_restrict_unprivileged_userns` has been on
   since Ubuntu 24.04 and is still on in **26.04**, and Chrome's sandbox is built
@@ -1410,7 +1417,7 @@ profile could not be written), `b-chrome` retries the run with `--no-sandbox` an
 told that isolation is gone. `b-chrome doctor` explains which of those two worlds
 you are in.
 
-The apt source it writes is **deb822** (`/etc/apt/sources.list.d/google-chrome.sources`),
+The apt source `google-chrome` writes is **deb822** (`/etc/apt/sources.list.d/google-chrome.sources`),
 at the exact path Chrome's own postinst manages on 26.04: the package rewrites
 that same file after the install, so the machine keeps one source for the repo
 rather than the duplicate apt complains about at every update. On an older Chrome

@@ -42,7 +42,10 @@ if listening; then
 else
     mkdir -p "$LOG_DIR"
     cfg="$(mktemp)"
-    printf '{"headless":false,"host":"127.0.0.1","port":%s,"wsPath":"%s"}\n' "$PORT" "$WS_PATH" > "$cfg"
+    # b-pw-firefox puts the window on the first free i3 workspace; without it, Playwright's own Firefox.
+    exe="$(command -v b-pw-firefox || true)"
+    printf '{"headless":false,"host":"127.0.0.1","port":%s,"wsPath":"%s"%s}\n' "$PORT" "$WS_PATH" \
+        "${exe:+,\"executablePath\":\"$exe\"}" > "$cfg"
     echo "▸ Starting Firefox Playwright server on :$PORT (log: ${LOG/#$HOME/\~})"
     # Same package as the remote MCP, so client and server Playwright versions match.
     setsid npx -y -p "$PW_PKG" playwright launch-server --browser firefox --config "$cfg" > "$LOG" 2>&1 &

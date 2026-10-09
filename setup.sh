@@ -353,6 +353,20 @@ checklist "Secondary — extra applications" "Nothing else depends on these; lea
 SEC_PICK=()
 while read -r n; do SEC_PICK+=("${SEC_IDX[$n]}"); done < <(chk_picked)
 
+# Headless Chrome needs the browser: ticking it ticks Chrome too, in list order,
+# so Chrome is never offered for uninstall while its headless parts stay.
+CHROME_IDX="$(mod_index_of google-chrome || true)"
+HEADLESS_IDX="$(mod_index_of chrome-headless || true)"
+if [[ -n "$CHROME_IDX" && -n "$HEADLESS_IDX" ]] &&
+   in_list "$HEADLESS_IDX" ${SEC_PICK[@]+"${SEC_PICK[@]}"} &&
+   ! in_list "$CHROME_IDX" "${SEC_PICK[@]}"; then
+    step "chrome-headless needs Google Chrome — ticking google-chrome too."
+    picked=("${SEC_PICK[@]}"); SEC_PICK=()
+    for i in "${SEC_IDX[@]}"; do
+        if [[ "$i" == "$CHROME_IDX" ]] || in_list "$i" "${picked[@]}"; then SEC_PICK+=("$i"); fi
+    done
+fi
+
 # Installed but unticked: the permission question. Nothing pre-ticked, so a bare
 # enter — or no terminal at all — removes nothing.
 SEC_UNTICKED=(); SEC_GONE=(); SEC_REMOVE=()
