@@ -1,6 +1,6 @@
 # Your aliases, on every machine: `cp aliases.local.example aliases.local`,
-# edit, then ./setup.sh (./boot.sh and every boot re-apply it). aliases.local is
-# git-ignored, so nothing here is pushed anywhere.
+# edit, then `b-alias` (applies it to this shell too; ./setup.sh and boot do it too).
+# aliases.local is git-ignored, so nothing here is pushed anywhere.
 #
 # It starts nearly empty on purpose: add only the aliases you actually want.
 #
@@ -15,7 +15,7 @@
 # ~/.zsh/zsh-alias.local or ~/.bash/bash-alias.local, which stay per-machine.
 #
 # Names already taken by the shell config repos, so not re-used here: v, r, ta,
-# tn, calc, lz, ld, b-temp, b-idle, b-reload, fn.
+# tn, calc, lz, ld, b-temp, b-idle, b-reload, b-alias, fn.
 
 
 # The agent folder, from settings.local's BLE_AGENT_DESK.

@@ -357,6 +357,10 @@ the copy already on disk is the last one that worked.
 and after the pull in a `boot.sh` one. Nothing can push a new prompt into a shell
 that already exists, so open a new terminal; i3 is reloaded for you.
 
+Just edited `aliases.local`? Type **`b-alias`**: it runs only that step, then
+re-loads the result into the shell you are typing in — no full `setup.sh`, no new
+terminal. An alias you deleted stays in that one shell until it closes.
+
 ### Your colours, rolled once
 
 Leave a colour key out and the first run **rolls it for you** and writes it back

@@ -277,6 +277,12 @@ shell_file() {
     printf '\n'
 
     printf '# ── your aliases (aliases.local) ──────────────────────────────────────────────\n'
+    # Before the body, so an aliases.local of yours can still redefine it.
+    printf '# Re-apply aliases.local and load it into THIS shell, no new terminal needed.\n'
+    printf 'b-alias() {\n'
+    printf '    bash %q/basic/95-settings.sh && . "$HOME/.%s/%s-ble.local"\n' \
+        "$BLE_ROOT" "$shell_name" "$shell_name"
+    printf '}\n\n'
     if [[ -n "$ALIAS_BODY" ]]; then
         printf '%s\n' "$ALIAS_BODY"
     else
