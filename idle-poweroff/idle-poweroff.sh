@@ -529,7 +529,9 @@ if [ "$IDLE_ENOUGH" != true ]; then
         log "activity resumed ($REASON) — poweroff cancelled"
         rm -f "$WARNED"
     fi
-    rm -f "$IDLE_SINCE"
+    # Only real activity restarts the headless clock. "Not idle LONG ENOUGH yet"
+    # must keep it, or it is re-stamped at 0 every tick and never reaches the limit.
+    [ -n "$BLOCKED" ] && rm -f "$IDLE_SINCE"
     exit 0
 fi
 
