@@ -75,7 +75,7 @@ chrome_bin() {
 }
 
 need_bin() {
-    chrome_bin || die "no Chrome on PATH — install it with: ./setup.sh only google-chrome"
+    chrome_bin || die "no Chrome on PATH — install it with: ./setup.sh only chrome-headless"
 }
 
 # --disable-dev-shm-usage: in a container /dev/shm is 64 MB and Chrome dies on
@@ -302,7 +302,7 @@ cmd_cdp() {
 cmd_doctor() {
     local bin rc=0
     if ! bin="$(chrome_bin)"; then
-        printf '✗ Chrome     not on PATH — ./setup.sh only google-chrome\n'
+        printf '✗ Chrome     not on PATH — ./setup.sh only chrome-headless\n'
         return 1
     fi
     printf '✓ binary     %s\n' "$bin"
@@ -321,7 +321,7 @@ cmd_doctor() {
             printf '✓ apparmor   user namespaces restricted, and Chrome has a profile\n'
         else
             printf '! apparmor   user namespaces restricted and NO profile names Chrome\n'
-            printf '             the sandbox will not start — re-run: ./setup.sh only google-chrome\n'
+            printf '             the sandbox will not start — re-run: ./setup.sh only chrome-headless\n'
         fi
     else
         printf '✓ apparmor   unprivileged user namespaces are not restricted here\n'

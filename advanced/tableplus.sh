@@ -6,6 +6,13 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 is_installed() { apt_installed tableplus; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "TablePlus — uninstall"
+    apt_remove tableplus
+    apt_repo_drop tableplus-archive
+    ok "TablePlus removed. Its saved connections in your home folder are kept."
+    exit 0
+fi
 
 title "TablePlus"
 require_desktop "TablePlus"

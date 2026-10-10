@@ -6,6 +6,17 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
 is_installed() { apt_installed openssh-server; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "OpenSSH server — uninstall"
+    # Removing sshd from inside an ssh session can cut the very session doing it.
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+        fail "You are connected over ssh — run this from the machine itself."
+        exit 1
+    fi
+    apt_remove openssh-server
+    ok "sshd removed — port 22 is closed. The ssh client stays."
+    exit 0
+fi
 
 title "OpenSSH server"
 

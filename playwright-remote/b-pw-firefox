@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# b-pw-firefox — Playwright's Firefox, opened on the first free i3 workspace.
+# Playwright MCP (and b-pw-display) start the browser through this script
+# (--executable-path), so an agent's window never lands on the workspace you
+# are working on, and your focus stays where it is.
+# Not in i3, or no Playwright Firefox build: it just runs the browser as asked.
+set -uo pipefail
+
+CLASS=PlaywrightMCP
+
+# Newest Playwright Firefox build (the revision @playwright/mcp@latest installed).
+real="$(ls -d "$HOME"/.cache/ms-playwright/firefox-*/firefox/firefox 2>/dev/null | sort -V | tail -1)"
+[[ -x "$real" ]] || { echo "b-pw-firefox: no Playwright Firefox — npx -y @playwright/mcp@latest install-browser firefox" >&2; exit 1; }
+
+if command -v i3-msg >/dev/null && command -v jq >/dev/null && i3-msg -t get_version >/dev/null 2>&1; then
+    # First workspace number with no workspace open on it: a new, empty one.
+    used="$(i3-msg -t get_workspaces | jq -r '.[].num')"
+    ws=1
+    while grep -qx "$ws" <<<"$used"; do ws=$((ws + 1)); done
+
+    # Move the window there as soon as it maps. Runs detached, with no copy of
+    # Playwright's pipes (fd 3 and 4), so it never keeps the browser session open.
+    (
+        exec 0</dev/null 1>/dev/null 2>&1 3>&- 4>&-
+        for _ in $(seq 150); do
+            if i3-msg -t get_tree | jq -e --arg c "$CLASS" \
+                '[.. | objects | select(.window_properties?.class? == $c)] | length > 0' >/dev/null; then
+                i3-msg "[class=\"^$CLASS\$\"] move container to workspace number $ws"
+                exit 0
+            fi
+            sleep 0.2
+        done
+    ) &
+    disown
+
+    # --class sets the X11 WM_CLASS, so i3 can tell this window from your own Firefox.
+    exec "$real" --class "$CLASS" "$@"
+fi
+
+exec "$real" "$@"

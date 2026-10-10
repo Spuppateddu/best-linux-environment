@@ -144,7 +144,7 @@ fi
 title "Refreshing hand-installed binaries"
 
 registry_load
-for id in lazygit yazi opencode; do
+for id in lazygit yazi opencode playwright-mcp; do
     if idx="$(mod_index_of "$id")"; then
         # Only if it is actually here: installing something you never picked is
         # the one decision this script doesn't get to make.

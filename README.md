@@ -62,10 +62,11 @@ of yes/no prompts you have to sit through. A run goes:
 
 1. **Mass install** — everything in the `necessary` tier, in a single `apt-get`
    call. Not asked about.
-2. **Every question, together** — starting with the shell (zsh or bash), then two
-   checkbox lists (your config repos, then the extra apps), plus vim's language
-   support and Firefox's add-ons as two more, instead of a prompt each. Then
-   whether to keep your rolled colours or roll them all again.
+2. **Every question, together** — starting with the shell (zsh or bash), then a
+   checkbox list of extra apps, plus vim's language support and Firefox's add-ons
+   as two more, instead of a prompt each. Then whether to keep your rolled
+   colours or roll them all again. Your config repos are not asked: they always
+   go in.
 3. **Install** — from here nothing stops to ask. The answers are already in hand,
    including the ones the config repos' own installers would have wanted.
 4. **Result** — what went in, what failed, what you ticked that still isn't
@@ -85,21 +86,15 @@ untick your way out of — ↑/↓ move the dot, enter confirms it:
    ( ) bash — the same prompt and the same aliases, no framework, nothing third-party in your shell
 ```
 
-Then the checkbox lists, driven the same way but ticking freely. Note that the
-core list carries the shell you just picked and **not** the other one:
+Your config repos come next, and they are **not** a list: the whole `necessary`
+tier exists to serve them, so they always go in. Only the shell config you just
+picked is installed, not the other one. One line names them:
 
 ```
-══ Core — your config repos ══
-   ↑/↓ move · space toggle · a all · n none · enter confirm
-
- ❯ [x] bash — prompt, aliases, keybindings (no framework)      (~/.bash)
-   [x] vim — plugins, LSP, per-language support                (~/.vim)
-   [x] tmux — keybindings, status line, window naming          (~/.tmuxrc)
-   [ ] temps — CPU/GPU temperature logger, aliased b-temp in your shell (~/.temps)
-   [x] alacritty — colours, font, padding                      (~/.alacritty)
-   [x] i3 — window manager, rofi, dunst, picom, eww            (~/.i3rc)
-   [x] firefox — prefs, add-ons, Vimium, browser keybindings   (~/.firefox)
+▸ Core config repos, always installed: bash-config vim tmux temps alacritty i3 firefox-config
 ```
+
+Then the checkbox lists, driven the same way but ticking freely.
 
 Without a terminal (a pipe, CI) the lists print and every default stands — there
 is nobody to ask, and silently taking the defaults is the only honest answer. For
@@ -116,8 +111,8 @@ something, move its line** — there is no code to edit.
 | Tier | Asked how | What belongs there |
 | --- | --- | --- |
 | **necessary** | never — always installed | the substrate (git, curl, a compiler) **and** everything the core repos name |
-| **core** | checkbox list, **all pre-ticked** | your config repos, and only those |
-| **secondary** | checkbox list, **none pre-ticked** | extra applications |
+| **core** | never — always installed | your config repos, and only those |
+| **secondary** | checkbox list, **none pre-ticked**; unticking an installed one uninstalls it, after a confirm | extra applications |
 
 `necessary` is not "things I happen to want" — it is the set whose absence
 **breaks** something else. The i3 config binds keys to alacritty, firefox and
@@ -290,7 +285,7 @@ list, and Firefox's add-ons as `--extensions=ublock-origin,vimium-ff,…` from
 another, rather than either stopping the run to ask. Chrome's and Brave's
 extensions arrive the same way (`--extensions=vimium,bitwarden,…`), but their
 list is asked only when you tick Google Chrome or Brave in the secondary list —
-their config repos (`~/.chrome`, `~/.brave`) are not in the core list at all:
+their config repos (`~/.chrome`, `~/.brave`) are not installed with the other core repos:
 they follow their browser, and a browser you didn't tick gets nothing. That is also what makes
 `boot.sh` incapable of hanging on a prompt nobody is there to answer.
 
@@ -600,7 +595,9 @@ boot runs `./boot.sh`, which:
 5. refreshes the binaries apt doesn't manage for us — **yazi**/`ya`, **fzf**,
    **lazygit** (only a `~/.local/bin` copy; an apt one belongs to apt) and
    **opencode** (`opencode upgrade`) — each behind a release-tag check, so a run
-   with nothing new downloads nothing. Secondary apps are **not** in this list,
+   with nothing new downloads nothing — and **Playwright's Firefox build**, when
+   `playwright-mcp` is installed, so it keeps matching the server's `@latest`.
+   Other secondary apps are **not** in this list,
    so the `~/.local/bin` **lazydocker** binary is never bumped here:
    `bash advanced/lazydocker.sh --upgrade`;
 6. logs to `~/.cache/best-linux-environment/boot.log`, trimmed to the last
@@ -841,9 +838,9 @@ repos install into it, and fonts before the tools that render them. Items marked
    Ticking **`okular`** flips the default **in the same run**: the necessary
    tier, where this module lives, has already finished by the time a secondary
    app installs, so [`advanced/okular.sh`](advanced/okular.sh) calls this module
-   again itself. `apt remove okular` later and the next `./setup.sh` hands PDFs
-   back to Firefox — unticking alone does not, because nothing here ever
-   *removes* a package. The rewrite is keyed on the `desc` in the line, so it is
+   again itself. Untick `okular` later and confirm the removal: its
+   `--uninstall` calls this module again too, so PDFs go back to Firefox in the
+   same run. The rewrite is keyed on the `desc` in the line, so it is
    only ever a line this repo wrote that gets replaced.
    `57-image-viewer` owns `[opener] image`, this one owns `[opener] pdf`, and
    they **share the `[open] prepend_rules` array**, because TOML cannot carry
@@ -927,7 +924,7 @@ the choosing happens once, up front, in `setup.sh`'s checkbox lists:
 | --- | --- |
 | `20-ssh`: "install OpenSSH?" | split in two — the client is `necessary` (opens no port), `openssh-server` is a `secondary` box |
 | `90-opencode`: "pipe this script into bash?" | a `secondary` box — the list *is* the question |
-| `10-tools`: numbered tool menu | the `core` list, pre-ticked |
+| `10-tools`: numbered tool menu | the `core` tier, always installed, not asked |
 | advanced-apps menu | the `secondary` list |
 | vim: php? javascript? python? c? | one list, passed down as `--languages=…` |
 | Firefox add-ons: whatever `extensions.conf` happened to say | one list, passed down as `--extensions=…` |
@@ -1170,13 +1167,30 @@ complete environment — nothing else in the repo depends on any of these.
 
 Anything already installed shows as `✓ installed` and pre-ticked rather than
 being hidden, so the list is an honest picture of the machine. Re-installing is a
-no-op; unticking never uninstalls.
+no-op.
+
+**Unticking an installed app uninstalls it — but only after you say yes.** Right
+after the list, a second one shows just the apps you unticked that are on the
+machine, with **nothing ticked**:
+
+```
+══ Uninstall — you unticked these, and they are installed ══
+   Tick each one to REMOVE in section 3. Left unticked, it stays and nothing changes.
+ ❯ [ ] TablePlus — database GUI   ✓ installed
+```
+
+Tick one and section 3 runs its script with `--uninstall`. A bare enter, or no
+terminal at all, removes nothing. Each script removes what it added — the package,
+its apt repo and key, its helper scripts and autostart entries — and keeps your
+data: Docker's images in `/var/lib/docker`, Steam's games, browser profiles, app
+settings. Packages are `apt-get remove`d, not purged, and `apt autoremove` is left
+to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
-the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd` and
-`google-chrome` are the exceptions — CLI, scope `all` — so they still appear on a
-headless box, and can be installed there directly (Chrome is on that list because
-the point of it here is **headless** use, which needs no display at all):
+the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd`,
+`google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
+still appear on a headless box, and can be installed there directly (Chrome is on
+that list because `chrome-headless` needs it, and **headless** use needs no display):
 
 ```bash
 ./setup.sh only docker      # server-friendly, and pulls in lazydocker too
@@ -1227,7 +1241,9 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
-| `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
+| `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
+| `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
+| `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |
 | `docker` | [Docker's apt repo](https://docs.docker.com/engine/install/ubuntu/) — CLI, no desktop needed |
 | `lazydocker` | [GitHub release binary](https://github.com/jesseduffield/lazydocker) → `~/.local/bin` — CLI, no desktop needed |
@@ -1261,7 +1277,7 @@ daemon for CE would stop every running container, which is your call to make, no
 a setup script's.
 
 It is one of the two advanced modules that don't early-exit when already
-installed (`google-chrome` is the other): the service and group checks are the
+installed (`chrome-headless` is the other): the service and group checks are the
 parts that actually break, both are idempotent, and `./setup.sh` runs the module
 regardless. If `docker-compose` (v1),
 `docker-doc` or `podman-docker` is installed it stops and tells you what to remove
@@ -1271,7 +1287,7 @@ says so and points at `docker.io` + `docker-compose-v2` as the stopgap.
 
 **`lazydocker`** has no apt repo anywhere, so it's the prebuilt release tarball
 into `~/.local/bin` — the same path `40-lazygit` falls back to. Because
-`./boot.sh` refreshes only lazygit, yazi and opencode, **no cron will bump it**; ask for
+`./boot.sh` refreshes only lazygit, yazi, opencode and playwright-mcp, **no cron will bump it**; ask for
 the upgrade explicitly:
 
 ```bash
@@ -1327,14 +1343,20 @@ new group only reaches a new login.
 
 ### Headless Chrome for a coding agent: `b-chrome`
 
-**`google-chrome`** is in the list for one reason: so an agent — `claude`,
+**`chrome-headless`** is a separate entry from **`google-chrome`**, so you can
+have the browser alone, or the browser plus the parts an AI agent needs. Ticking
+`chrome-headless` ticks `google-chrome` too: it can't work without it. Removing
+`chrome-headless` keeps the browser; removing `google-chrome` takes the headless
+parts with it.
+
+It is in the list for one reason: so an agent — `claude`,
 `opencode`, `codex` — can *look at a page* while it works. Start the dev server,
 take a screenshot, read the DOM after the JavaScript has run, drive the browser
 over the DevTools protocol. No window opens, nothing steals focus, and it works
 over ssh and on a server just as well as on the desktop.
 
-The Chrome deb alone does not give you that. The module adds the two pieces it
-leaves out:
+The Chrome deb alone does not give you that. `chrome-headless` adds the two
+pieces it leaves out:
 
 - **the sandbox.** `kernel.apparmor_restrict_unprivileged_userns` has been on
   since Ubuntu 24.04 and is still on in **26.04**, and Chrome's sandbox is built
@@ -1395,7 +1417,7 @@ profile could not be written), `b-chrome` retries the run with `--no-sandbox` an
 told that isolation is gone. `b-chrome doctor` explains which of those two worlds
 you are in.
 
-The apt source it writes is **deb822** (`/etc/apt/sources.list.d/google-chrome.sources`),
+The apt source `google-chrome` writes is **deb822** (`/etc/apt/sources.list.d/google-chrome.sources`),
 at the exact path Chrome's own postinst manages on 26.04: the package rewrites
 that same file after the install, so the machine keeps one source for the repo
 rather than the duplicate apt complains about at every update. On an older Chrome
@@ -1408,6 +1430,90 @@ reads `xdg-settings get default-web-browser` before installing and puts the old
 value back if it changed — and it installs nothing on arm64, where Google
 publishes no Linux build (it says so and points at Chromium, which `b-chrome`
 also drives).
+
+### A visible Firefox for a coding agent: Playwright MCP
+
+**`playwright-mcp`** is the other way to give an agent a browser. Where
+`b-chrome` is headless and scripted, this one opens a **real Firefox window** you
+watch while the agent clicks, types and reads the page — through
+[Playwright MCP](https://github.com/microsoft/playwright-mcp), which hands the
+agent tools like `browser_navigate`, `browser_click`, `browser_type` and
+`browser_snapshot`. It is the one to use when you log in by hand first and then
+let the agent work in that session.
+
+The module does three things:
+
+- **the browser.** Playwright cannot drive the system Firefox — it needs its own
+  patched build in `~/.cache/ms-playwright/`, and the exact revision the current
+  `@playwright/mcp@latest` expects. A newer server with an older build fails with
+  *Browser "firefox" is not installed*, so `./boot.sh` re-runs
+  `npx @playwright/mcp@latest install-browser firefox` too; it downloads only
+  when the revision moved. Old revisions are not deleted.
+- **the server, in every agent that is here.** The same command,
+  `npx -y @playwright/mcp@latest --browser firefox --output-dir ~/.cache/playwright-mcp --user-data-dir ~/.cache/playwright-mcp/firefox-profile`,
+  is written into:
+
+  | Agent | Where |
+  | --- | --- |
+  | Claude Code | `claude mcp add -s user` → `~/.claude.json`, every project |
+  | opencode | `"mcp": { "playwright": … }` in `~/.config/opencode/opencode.jsonc` (or `.json`) |
+  | Codex | `[mcp_servers.playwright]` in `~/.codex/config.toml` |
+
+  An agent that isn't installed is skipped, never installed for you; tick the
+  module again after installing one. An entry you edited is left alone by
+  `./boot.sh` and reset by `./setup.sh`, with the old file kept as
+  `*.backup.<pid>`. An opencode config with comments can't be read by `jq`, so
+  the module prints the block to paste instead of touching it.
+- **`--output-dir`.** Without it, every snapshot and screenshot lands in a
+  `.playwright-mcp/` folder inside whatever repo the agent runs in, and shows up
+  in `git status`. Here it goes to `~/.cache/playwright-mcp`.
+  As a backstop, `.playwright-mcp/` also goes into your global git ignore
+  (`core.excludesFile`, or `~/.config/git/ignore`), so a server started some
+  other way still leaves every repo clean.
+
+Restart the agent after the install — MCP servers load when a session starts.
+**One login, everywhere.** Left to itself the server keeps one Firefox profile
+*per project folder* (`~/.cache/ms-playwright-mcp/mcp-firefox-<hash>`), so a
+login in one repo means nothing in the next. `--user-data-dir` points every
+agent, in every folder, at the same profile instead: log in to a site once and it
+holds in all of them, until the site's own session expires. The cost is Firefox's
+profile lock — **one agent at a time** can have the browser open; a second gets
+*browser is already in use* until the first closes its browser.
+Playwright moves no mouse pointer you can see: it sends events straight to the
+page, so you watch fields fill and pages change, not a cursor.
+
+### A Firefox here, driven by an agent on another host: playwright-remote
+
+For a coding agent that runs on a headless box you ssh into, while the Firefox
+window it drives opens on **your** screen. One module, `playwright-mcp`, does
+the right half on each side, by profile:
+
+- **your desktop**: next to the local setup above, it installs `b-pw-display`. Run
+  `b-pw-display <user>@<host>` instead of plain `ssh`. It starts a headed
+  Playwright Firefox server on `127.0.0.1:9323/firefox`, then ssh's in with
+  `-R 9323:127.0.0.1:9323`, so the host sees that port as its own. Leave the ssh
+  session and the server stops. `b-pw-display --status` says if it is up.
+- **the host** (server profile): installs no browser. It registers an MCP named
+  `playwright-remote` that runs `@playwright/mcp@latest --endpoint ws://127.0.0.1:9323/firefox`
+  in every agent that is installed (Claude Code, opencode, Codex), and adds a
+  marked block to `~/.claude/CLAUDE.md`. That block tells every session on the
+  host how the browser is reached and, when the tunnel is down, to ask you to
+  reconnect with `b-pw-display` — or to install `playwright-mcp` on your PC.
+
+The tunnel opens only when you use `b-pw-display`: whoever is logged in on the
+host while it is up can drive that Firefox, so use it on hosts you trust.
+
+Things to know:
+
+- **Versions.** Both sides run `@playwright/mcp@latest`, so client and server
+  Playwright match. If a release lands between the two starts you get
+  *Playwright version mismatch* — reconnect and restart the agent.
+- **One PC at a time per host.** The port is fixed, so a second `b-pw-display`
+  into the same host fails with *remote port forwarding failed*. Another port:
+  `PW_DISPLAY_PORT=9324` on both sides (re-run the host module with it set).
+- **No saved logins.** The server starts a fresh Firefox each time, unlike the
+  shared profile of the local setup. Snapshots and screenshots stay on the host,
+  in `~/.cache/playwright-mcp`.
 
 ## Shared library
 

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# b-pw-display — ssh into a host and let its coding agent drive a Firefox window
+# on THIS screen: a headed Playwright server here, reached there through ssh -R.
+set -euo pipefail
+
+PORT="${PW_DISPLAY_PORT:-9323}"
+WS_PATH=/firefox
+PW_PKG="@playwright/mcp@latest"
+LOG_DIR="$HOME/.cache/playwright-mcp"
+LOG="$LOG_DIR/display-server.log"
+
+usage() {
+    cat <<EOF
+Usage: b-pw-display <ssh-target> [ssh args...]
+       b-pw-display --status
+
+  Starts a visible Firefox here (Playwright server on 127.0.0.1:$PORT$WS_PATH),
+  then ssh's into <ssh-target> with that port forwarded back. On the remote,
+  the 'playwright-remote' MCP connects to ws://127.0.0.1:$PORT$WS_PATH.
+  Leave the ssh session and the browser server stops.
+
+  Example: b-pw-display ale@192.168.8.90
+  Port:    PW_DISPLAY_PORT=9324 b-pw-display host   (the remote MCP must match)
+EOF
+}
+
+listening() { ss -Hltn "sport = :$PORT" 2>/dev/null | grep -q .; }
+
+case "${1:-}" in
+    ''|-h|--help) usage; exit 0 ;;
+    --status)
+        listening && echo "server up on 127.0.0.1:$PORT$WS_PATH" || echo "server down"
+        exit 0 ;;
+esac
+
+[[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] || { echo "No display here — run this from your desktop session." >&2; exit 1; }
+command -v npx >/dev/null || { echo "npx missing — sudo apt install nodejs npm" >&2; exit 1; }
+
+started=""
+if listening; then
+    echo "▸ Playwright server already up on :$PORT — reusing it."
+else
+    mkdir -p "$LOG_DIR"
+    cfg="$(mktemp)"
+    # b-pw-firefox puts the window on the first free i3 workspace; without it, Playwright's own Firefox.
+    exe="$(command -v b-pw-firefox || true)"
+    printf '{"headless":false,"host":"127.0.0.1","port":%s,"wsPath":"%s"%s}\n' "$PORT" "$WS_PATH" \
+        "${exe:+,\"executablePath\":\"$exe\"}" > "$cfg"
+    echo "▸ Starting Firefox Playwright server on :$PORT (log: ${LOG/#$HOME/\~})"
+    # Same package as the remote MCP, so client and server Playwright versions match.
+    setsid npx -y -p "$PW_PKG" playwright launch-server --browser firefox --config "$cfg" > "$LOG" 2>&1 &
+    started=$!
+    for _ in $(seq 60); do
+        listening && break
+        kill -0 "$started" 2>/dev/null || break
+        sleep 1
+    done
+    rm -f "$cfg"
+    if ! listening; then
+        echo "✗ Server did not start. Last log lines:" >&2
+        tail -5 "$LOG" >&2
+        echo "  Missing browser? npx -y $PW_PKG install-browser firefox" >&2
+        kill -- -"$started" 2>/dev/null || true
+        exit 1
+    fi
+fi
+
+cleanup() { [[ -n "$started" ]] && kill -- -"$started" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
+target="$1"; shift
+echo "▸ ssh $target with -R $PORT → this screen"
+set +e
+ssh -t -o ExitOnForwardFailure=yes -R "$PORT:127.0.0.1:$PORT" "$target" "$@"
+rc=$?
+set -e
+if [[ $rc -eq 255 ]]; then
+    echo "✗ ssh failed. If it says 'remote port forwarding failed', port $PORT is taken" >&2
+    echo "  on $target (another PC already attached?). Close that one, or use PW_DISPLAY_PORT." >&2
+fi
+exit $rc

@@ -35,9 +35,10 @@ open_rule=$'\t{ mime = "video/*", use = "video" },'
 insert_after() {
     local re="$1" text="$2" tmp
     tmp="$(tmp_file .toml)"
-    awk -v re="$re" -v text="$text" '
+    # ENVIRON, not -v: -v eats backslashes, so gawk would see a bare "[".
+    re="$re" text="$text" awk '
         { print }
-        !inserted && $0 ~ re { print text; inserted = 1 }
+        !inserted && $0 ~ ENVIRON["re"] { print ENVIRON["text"]; inserted = 1 }
     ' "$yazi_toml" > "$tmp"
     cat "$tmp" > "$yazi_toml"
     rm -f "$tmp"

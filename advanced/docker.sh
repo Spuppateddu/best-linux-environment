@@ -16,6 +16,13 @@ DOCKER_IO_PLUGINS=(docker-compose-v2 docker-buildx)
 # goes through this too, so a docker.io host isn't offered a redundant install.
 is_installed() { apt_installed docker-ce || apt_installed docker.io; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "Docker Engine — uninstall"
+    apt_remove "${DOCKER_PKGS[@]}" docker.io "${DOCKER_IO_PLUGINS[@]}"
+    apt_repo_drop docker
+    ok "Docker removed. Images, containers and volumes stay in /var/lib/docker — delete it by hand to free the space."
+    exit 0
+fi
 
 title "Docker Engine"
 

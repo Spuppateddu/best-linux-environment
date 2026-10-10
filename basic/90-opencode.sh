@@ -8,6 +8,14 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 # check points here, so "is opencode installed" is defined once.
 is_installed() { have_local_bin opencode || have_opencode_bin || has_cmd opencode; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "opencode — uninstall"
+    remove_files "$HOME/.local/bin/opencode"
+    if [[ -d "$HOME/.opencode" ]]; then run rm -rf "$HOME/.opencode"; [[ "$DRY_RUN" == true ]] || ok "removed ~/.opencode"; fi
+    [[ "$DRY_RUN" != true ]] && has_cmd opencode && warn "Another opencode is still on PATH: $(command -v opencode)"
+    ok "opencode removed. Your settings in ~/.config/opencode are kept."
+    exit 0
+fi
 
 # opencode_bin  — the copy to run. ~/.local/bin first so a machine that predates
 # upstream's move keeps upgrading the binary it actually has on PATH.

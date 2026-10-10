@@ -14,6 +14,28 @@ is_installed() {
         && grep -qx 'export MOZ_USE_XINPUT2=1' "$HOME/.xsessionrc" 2>/dev/null
 }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
+if [[ "${1:-}" == --uninstall ]]; then
+    title "Trackpad / touchpad gestures — uninstall"
+    run pkill -u "$(id -u)" -f ble-trackpad-gestures || true
+    remove_files "$GESTURES" "$AUTOSTART"
+    if grep -qx 'export MOZ_USE_XINPUT2=1' "$HOME/.xsessionrc" 2>/dev/null; then
+        run sed -i '/^export MOZ_USE_XINPUT2=1$/d' "$HOME/.xsessionrc"
+        [[ "$DRY_RUN" == true ]] || ok "MOZ_USE_XINPUT2 dropped from ~/.xsessionrc."
+    fi
+    remove_files --sudo "$XORG_CONF"
+    # The 'input' group lets every program read every keyboard — only kept while needed.
+    if id -nG "$USER" | tr ' ' '\n' | grep -qx input; then
+        if [[ "$DRY_RUN" == true ]] || can_sudo; then
+            run sudo gpasswd -d "$USER" input >/dev/null
+            [[ "$DRY_RUN" == true ]] || ok "Removed $USER from the 'input' group."
+        else
+            warn "sudo unavailable — $USER is still in the 'input' group."
+        fi
+    fi
+    # The packages (libinput-tools, xdotool, x11-utils) stay: they are small and generic.
+    ok "Trackpad gestures removed. Log out and back in for all of it to apply."
+    exit 0
+fi
 
 title "Trackpad / touchpad gestures"
 require_desktop "Trackpad / touchpad gestures"
