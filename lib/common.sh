@@ -196,7 +196,7 @@ _apt_scan() {
     local pkg
     MISSING=(); NOCAND=()
     for pkg in "$@"; do
-        dpkg -s "$pkg" >/dev/null 2>&1 && continue
+        apt_installed "$pkg" && continue
         if apt_has_candidate "$pkg"; then
             MISSING+=("$pkg")
         else
@@ -246,7 +246,9 @@ apt_ensure() {
     ok "apt: installed ${MISSING[*]}."
 }
 
-apt_installed() { dpkg -s "$1" >/dev/null 2>&1; }
+# Not `dpkg -s`: it also says yes to a removed package whose config is left ("rc"),
+# which made a removed app look installed forever and its uninstall a no-op.
+apt_installed() { [[ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" == installed ]]; }
 
 # apt_remove pkg...  — remove only the installed ones, in one call. `remove`, not
 # `purge`: files under /etc stay, so a later reinstall picks up where it left off.

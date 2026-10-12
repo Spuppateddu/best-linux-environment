@@ -1607,6 +1607,20 @@ install candidate it refreshes the apt index once and re-scans before giving up,
 so apps like Brave and TablePlus install on the first run instead of being
 skipped against a stale index.
 
+## Tests
+
+```bash
+./tests/run.sh          # shellcheck + unit tests, seconds — after every change
+./tests/run.sh e2e      # the real ./setup.sh in a fresh Ubuntu 26.04 container, minutes
+./tests/run.sh all      # both
+```
+
+Everything runs in Docker (`./setup.sh only docker`), so this machine is never touched.
+The unit tests (`tests/unit/*.bats`) fake apt, dpkg and sudo. The e2e test runs
+`./setup.sh` three times in one container: install an app, untick and uninstall it,
+re-run and change nothing. It answers the lists with `BLE_ANSWERS=FILE`, one
+`HEADING-GLOB | ROW-GLOB` per line (`| -` ticks none); see `lib/ui.sh`.
+
 ## Notes
 
 - **Nothing is reinstalled.** apt packages are checked with `dpkg` first; each

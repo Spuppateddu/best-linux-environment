@@ -16,3 +16,6 @@ aliases.local
 wallpapers/*
 !wallpapers/README.md
 !wallpapers/b-wallpaper
+
+# ./tests/run.sh e2e writes one log per ./setup.sh run here.
+tests/e2e/logs/

@@ -8,9 +8,12 @@ is_installed() { apt_installed brave-browser; }
 [[ "${1:-}" == "--check" ]] && { is_installed && exit 0 || exit 1; }
 if [[ "${1:-}" == --uninstall ]]; then
     title "Brave browser — uninstall"
-    apt_remove brave-browser
+    # brave-keyring ships the repo files below; left behind, apt keeps polling Brave.
+    apt_remove brave-browser brave-keyring
     remove_files --sudo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
         /etc/apt/sources.list.d/brave-browser-release.sources
+    # The ~/.brave repo's launcher copy: it outlives the package and keeps Brave in rofi.
+    remove_files "$HOME/.local/share/applications/brave-browser.desktop"
     ok "Brave removed. Your profile and the ~/.brave config repo are kept."
     exit 0
 fi

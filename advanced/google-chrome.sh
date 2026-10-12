@@ -12,6 +12,8 @@ if [[ "${1:-}" == --uninstall ]]; then
     apt_remove google-chrome-stable
     remove_files --sudo /etc/apt/sources.list.d/google-chrome.sources \
         /etc/apt/sources.list.d/google-chrome.list /usr/share/keyrings/google-chrome.gpg
+    # The ~/.chrome repo's launcher copy: it outlives the package and keeps Chrome in rofi.
+    remove_files "$HOME/.local/share/applications/google-chrome.desktop"
     # b-chrome and the AppArmor profile are useless without the browser: go with it.
     if [[ -x "$HOME/.local/bin/b-chrome" ]]; then
         bash "$BLE_ROOT/advanced/chrome-headless.sh" --uninstall

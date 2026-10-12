@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The two list widgets — checklist (any number) and radiolist (exactly one). Source
-# after lib/common.sh. With no terminal both print the list and keep the defaults.
+# after lib/common.sh. No terminal: BLE_ANSWERS if set, else the defaults.
 
 [[ -n "${_BLE_UI_LOADED:-}" ]] && return 0
 _BLE_UI_LOADED=1
@@ -60,6 +60,40 @@ _ble_fit_row() {
     _BLE_ROW_NOTE="$note"
 }
 
+# ── answers file: BLE_ANSWERS=FILE answers the lists without a terminal ─────
+# Lines `HEADING-GLOB | ROW-GLOB`, one ticked row each; `| -` ticks none. For tests.
+_ble_answers() {
+    local heading="$1" file="${BLE_ANSWERS:-}" h r i found=0 hit
+    [[ -n "$file" ]] || return 1
+    [[ -f "$file" ]] || { fail "BLE_ANSWERS: no such file — $file"; exit 1; }
+    local picked=()
+    while IFS='|' read -r h r; do
+        h="$(_ble_trim "$h")"; r="$(_ble_trim "$r")"
+        [[ -z "$h" || "$h" == \#* ]] && continue
+        # shellcheck disable=SC2053  # the glob IS the point
+        [[ "$heading" == $h ]] || continue
+        found=1
+        [[ "$r" == - ]] && continue
+        hit=0
+        for i in "${!CHK_LABELS[@]}"; do
+            # shellcheck disable=SC2053
+            if [[ "${CHK_LABELS[$i]}" == $r ]]; then picked+=("$i"); hit=1; fi
+        done
+        # A row that matches nothing is a stale answers file: stop, never guess.
+        (( hit )) || { fail "BLE_ANSWERS: '$r' matches no row of '$heading'"; exit 1; }
+    done < "$file"
+    (( found )) || return 1
+    for i in "${!CHK_STATE[@]}"; do CHK_STATE[$i]=0; done
+    for i in ${picked[@]+"${picked[@]}"}; do CHK_STATE[$i]=1; done
+    return 0
+}
+
+_ble_trim() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    printf '%s' "${s%"${s##*[![:space:]]}"}"
+}
+
 # checklist HEADING [HINT]  — edits CHK_STATE in place.
 checklist() {
     local heading="$1" hint="${2:-}"
@@ -75,6 +109,14 @@ checklist() {
     [[ -n "$hint" ]] && printf '%s   %s%s\n' "$C_DIM" "$hint" "$C_OFF"
 
     local i
+    if _ble_answers "$heading"; then
+        skip "Answered from ${BLE_ANSWERS/#$HOME/\~}:"
+        for i in "${!CHK_LABELS[@]}"; do
+            printf '   %s %s\n' \
+                "$( ((CHK_STATE[i])) && printf '[x]' || printf '[ ]' )" "${CHK_LABELS[$i]}"
+        done
+        return 0
+    fi
     # No terminal → show the list, change nothing. The boot cron and `| tee`
     # hit this, and taking the defaults is the only honest answer.
     if [[ ! -t 0 || ! -t 1 ]]; then
@@ -160,6 +202,22 @@ radiolist() {
     for i in "${!CHK_STATE[@]}"; do CHK_STATE[$i]=0; done
     CHK_STATE[cur]=1
 
+    # An answer must leave exactly one row: the first ticked one wins.
+    if _ble_answers "$heading"; then
+        local pick=-1
+        for i in "${!CHK_STATE[@]}"; do
+            if (( CHK_STATE[i] )) && (( pick < 0 )); then pick=$i; fi
+            CHK_STATE[$i]=0
+        done
+        (( pick >= 0 )) || { fail "BLE_ANSWERS: '$heading' needs one row, got none"; exit 1; }
+        CHK_STATE[pick]=1
+        skip "Answered from ${BLE_ANSWERS/#$HOME/\~}:"
+        for i in "${!CHK_LABELS[@]}"; do
+            printf '   %s %s\n' \
+                "$( ((CHK_STATE[i])) && printf '(•)' || printf '( )' )" "${CHK_LABELS[$i]}"
+        done
+        return 0
+    fi
     # No terminal → print the list and keep the default, exactly as checklist
     # does. The boot cron never reaches here (it asks nothing), but `| tee` does.
     if [[ ! -t 0 || ! -t 1 ]]; then

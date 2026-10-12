@@ -540,7 +540,8 @@ mkdir -p "$STATE_DIR" 2>/dev/null
 # Best effort throughout: a failed notification must not stop the poweroff, or a
 # machine with no desktop would never turn off at all.
 warn_everybody() {
-    local msg="This machine has been idle and will power off in $(human "$WARN_SECONDS"). Move the mouse or press a key to cancel."
+    local msg
+    msg="This machine has been idle and will power off in $(human "$WARN_SECONDS"). Move the mouse or press a key to cancel."
     has_cmd wall && printf '%s\n' "$msg" | wall -n 2>/dev/null
     has_cmd notify-send && has_cmd runuser || return 0
     local sid uid user leader bus display xauth

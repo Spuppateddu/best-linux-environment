@@ -525,7 +525,7 @@ else
     # so a `set $agent` left in there wins and settings.local looks broken.
     if [[ -f "$I3/config.local" ]]; then
         for var in agent agent_desk; do
-            grep -Eq "^[[:space:]]*set[[:space:]]+\\\$$var[[:space:]]" "$I3/config.local" || continue
+            grep -Eq "^[[:space:]]*set[[:space:]]+\\\$${var}[[:space:]]" "$I3/config.local" || continue
             [[ "$var" == agent && -z "$BLE_AGENT" ]] && continue
             [[ "$var" == agent_desk && -z "$BLE_AGENT_DESK" ]] && continue
             warn "~/.i3rc/config.local also sets \$$var — that one wins, and settings.local's is ignored."
@@ -534,7 +534,7 @@ else
 
         # Same trap, for the colours: config.local sorts after 06-colors.local.
         for cls in focused focused_inactive unfocused; do
-            grep -Eq "^[[:space:]]*client\.$cls[[:space:]]" "$I3/config.local" || continue
+            grep -Eq "^[[:space:]]*client\.${cls}[[:space:]]" "$I3/config.local" || continue
             warn "~/.i3rc/config.local also sets client.$cls — that one wins, and settings.local's colour is ignored."
             warn "Delete its 'client.$cls …' line to let settings.local decide."
         done
