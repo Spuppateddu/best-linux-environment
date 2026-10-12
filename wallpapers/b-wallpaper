@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cycle the desktop wallpaper through the images beside this script (gitignored).
+# Cycle the desktop wallpaper through the images beside this script (gitignored but default.png).
 # Symlinked into ~/.local/bin by basic/62-wallpaper.sh; i3 calls it on reload.
 set -euo pipefail
 
@@ -9,7 +9,7 @@ STATE="${XDG_CACHE_HOME:-$HOME/.cache}/b-wallpaper"
 
 usage() {
     cat <<EOF
-b-wallpaper [next|prev|random|restore|list|current]
+b-wallpaper [next|prev|random|restore|list|current|auto [SECONDS]]
 
   next      the next image, in name order (the default)
   prev      the previous image
@@ -17,10 +17,11 @@ b-wallpaper [next|prev|random|restore|list|current]
   restore   the last one shown — what i3 runs on login and reload
   list      every image it cycles through
   current   the one on screen
+  auto      the next one every SECONDS (300), forever — what i3 starts on login
 
 Images: drop any .jpg/.jpeg/.png/.webp/.bmp/.gif into
   $DIR
-They are gitignored: they stay on this machine only.
+They are gitignored (but default.png): they stay on this machine only.
 EOF
 }
 
@@ -44,9 +45,23 @@ show() {
 cmd="${1:-next}"
 case "$cmd" in
     -h|--help|help) usage; exit 0 ;;
-    next|prev|random|restore|list|current) ;;
+    next|prev|random|restore|list|current|auto) ;;
     *) usage >&2; exit 2 ;;
 esac
+
+# One loop per session: a second `auto` (i3 restart, a re-run) exits at once.
+if [[ "$cmd" == auto ]]; then
+    secs="${2:-300}"
+    [[ "$secs" =~ ^[1-9][0-9]*$ ]] || { usage >&2; exit 2; }
+    mkdir -p "$(dirname "$STATE")"
+    exec 9>"$STATE.lock"
+    flock -n 9 || exit 0
+    self="$(readlink -f "${BASH_SOURCE[0]}")"
+    # The list is read again each time, so images dropped in later join the cycle.
+    while sleep "$secs"; do
+        [[ "$(images | wc -l)" -ge 2 ]] && { "$self" next 9>&- || true; }
+    done
+fi
 
 mapfile -t all < <(images)
 if [[ "$cmd" == list ]]; then

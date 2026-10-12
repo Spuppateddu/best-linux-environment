@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# b-wallpaper — cycles the images in wallpapers/ (gitignored) with feh. Links the
-# command into ~/.local/bin and binds it to $mod+Shift+w in ~/.i3rc/09-wallpaper.local.
+# b-wallpaper — cycles the images in wallpapers/ (gitignored but default.png) with feh. Links the
+# command into ~/.local/bin; ~/.i3rc/09-wallpaper.local binds $mod+Shift+w and cycles every 5 min.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -31,12 +31,18 @@ if [[ ! -d "$I3" ]]; then
 fi
 write_gen "$I3/09-wallpaper.local" <<'EOF'
 # Written by best-linux-environment (basic/62-wallpaper.sh). Do NOT edit: every
-# run rewrites it. Next image from ~/best-linux-environment/wallpapers/.
+# run rewrites it. Images from ~/best-linux-environment/wallpapers/.
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/b-wallpaper next
+# Next image every 5 minutes; a lock keeps it to one loop per session.
+exec_always --no-startup-id ~/.local/bin/b-wallpaper auto 300
 EOF
-if [[ "$GEN_CHANGED" == true && "$DRY_RUN" != true ]] && has_cmd i3-msg \
-    && i3-msg -t get_version >/dev/null 2>&1; then
-    i3-msg reload >/dev/null && ok "i3 reloaded: \$mod+Shift+w is the next wallpaper."
+# Start the loop in the running session too; reload alone does not run exec_always.
+if [[ "$DRY_RUN" != true ]] && has_cmd i3-msg && i3-msg -t get_version >/dev/null 2>&1; then
+    if [[ "$GEN_CHANGED" == true ]]; then
+        i3-msg reload >/dev/null && ok "i3 reloaded: \$mod+Shift+w is the next wallpaper."
+    fi
+    i3-msg exec --no-startup-id "$HOME/.local/bin/b-wallpaper auto 300" >/dev/null \
+        && ok "Wallpaper changes every 5 minutes."
 fi
 
 [[ -n "$("$SRC" list)" ]] \

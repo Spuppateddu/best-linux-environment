@@ -810,11 +810,12 @@ repos install into it, and fonts before the tools that render them. Items marked
 13. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
 14. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
    it cycles the images in [`wallpapers/`](wallpapers/README.md) with `feh`.
-   That folder is gitignored (bar its README and the script), so your images
-   stay on the machine. `$mod+Shift+w` shows the next one, through
+   That folder is gitignored (bar its README, the script and `default.png`, the
+   wallpaper a fresh clone starts with), so your images stay on the machine. `$mod+Shift+w` shows the next one, through
    `~/.i3rc/09-wallpaper.local`; i3's `set_background.sh` runs
    `b-wallpaper restore` on login and reload, and keeps the solid colour when
-   the folder is empty. `b-wallpaper prev|random|list` for the rest.
+   the folder is empty. `b-wallpaper auto 300`, started by i3 on login, shows the next one every 5
+   minutes. `b-wallpaper prev|random|list` for the rest.
 15. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
