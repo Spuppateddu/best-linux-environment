@@ -92,6 +92,12 @@ BLE_FIREFOX_TITLEBAR=false
 BLE_I3_BAR=all
 
 
+# ── Idle poweroff ────────────────────────────────────────────────────────────
+# The timer that powers this machine off once nobody uses it (see README).
+# false stops and disables it on the next ./setup.sh; true turns it back on.
+BLE_IDLE_POWEROFF=true
+
+
 # ── The editor ───────────────────────────────────────────────────────────────
 # $EDITOR and $VISUAL in both shells, and git's core.editor.
 BLE_EDITOR=vim

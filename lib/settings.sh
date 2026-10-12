@@ -22,12 +22,12 @@ BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
-    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR
+    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_IDLE_POWEROFF
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
 # read, so a module tests one spelling and you may write any of the usual ones.
-BLE_BOOL_KEYS=(BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR)
+BLE_BOOL_KEYS=(BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_IDLE_POWEROFF)
 
 # Every key above that holds an xterm-256 colour. Validated together, rolled
 # together, and written back into settings.local together — so adding a colour
@@ -51,7 +51,7 @@ BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
-BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""
+BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_IDLE_POWEROFF=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {

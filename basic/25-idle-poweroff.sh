@@ -14,9 +14,25 @@ if [[ ! -d "$SRC" ]]; then
     exit 0
 fi
 # The documented "booted with systemd" test; false inside a container even when
-# the systemctl binary is present.
-if ! has_cmd systemctl || [[ ! -d /run/systemd/system ]]; then
+# the systemctl binary is present. The override exists for the unit tests only.
+if ! has_cmd systemctl || [[ ! -d "${BLE_SYSTEMD_RUN_DIR:-/run/systemd/system}" ]]; then
     skip "Not booted with systemd — idle poweroff needs its timer, skipping."
+    exit 0
+fi
+
+# BLE_IDLE_POWEROFF=false in settings.local: stop the timer, keep the files, so
+# setting it back to true (or deleting the line) turns it on again.
+source "$BLE_ROOT/lib/settings.sh"
+if [[ "$BLE_IDLE_POWEROFF" == false ]]; then
+    if ! systemctl is-enabled --quiet idle-poweroff.timer 2>/dev/null \
+        && ! systemctl is-active --quiet idle-poweroff.timer 2>/dev/null; then
+        skip "idle-poweroff.timer already off."
+    elif can_sudo && run sudo systemctl disable --now --quiet idle-poweroff.timer; then
+        ok "idle-poweroff.timer stopped and disabled."
+    else
+        warn "Could not stop idle-poweroff.timer — run ./setup.sh from a terminal."
+    fi
+    warn "Automatic poweroff is OFF (BLE_IDLE_POWEROFF=false in settings.local)."
     exit 0
 fi
 
@@ -116,8 +132,8 @@ else
 fi
 
 # Said out loud: a machine that powers itself off should never be a surprise.
-mins=$(awk -F= '/^[[:space:]]*IDLE_MINUTES=/     { v = $2 } END { print (v ? v : 60) }' /etc/idle-poweroff.conf 2>/dev/null)
-locked=$(awk -F= '/^[[:space:]]*LOCKED_MINUTES=/ { v = $2 } END { print (v ? v : 10) }' /etc/idle-poweroff.conf 2>/dev/null)
-ok "This machine now powers itself off after ${mins:-60} min unused (${locked:-10} min with the screen locked)."
+mins=$(awk -F= '/^[[:space:]]*IDLE_MINUTES=/     { v = $2 } END { print (v ? v : 60) }' /etc/idle-poweroff.conf 2>/dev/null || true)
+locked=$(awk -F= '/^[[:space:]]*LOCKED_MINUTES=/ { v = $2 } END { print (v ? v : 20) }' /etc/idle-poweroff.conf 2>/dev/null || true)
+ok "This machine now powers itself off after ${mins:-60} min unused (${locked:-20} min with the screen locked)."
 ok "Never while ssh is connected, media is playing, or an agent or tmux job is printing."
 ok "Check it with 'b-idle'; pause it with 'b-idle off'; settings in /etc/idle-poweroff.conf."

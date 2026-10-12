@@ -340,6 +340,7 @@ never the run.
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
+| `BLE_IDLE_POWEROFF` | `false` stops and disables the [idle poweroff](#-idle-poweroff) timer; `true` (the default) turns it back on | `idle-poweroff.timer`, via `basic/25-idle-poweroff.sh` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -1027,11 +1028,11 @@ you picked — so a zsh machine would never have got it. One copy, every machine
 
 | Situation | Powers off after |
 | --- | --- |
-| Screen locked (`i3lock`) | **10 min** — locking is the human saying they left |
+| Screen locked (`i3lock`) | **20 min** — locking is the human saying they left |
 | Unlocked desktop | **1 h** with no key or mouse event (`xprintidle`) |
 | Sitting at the LightDM login window | **1 h** — the blackout case |
-| Headless, or no X at all | **10 min**, counted from the first check after boot |
-| Someone was on ssh | never while connected, then **10 min** after the last one left |
+| Headless, or no X at all | **20 min**, counted from the first check after boot |
+| Someone was on ssh | never while connected, then **20 min** after the last one left |
 | Media playing | never, for as long as it plays |
 | An agent that is busy, or a tmux job that is printing | never, until it has been quiet 20 min |
 | Less than 15 min since boot | never — you were probably about to log in |
@@ -1061,10 +1062,10 @@ And it will not power off **at all** while:
   stays listed by logind as `closing`; that is not a connection, and what it
   left behind is judged by the agent and tmux rules instead. Set
   `BLOCK_ON_SSH=false` on a machine something keeps a permanent ssh link to;
-- **for 10 minutes after the last ssh connection closed** (`SSH_GRACE_MINUTES`).
+- **for 20 minutes after the last ssh connection closed** (`SSH_GRACE_MINUTES`).
   A desktop or a login screen counts its idle time in X, and logging out of ssh
   does not touch that counter, so without this grace the machine would power off
-  two or three minutes after you type `exit`. Reconnect inside those 10 minutes
+  two or three minutes after you type `exit`. Reconnect inside those 20 minutes
   and the clock starts again from the new disconnection;
 - **media is playing** (`BLOCK_ON_MEDIA`) — a film, a video call, music. The
   test is the sound card, not a list of players: PipeWire and PulseAudio alike
@@ -1099,6 +1100,10 @@ And it will not power off **at all** while:
 - a systemd `block` inhibitor is holding shutdown, which is the clean way to
   protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
 - `b-idle off` is in force, or `ENABLED=false` is set in the config.
+
+To turn it off for good on one machine, set `BLE_IDLE_POWEROFF=false` in
+`settings.local` and run `./setup.sh`: the timer is stopped and disabled, and
+every run says so. Set it back to `true` to turn it on again.
 
 ### How "still working?" is answered
 

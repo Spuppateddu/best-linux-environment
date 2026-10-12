@@ -6,9 +6,9 @@ usage() {
     cat <<'EOF'
 idle-poweroff — powers the machine off once nobody is using it.
 
-Waits 1 h at an unlocked desktop, 10 min with the screen locked or no screen at
+Waits 1 h at an unlocked desktop, 20 min with the screen locked or no screen at
 all. Never while an ssh client is connected, media is playing, a coding agent is
-busy, a tmux job is printing, or the load is high — nor for 10 min after the
+busy, a tmux job is printing, or the load is high — nor for 20 min after the
 last ssh client left. Warns first, then acts.
 
 Usage: idle-poweroff [--status|--dry-run]   Settings: /etc/idle-poweroff.conf
@@ -21,10 +21,10 @@ set -uo pipefail
 # ── Defaults, overridable per machine in /etc/idle-poweroff.conf ─────────────
 ENABLED=true
 IDLE_MINUTES=60
-LOCKED_MINUTES=10
+LOCKED_MINUTES=20
 # No screen at all — a headless box, or one whose monitor never logged anybody
 # in. Nobody can be sitting at it, so it need not wait the full hour.
-HEADLESS_MINUTES=10
+HEADLESS_MINUTES=20
 WARN_SECONDS=120
 # Never this soon after boot. A Wake-on-LAN or post-blackout wake that powered
 # off again before you connected would leave a machine you cannot reach.
@@ -39,7 +39,7 @@ BLOCK_ON_LOGIN_SESSIONS=true
 BLOCK_ON_SSH=true
 # And for this long after the last one closed, so `exit` in an ssh shell does
 # not drop the machine two minutes later. 0 turns the grace period off.
-SSH_GRACE_MINUTES=10
+SSH_GRACE_MINUTES=20
 # Ports to look for ssh connections on, used only when the sshd listener itself
 # cannot be read out of `ss` (no process column, or sshd started elsewhere).
 SSH_PORTS=22
