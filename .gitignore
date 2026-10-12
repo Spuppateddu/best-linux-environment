@@ -11,3 +11,8 @@
 fonts.local
 settings.local
 aliases.local
+
+# Your wallpapers: only the folder's README and the b-wallpaper script are tracked.
+wallpapers/*
+!wallpapers/README.md
+!wallpapers/b-wallpaper

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Cycle the desktop wallpaper through the images beside this script (gitignored).
+# Symlinked into ~/.local/bin by basic/62-wallpaper.sh; i3 calls it on reload.
+set -euo pipefail
+
+# The link in ~/.local/bin points back here, so the images are always found.
+DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+STATE="${XDG_CACHE_HOME:-$HOME/.cache}/b-wallpaper"
+
+usage() {
+    cat <<EOF
+b-wallpaper [next|prev|random|restore|list|current]
+
+  next      the next image, in name order (the default)
+  prev      the previous image
+  random    any image but the one on screen
+  restore   the last one shown — what i3 runs on login and reload
+  list      every image it cycles through
+  current   the one on screen
+
+Images: drop any .jpg/.jpeg/.png/.webp/.bmp/.gif into
+  $DIR
+They are gitignored: they stay on this machine only.
+EOF
+}
+
+# Name order, one per line; -maxdepth 1 so a sub-folder can hold spares.
+images() {
+    find "$DIR" -maxdepth 1 -type f \
+        \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+           -o -iname '*.webp' -o -iname '*.bmp' -o -iname '*.gif' \) \
+        | LC_ALL=C sort
+}
+
+current() { [[ -f "$STATE" ]] && cat "$STATE" || true; }
+
+# Same image on every monitor, scaled to fill it; --no-fehbg keeps ~ clean.
+show() {
+    feh --no-fehbg --bg-fill "$1"
+    mkdir -p "$(dirname "$STATE")"
+    printf '%s\n' "$1" > "$STATE"
+}
+
+cmd="${1:-next}"
+case "$cmd" in
+    -h|--help|help) usage; exit 0 ;;
+    next|prev|random|restore|list|current) ;;
+    *) usage >&2; exit 2 ;;
+esac
+
+mapfile -t all < <(images)
+if [[ "$cmd" == list ]]; then
+    [[ ${#all[@]} -gt 0 ]] && printf '%s\n' "${all[@]##*/}"
+    exit 0
+fi
+if [[ "$cmd" == current ]]; then
+    now="$(current)"; [[ -n "$now" ]] && printf '%s\n' "${now##*/}"
+    exit 0
+fi
+
+# Non-zero with no images, so i3's set_background.sh falls back to the solid colour.
+if [[ ${#all[@]} -eq 0 ]]; then
+    echo "b-wallpaper: no images in $DIR" >&2
+    exit 1
+fi
+if ! command -v feh >/dev/null 2>&1; then
+    echo "b-wallpaper: feh is not installed" >&2
+    exit 1
+fi
+
+# Where the one on screen sits in the list; -1 when it was deleted or never set.
+now="$(current)"; idx=-1
+for i in "${!all[@]}"; do [[ "${all[$i]}" == "$now" ]] && { idx=$i; break; }; done
+n=${#all[@]}
+
+case "$cmd" in
+    restore) [[ $idx -ge 0 ]] || idx=0 ;;
+    next)    idx=$(( (idx + 1) % n )) ;;
+    prev)    [[ $idx -ge 0 ]] || idx=0; idx=$(( (idx - 1 + n) % n )) ;;
+    random)
+        pick=$(( RANDOM % n ))
+        # Re-roll once into the rest of the list, so it always changes when it can.
+        if [[ $n -gt 1 && $pick -eq $idx ]]; then pick=$(( (pick + 1 + RANDOM % (n - 1)) % n )); fi
+        idx=$pick ;;
+esac
+
+show "${all[$idx]}"
