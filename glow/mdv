@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# mdv — read a markdown file with glow, centered and full screen.
+#
+# glow alone sticks the text to the left edge and stops at 120 columns. mdv keeps
+# a readable column (MDV_WIDTH, default 100), widens it to fit the widest table,
+# never past the terminal, and centers it by giving the style a left margin of
+# (terminal - column) / 2. Installed by basic/45-glow.sh.
+#
+#   mdv file.md             glow's pager (less), full screen
+#   mdv -t file.md          glow's own TUI instead of the pager
+#   MDV_STYLE=dark mdv …    another style from ~/.config/glow/styles (default: gruvbox)
+#   MDV_WIDTH=120 mdv …     a wider base column
+#
+# The margin is fixed when the file opens: after resizing the window, open it again.
+
+set -euo pipefail
+
+mode=-p
+if [[ ${1:-} == -t ]]; then mode=-t; shift; fi
+file=${1:?usage: mdv [-t] file.md}
+
+style=${MDV_STYLE:-gruvbox}
+base=${MDV_WIDTH:-100}
+cols=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+
+src="$HOME/.config/glow/styles/$style.json"
+[[ -r $src ]] || { echo "mdv: no style '$style' in ~/.config/glow/styles" >&2; exit 1; }
+
+# The widest table row in the source: a rendered table is about as wide.
+table=$(awk '/^[[:space:]]*\|/ { if (length > m) m = length } END { print m + 0 }' "$file")
+
+width=$(( table > base ? table : base ))
+max=$(( cols - 4 ))
+(( width > max )) && width=$max
+margin=$(( (cols - width) / 2 ))
+(( margin < 1 )) && margin=1
+
+# One copy of the style per margin, rebuilt when the style file is edited. awk,
+# not a JSON tool, so a bare server needs nothing extra: it rewrites the first
+# "margin" inside "document" (code_block has one too), one key per line as the
+# styles in glow/styles are written.
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/mdv
+out="$cache/$style-$margin.json"
+if [[ ! -f $out || $src -nt $out ]]; then
+    mkdir -p "$cache"
+    awk -v m="$margin" '
+        /"document"[[:space:]]*:/ { doc = 1 }
+        doc && /"margin"[[:space:]]*:/ { sub(/:[[:space:]]*[0-9]+/, ": " m); doc = 0 }
+        doc && /}/ { doc = 0 }
+        { print }
+    ' "$src" > "$out"
+    grep -q "\"margin\": $margin" "$out" \
+        || { rm -f "$out"; echo "mdv: no document margin in $src" >&2; exit 1; }
+fi
+
+exec glow "$mode" -s "$out" -w "$width" "$file"

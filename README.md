@@ -708,7 +708,17 @@ repos install into it, and fonts before the tools that render them. Items marked
    out of the system's hands. Installed **because git is**: the module skips
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
-8. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
+8. **`45-glow`** — [glow](https://github.com/charmbracelet/glow), markdown in
+   the terminal, from apt, plus **`mdv`** (`glow/mdv` → `~/.local/bin`). glow alone
+   sticks the text to the left edge and stops at 120 columns; `mdv file.md` opens
+   it full screen in glow's pager, in a 100-column block (`MDV_WIDTH`) that grows
+   to fit the widest table and is **centered** with the style's left margin.
+   `mdv -t` uses glow's TUI instead. The styles in `glow/styles/` (glow's own dark
+   and light, and a **gruvbox** one) land in `~/.config/glow/styles/`; gruvbox is
+   the default for both `mdv` (`MDV_STYLE` picks another) and plain `glow`, through
+   `~/.config/glow/glow.yml`. `./setup.sh` rewrites that file, `./boot.sh` never
+   does. Files are copied only when they differ.
+9. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
    owned here so the per-tool repos stay light. **One family for the whole
    machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
    advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
@@ -728,13 +738,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
    the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
    [`fonts.local`](#font-sizes-per-machine-fontslocal).
-9. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
+10. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
    `~/.config/alacritty/` — where Alacritty actually reads it — and the symbol
    fallback rule into `~/.config/fontconfig/conf.d/`. This module keeps the
    package so the terminal exists even when that tool was skipped in the menu.
-10. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+11. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -753,7 +763,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-11. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
+12. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
    **`libheif-plugin-libde265`**, and the three places that have to agree on
    which program shows a picture. It owns yazi's `[opener] image` key (Enter on
    an image → `nsxiv -a -- %s`, `orphan = true` so quitting yazi does not take
@@ -792,7 +802,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    PDFs are the same idea, one module along: [`75-pdf-viewer`](#what-the-necessary-tier-installs)
    owns `[opener] pdf` and the `application/pdf` rule, and inserts that rule into
    the `prepend_rules` array this module writes.
-12. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
+13. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
    have to agree on which program plays a video. It owns yazi's `[opener] video`
    key (Enter on a video → `vlc -- %s`, `orphan = true`, `%s` so a
    multi-selection becomes one playlist) and inserts a `{ mime = "video/*", use =
@@ -807,8 +817,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    `avi`, `mpeg`, `flv`, `wmv`, `3gp`, `ogv`, `m4v`). Audio is left alone.
    A `video` opener or an `[open]` block this repo did not write is left as it
    is, with the line to add printed instead.
-13. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-14. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
+14. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+15. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
    it cycles the images in [`wallpapers/`](wallpapers/README.md) with `feh`.
    That folder is gitignored (bar its README, the script and `default.png`, the
    wallpaper a fresh clone starts with), so your images stay on the machine. `$mod+Shift+w` shows the next one, through
@@ -816,7 +826,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    `b-wallpaper restore` on login and reload, and keeps the solid colour when
    the folder is empty. `b-wallpaper auto 300`, started by i3 on login, shows the next one every 5
    minutes. `b-wallpaper prev|random|list` for the rest.
-15. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+16. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -833,7 +843,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-16. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+17. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
    places that have to agree on it: yazi's Enter and `xdg-open`. It installs
    nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
    not**, because Okular is a `secondary` app — the repo wants it, and still has
@@ -863,7 +873,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-17. **`76-text-editor`** — **which program opens a text file**, in the same two
+18. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -888,8 +898,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-18. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-19. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+19. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+20. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
