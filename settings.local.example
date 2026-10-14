@@ -104,6 +104,14 @@ BLE_I3_BAR=all
 BLE_I3_DESKTOP=floating
 
 
+# ── The terminal ─────────────────────────────────────────────────────────────
+# How see-through Alacritty is: 1 is solid, 0.9 lets the wallpaper show a little,
+# lower is more. It wins over the theme's own opacity, dark and light alike.
+# Lands in ~/.alacritty/opacity.local.toml; open terminals change at once.
+# Comment the line out and the theme decides again ($mod+Shift+t).
+BLE_TERMINAL_OPACITY=0.9
+
+
 # ── Idle poweroff ────────────────────────────────────────────────────────────
 # The timer that powers this machine off once nobody uses it (see README).
 # false stops and disables it on the next ./setup.sh; true turns it back on.

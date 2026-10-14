@@ -329,6 +329,12 @@ one actually installed on that machine, picked at seed time), an agent folder,
 an editor, a rolled set of colours, and a dozen aliases. Change what you
 disagree with, comment out what you don't want.
 
+A key added to `settings.local.example` later reaches your existing file too:
+every `./setup.sh`, `b-apply` and boot appends the live keys your file lacks,
+with their comments, under an `# Added by best-linux-environment` line. A key
+you commented out counts as there, so it is never added back — that is how you
+say no to one. Keys commented out in the example (your git name) are never added.
+
 **`settings.local`** is `KEY=VALUE`, one per line. Quotes are optional — use
 them for a value with a `#` in it. A bad value costs you that line and a warning,
 never the run.
@@ -346,6 +352,7 @@ never the run.
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
 | `BLE_I3_DESKTOP` | the i3 desktop each apply puts back: `floating` or `tiling` (`$mod+Control+space` still swaps it until then) | `~/.i3rc/scripts/desktop_mode.sh` → `90-tiling-mode.local` |
+| `BLE_TERMINAL_OPACITY` | how see-through Alacritty is, `0` to `1` (`1` is solid); wins over the theme's opacity | `~/.alacritty/opacity.local.toml` |
 | `BLE_IDLE_POWEROFF` | `false` stops and disables the [idle poweroff](#-idle-poweroff) timer; `true` (the default) turns it back on | `idle-poweroff.timer`, via `basic/25-idle-poweroff.sh` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
@@ -1594,6 +1601,7 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | `settings_load` | parse `settings.local` into `BLE_AGENT`, `BLE_EDITOR`, the colours… — read as data, never sourced, same as `fonts.sh` |
 | `settings_validate` | drop a value that would break the file it is written into (a colour that isn't a number, a relative agent folder) — one bad line, not the run |
 | `settings_seed` | put `settings.local` and `aliases.local` there when they aren't, from the committed `.example` copies |
+| `settings_fill` | append to an existing `settings.local` each live key of the example it lacks, with its comments; a commented-out key counts as there |
 | `roll_prompt_colors` | pick the two prompt colours, once — never equal, never the same hue family |
 | `roll_color` | pick one colour for a surface of its own (the terminal cursor, the i3 window) — no pairing rule |
 | `BLE_COLOR_KEYS` | every key holding an xterm-256 colour: validated, rolled and written back together |

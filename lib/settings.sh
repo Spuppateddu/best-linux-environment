@@ -12,7 +12,7 @@ _BLE_SETTINGS_LOADED=1
 # The two files you edit, and the two committed templates they are seeded from.
 # Git-ignored, so no machine's answers reach another through a push.
 BLE_SETTINGS_LOCAL="${BLE_SETTINGS_LOCAL:-$BLE_ROOT/settings.local}"
-BLE_SETTINGS_EXAMPLE="$BLE_ROOT/settings.local.example"
+BLE_SETTINGS_EXAMPLE="${BLE_SETTINGS_EXAMPLE:-$BLE_ROOT/settings.local.example}"
 BLE_ALIASES_LOCAL="${BLE_ALIASES_LOCAL:-$BLE_ROOT/aliases.local}"
 BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
 
@@ -23,6 +23,7 @@ BLE_SETTING_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
+    BLE_TERMINAL_OPACITY
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -52,6 +53,7 @@ BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
+BLE_TERMINAL_OPACITY=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -153,6 +155,12 @@ settings_validate() {
             *)  warn "settings.local: 'BLE_I3_DESKTOP=$BLE_I3_DESKTOP' is not floating or tiling — ignoring it."
                 BLE_I3_DESKTOP="" ;;
         esac
+    fi
+
+    # Alacritty's window.opacity: a number from 0 (see-through) to 1 (solid).
+    if [[ -n "$BLE_TERMINAL_OPACITY" && ! "$BLE_TERMINAL_OPACITY" =~ ^(0?\.[0-9]+|0|1|1\.0+)$ ]]; then
+        warn "settings.local: 'BLE_TERMINAL_OPACITY=$BLE_TERMINAL_OPACITY' is not a number from 0 to 1 — ignoring it."
+        BLE_TERMINAL_OPACITY=""
     fi
 
     # Equal colours are the one thing the prompt must never have: user@host and
@@ -395,7 +403,10 @@ settings_seed() {
             continue
         fi
         config_write "$dst" --if-missing < "$src"
-        [[ "$CONFIG_WRITTEN" != true ]] && continue
+        if [[ "$CONFIG_WRITTEN" != true ]]; then
+            [[ "$dst" == "$BLE_SETTINGS_LOCAL" ]] && settings_fill
+            continue
+        fi
 
         # Only for the file that names an agent, and only on the run that
         # created it: after that the value is yours, and a later run must not
@@ -422,8 +433,55 @@ settings_seed() {
     return 0
 }
 
+# settings_fill  — append each live KEY= of the example that settings.local lacks,
+# with its comments. A commented-out key counts as there: that is how you opt out.
+settings_fill() {
+    local key missing=() tmp
+    [[ -f "$BLE_SETTINGS_LOCAL" && -f "$BLE_SETTINGS_EXAMPLE" ]] || return 0
+    while IFS= read -r key; do
+        grep -Eq "^[[:space:]]*#?[[:space:]]*${key}[[:space:]]*=" "$BLE_SETTINGS_LOCAL" \
+            || missing+=("$key")
+    done < <(grep -oE '^BLE_[A-Z0-9_]+' "$BLE_SETTINGS_EXAMPLE" | awk '!seen[$0]++')
+    [[ ${#missing[@]} -eq 0 ]] && return 0
+
+    if [[ "$DRY_RUN" == true ]]; then
+        for key in "${missing[@]}"; do
+            printf '%s  would add:%s %s → %s\n' "$C_DIM" "$C_OFF" "$key" "${BLE_SETTINGS_LOCAL/#$HOME/\~}"
+        done
+        return 0
+    fi
+
+    # One example paragraph per missing key: its comments, and only the key lines
+    # still missing, so a value you set is never repeated below it (the last wins).
+    tmp="$(mktemp)"
+    {
+        printf '\n# Added by best-linux-environment on %s: new in settings.local.example.\n' "$(date '+%F')"
+        printf '# Edit them as you like; comment one out to opt out (a deleted line comes back).\n\n'
+        awk -v keys=" ${missing[*]} " '
+            BEGIN { RS = "" }
+            {
+                n = split($0, line, "\n"); hit = 0
+                for (i = 1; i <= n; i++) {
+                    k = line[i]; sub(/=.*/, "", k)
+                    if (line[i] ~ /^BLE_/ && index(keys, " " k " ")) hit = 1
+                }
+                if (!hit) next
+                for (i = 1; i <= n; i++) {
+                    k = line[i]; sub(/=.*/, "", k)
+                    if (line[i] ~ /^#/ || index(keys, " " k " ")) print line[i]
+                }
+                print ""
+            }
+        ' "$BLE_SETTINGS_EXAMPLE"
+    } > "$tmp"
+    sed -i '$ { /^$/d }' "$tmp"
+    cat "$tmp" >> "$BLE_SETTINGS_LOCAL"
+    rm -f "$tmp"
+    ok "Added to ${BLE_SETTINGS_LOCAL/#$HOME/\~}, new in the example: ${missing[*]}."
+}
+
 # settings_reload  — forget what was parsed and parse again. Only settings_seed
-# needs it, and only on the run that created the file.
+# needs it, after it created or added to settings.local.
 settings_reload() {
     local k
     for k in "${BLE_SETTING_KEYS[@]}"; do printf -v "$k" '%s' ""; done

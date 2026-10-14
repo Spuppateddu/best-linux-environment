@@ -324,9 +324,8 @@ i3_colors_file() {
     printf '# Fields: border, background, text, indicator, child_border.\n'
     printf '# The text is the title bar: white on a dark colour, near-black on a\n'
     printf '# light one, so the title always reads whatever number you pick.\n'
-    printf '# The indicator is the edge where the next window opens ($mod+v bottom,\n'
-    printf '# $mod+g right): the text colour, so it always shows against the border.\n'
-    printf 'client.focused          %s %s %s %s %s\n' "$hex" "$hex" "$text" "$text" "$hex"
+    printf '# The indicator (where the next window opens) is the border colour: no edge shows.\n'
+    printf 'client.focused          %s %s %s %s %s\n' "$hex" "$hex" "$text" "$hex" "$hex"
     # focused_inactive: the window that would get the keyboard in a container
     # you are not in. Not focused, so it takes the unfocused colour.
     printf 'client.focused_inactive %s %s %s %s %s\n' "$unhex" "$unhex" "$untext" "$unhex" "$unhex"
@@ -475,6 +474,21 @@ text = '0x1d2021'
 EOF
     # Alacritty watches its own imports and re-reads them, so there is nothing
     # to reload here — the cursor changes colour in the windows already open.
+fi
+
+# ── 4b. the terminal opacity (Alacritty) ────────────────────────────────────
+# Imported after the theme too, so it wins over the opacity $mod+Shift+t writes.
+if [[ ! -d "$ALA" ]]; then
+    skip "${ALA/#$HOME/\~} not cloned yet — no terminal opacity to set (./setup.sh clones it)."
+elif [[ -z "$BLE_TERMINAL_OPACITY" ]]; then
+    drop_gen "$ALA/opacity.local.toml" "the theme (~/.i3rc/scripts/theme.sh)"
+elif hooked "$ALA/alacritty.toml" "opacity.local.toml"; then
+    write_gen "$ALA/opacity.local.toml" <<EOF
+# Written by best-linux-environment — settings.local, BLE_TERMINAL_OPACITY.
+# Do NOT edit: every run rewrites it. Change it in ${BLE_ROOT/#$HOME/\~}/settings.local.
+[window]
+opacity = $BLE_TERMINAL_OPACITY
+EOF
 fi
 
 # ── 5. i3: the agent key ($mod+c), the window colours, the title bars ────────
