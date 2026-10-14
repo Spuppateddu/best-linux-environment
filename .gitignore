@@ -12,11 +12,11 @@ fonts.local
 settings.local
 aliases.local
 
-# Your wallpapers: only the README, the b-wallpaper script and default.png are tracked.
+# Your wallpapers: only the README, the b-wallpaper script and default.jpg are tracked.
 wallpapers/*
 !wallpapers/README.md
 !wallpapers/b-wallpaper
-!wallpapers/default.png
+!wallpapers/default.jpg
 
 # ./tests/run.sh e2e writes one log per ./setup.sh run here.
 tests/e2e/logs/

@@ -828,13 +828,21 @@ repos install into it, and fonts before the tools that render them. Items marked
 14. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
 15. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
    it cycles the images in [`wallpapers/`](wallpapers/README.md) with `feh`.
-   That folder is gitignored (bar its README, the script and `default.png`, the
+   That folder is gitignored (bar its README, the script and `default.jpg`, the
    wallpaper a fresh clone starts with), so your images stay on the machine. `$mod+Shift+w` shows the next one, through
    `~/.i3rc/09-wallpaper.local`; i3's `set_background.sh` runs
    `b-wallpaper restore` on login and reload, and keeps the solid colour when
    the folder is empty. `b-wallpaper auto 300`, started by i3 on login, shows the next one every 5
    minutes. `b-wallpaper prev|random|list` for the rest.
-16. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+16. **`63-blank-screen`** *(desktop)* — `b-blank`, linked into `~/.local/bin`, on
+   `$mod+x` through `~/.i3rc/10-blank-screen.local`. It turns the focused workspace
+   off: workspace `N` is renamed `off-N`, so its windows and layout stay as they
+   are, and a new empty `N` takes its place. Visiting `N` then shows only the
+   wallpaper and the PC's name in red binary, bottom-right (a see-through,
+   borderless Alacritty window that never takes focus). `$mod+x` on `N` (or on
+   `off-N`) turns it back on. A window opened on `N` while it was off joins the
+   others.
+17. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -851,7 +859,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-17. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+18. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
    places that have to agree on it: yazi's Enter and `xdg-open`. It installs
    nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
    not**, because Okular is a `secondary` app — the repo wants it, and still has
@@ -881,7 +889,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-18. **`76-text-editor`** — **which program opens a text file**, in the same two
+19. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -906,8 +914,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-19. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-20. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+20. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+21. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this

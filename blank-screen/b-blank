@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Turn the focused workspace off (only the wallpaper and the PC's name show) or back on.
+# Symlinked into ~/.local/bin by basic/63-blank-screen.sh; i3 binds it to $mod+x.
+set -euo pipefail
+
+# Off, workspace N is renamed off-N (windows and layout kept); a new empty N holds the label.
+PREFIX="off-"
+# The label window's class; 10-blank-screen.local floats it, borderless, without focus.
+LABEL_CLASS="b-blank-label"
+MARGIN=12
+# Inside the label: blank (so unseen) until $2 exists, i.e. until it sits in its corner.
+# shellcheck disable=SC2016
+LABEL_SH='printf "\e[?25l"; for _ in $(seq 100); do [ -e "$2" ] && break; sleep 0.05; done
+rm -f "$2"; printf "\e[1;31m%s" "$1"; exec sleep infinity'
+
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+# Quoted for i3's parser: a workspace name may hold spaces or quotes.
+i3str() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
+
+i3() { i3-msg "$1" >/dev/null 2>&1 || true; }
+
+# --no-auto-back-and-forth: pressing the key on the workspace itself must never bounce.
+go() { i3 "workspace --no-auto-back-and-forth $(i3str "$1")"; }
+
+ws_exists() { i3-msg -t get_workspaces | jq -e --arg n "$1" 'any(.[]; .name == $n)' >/dev/null; }
+
+# The PC's name, 8 bits per letter: "ab" → "01100001 01100010".
+label_text() {
+    local name c code bits i out=()
+    name="$(hostname)"
+    for ((i = 0; i < ${#name}; i++)); do
+        c="${name:i:1}"; printf -v code '%d' "'$c"; bits=""
+        while ((${#bits} < 8)); do bits="$((code % 2))$bits"; code=$((code / 2)); done
+        out+=("$bits")
+    done
+    printf '%s\n' "${out[*]}"
+}
+
+# Con ids of the windows on workspace $1: the labels with "label", every other one without.
+windows_on() {
+    i3-msg -t get_tree | jq -r --arg n "$1" --arg c "$LABEL_CLASS" --arg want "${2:-}" '.. | objects
+        | select(.type == "workspace" and .name == $n) | .. | objects
+        | select(.window_properties? != null)
+        | select((.window_properties.class == $c) == ($want == "label")) | .id'
+}
+
+# "ID WIDTH HEIGHT" of the floating container around that window: the window's own rect is stale.
+float_geometry() {
+    i3-msg -t get_tree | jq -r --arg i "$1" '.. | objects | select(.type == "floating_con")
+        | select(any(.nodes[]; .window_properties?.instance == $i))
+        | "\(.id) \(.rect.width) \(.rect.height)"' | head -n1
+}
+
+# Opens the red label, then waits for it to map and moves it to workspace $1's bottom-right.
+show_label() {
+    local ws="$1" text inst ready id="" w h x y
+    has_cmd alacritty || return 0
+    text="$(label_text)"; inst="$LABEL_CLASS-$$"
+    ready="${XDG_RUNTIME_DIR:-/tmp}/$inst.ready"; rm -f "$ready"
+    alacritty --class "$LABEL_CLASS,$inst" \
+        -o 'window.opacity=0' -o 'window.decorations="None"' \
+        -o 'window.padding.x=0' -o 'window.padding.y=0' \
+        -o "window.dimensions.columns=${#text}" -o 'window.dimensions.lines=1' \
+        -e bash -c "$LABEL_SH" _ "$text" "$ready" >/dev/null 2>&1 &
+    disown
+    for _ in $(seq 50); do
+        id="$(i3-msg -t get_tree | jq -r --arg i "$inst" \
+            '.. | objects | select(.window_properties?.instance == $i) | .id' | head -n1)"
+        [[ -n "$id" ]] && break
+        sleep 0.1
+    done
+    [[ -n "$id" ]] || { : > "$ready"; return 0; }
+    # Floated here, not only by the i3 rule: tiling mode's later rules un-float every window.
+    i3 "[con_id=$id] floating enable, border none, move container to workspace $(i3str "$ws")"
+    read -r _ w h < <(float_geometry "$inst")
+    read -r x y < <(i3-msg -t get_workspaces | jq -r --arg n "$ws" \
+        '.[] | select(.name == $n) | "\(.rect.x + .rect.width) \(.rect.y + .rect.height)"')
+    i3 "[con_id=$id] move position $((x - w - MARGIN)) px $((y - h - MARGIN)) px"
+    : > "$ready"
+}
+
+off() {
+    local ws="$1"
+    i3 "rename workspace $(i3str "$ws") to $(i3str "$PREFIX$ws")"
+    go "$ws"
+    show_label "$ws"
+}
+
+on() {
+    local ws="$1" id
+    # Turned off while empty: i3 dropped the empty off-N, so only the label is left to remove.
+    if ! ws_exists "$PREFIX$ws"; then
+        for id in $(windows_on "$ws" label); do i3 "[con_id=$id] kill"; done
+        return 0
+    fi
+    # A window opened while off joins the others; the label goes.
+    for id in $(windows_on "$ws"); do
+        i3 "[con_id=$id] move container to workspace $(i3str "$PREFIX$ws")"
+    done
+    for id in $(windows_on "$ws" label); do i3 "[con_id=$id] kill"; done
+    # The empty stand-in steps aside to free the name; i3 drops it once nobody looks at it.
+    if ws_exists "$ws"; then i3 "rename workspace $(i3str "$ws") to $(i3str "$PREFIX$ws-$$")"; fi
+    i3 "rename workspace $(i3str "$PREFIX$ws") to $(i3str "$ws")"
+    go "$ws"
+}
+
+[[ "${1:-}" == label-text ]] && { label_text; exit 0; }
+
+name="$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused) | .name')"
+[[ -n "$name" ]] || { echo "b-blank: no focused workspace (is i3 running?)" >&2; exit 1; }
+
+if [[ "$name" == "$PREFIX"* ]]; then
+    on "${name#"$PREFIX"}"        # reached off-N itself, through workspace next/prev
+elif ws_exists "$PREFIX$name" || [[ -n "$(windows_on "$name" label)" ]]; then
+    on "$name"
+else
+    off "$name"
+fi

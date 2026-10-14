@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# b-wallpaper — cycles the images in wallpapers/ (gitignored but default.png) with feh. Links the
+# b-wallpaper — cycles the images in wallpapers/ (gitignored but default.jpg) with feh. Links the
 # command into ~/.local/bin; ~/.i3rc/09-wallpaper.local binds $mod+Shift+w and cycles every 5 min.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"

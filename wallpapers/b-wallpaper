@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cycle the desktop wallpaper through the images beside this script (gitignored but default.png).
+# Cycle the desktop wallpaper through the images beside this script (gitignored but default.jpg).
 # Symlinked into ~/.local/bin by basic/62-wallpaper.sh; i3 calls it on reload.
 set -euo pipefail
 
@@ -21,7 +21,7 @@ b-wallpaper [next|prev|random|restore|list|current|auto [SECONDS]]
 
 Images: drop any .jpg/.jpeg/.png/.webp/.bmp/.gif into
   $DIR
-They are gitignored (but default.png): they stay on this machine only.
+They are gitignored (but default.jpg): they stay on this machine only.
 EOF
 }
 

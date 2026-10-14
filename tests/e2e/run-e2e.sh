@@ -20,9 +20,9 @@ trap cleanup EXIT
 
 docker run -d --name "$NAME" ble-test-fresh sleep infinity >/dev/null
 
-# The working tree as it is now — uncommitted changes included, gitignored files
-# (your *.local) left out, and no .git, so self_update's pull just warns.
-(cd "$ROOT" && git ls-files -co --exclude-standard -z | xargs -0 tar -c 2>/dev/null) \
+# The working tree as it is now: uncommitted changes in (a deleted tracked file skipped),
+# gitignored files (your *.local) out, and no .git, so self_update's pull just warns.
+(cd "$ROOT" && git ls-files -co --exclude-standard -z | xargs -0 tar -c --ignore-failed-read 2>/dev/null) \
     | docker exec -i "$NAME" bash -c 'mkdir -p ~/best-linux-environment && tar -x -C ~/best-linux-environment'
 
 in_box() { docker exec -i "$NAME" bash -c "$1"; }

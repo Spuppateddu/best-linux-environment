@@ -46,9 +46,9 @@ teardown() { [[ -z "${LOOP:-}" ]] || kill "$LOOP" 2>/dev/null || true; }
     done
 }
 
-@test "wallpaper: default.png is tracked, other images stay gitignored" {
+@test "wallpaper: default.jpg is tracked, other images stay gitignored" {
     # The container's git does not own the bind-mounted repo: trust it for this check.
-    run git -c safe.directory='*' -C "$REPO" check-ignore -q wallpapers/default.png
+    run git -c safe.directory='*' -C "$REPO" check-ignore -q wallpapers/default.jpg
     [ "$status" -eq 1 ]
     git -c safe.directory='*' -C "$REPO" check-ignore -q wallpapers/mine.png
 }
