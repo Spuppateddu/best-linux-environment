@@ -22,7 +22,7 @@ BLE_SETTING_KEYS=(
     BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
-    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_IDLE_POWEROFF
+    BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -51,7 +51,7 @@ BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
-BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_IDLE_POWEROFF=""
+BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -142,6 +142,16 @@ settings_validate() {
             main|primary|one)          BLE_I3_BAR=main ;;
             *)  warn "settings.local: 'BLE_I3_BAR=$BLE_I3_BAR' is not all or main — ignoring it."
                 BLE_I3_BAR="" ;;
+        esac
+    fi
+
+    # The i3 desktop mode, handed to ~/.i3rc/scripts/desktop_mode.sh as is.
+    if [[ -n "$BLE_I3_DESKTOP" ]]; then
+        case "${BLE_I3_DESKTOP,,}" in
+            floating|float)       BLE_I3_DESKTOP=floating ;;
+            tiling|tile|tiled)    BLE_I3_DESKTOP=tiling ;;
+            *)  warn "settings.local: 'BLE_I3_DESKTOP=$BLE_I3_DESKTOP' is not floating or tiling — ignoring it."
+                BLE_I3_DESKTOP="" ;;
         esac
     fi
 

@@ -240,6 +240,11 @@ i3 runs here as a normal desktop, not as a tiling WM: **every window floats** by
 default, with a title bar you can grab. `configuration-i3` keeps the other mode
 one keybinding away — `$mod+Control+space` tiles the whole desktop, and back.
 
+Which one is home is `BLE_I3_DESKTOP=floating|tiling` in `settings.local`. The
+keybinding swaps it for now; `b-apply` (or the next `setup.sh` or boot) puts
+the mode from `settings.local` back. Comment the key out and only the
+keybinding decides.
+
 **Floating**, the default — windows overlap, the way a classic desktop behaves:
 
 ![i3 in floating mode: an Alacritty window floating over Firefox](pictures/i3_floating.png)
@@ -340,6 +345,7 @@ never the run.
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
+| `BLE_I3_DESKTOP` | the i3 desktop each apply puts back: `floating` or `tiling` (`$mod+Control+space` still swaps it until then) | `~/.i3rc/scripts/desktop_mode.sh` → `90-tiling-mode.local` |
 | `BLE_IDLE_POWEROFF` | `false` stops and disables the [idle poweroff](#-idle-poweroff) timer; `true` (the default) turns it back on | `idle-poweroff.timer`, via `basic/25-idle-poweroff.sh` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
@@ -358,9 +364,11 @@ the copy already on disk is the last one that worked.
 and after the pull in a `boot.sh` one. Nothing can push a new prompt into a shell
 that already exists, so open a new terminal; i3 is reloaded for you.
 
-Just edited `aliases.local`? Type **`b-alias`**: it runs only that step, then
-re-loads the result into the shell you are typing in — no full `setup.sh`, no new
-terminal. An alias you deleted stays in that one shell until it closes.
+Just edited `settings.local`, `aliases.local` or `fonts.local`? Type
+**`b-apply`**: it re-applies all three (idle poweroff, settings, font sizes), then
+re-loads the result into the shell you are typing in — no full `setup.sh`, no
+pull, no new terminal. An alias you deleted stays in that one shell until it
+closes. Idle poweroff asks for sudo only when its timer has to change.
 
 ### Your colours, rolled once
 

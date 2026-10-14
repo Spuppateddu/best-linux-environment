@@ -278,10 +278,15 @@ shell_file() {
 
     printf '# ── your aliases (aliases.local) ──────────────────────────────────────────────\n'
     # Before the body, so an aliases.local of yours can still redefine it.
-    printf '# Re-apply aliases.local and load it into THIS shell, no new terminal needed.\n'
-    printf 'b-alias() {\n'
-    printf '    bash %q/basic/95-settings.sh && . "$HOME/.%s/%s-ble.local"\n' \
-        "$BLE_ROOT" "$shell_name" "$shell_name"
+    printf '# Re-apply settings.local, aliases.local and fonts.local, then load the\n'
+    printf '# result into THIS shell. No pull, no new terminal: ./boot.sh does the pull.\n'
+    printf 'b-apply() {\n'
+    printf '    local s=0\n'
+    printf '    bash %q/basic/25-idle-poweroff.sh || s=1\n' "$BLE_ROOT"
+    printf '    bash %q/basic/95-settings.sh || s=1\n' "$BLE_ROOT"
+    printf '    bash %q/basic/99-font-sizes.sh || s=1\n' "$BLE_ROOT"
+    printf '    . "$HOME/.%s/%s-ble.local"\n' "$shell_name" "$shell_name"
+    printf '    return $s\n'
     printf '}\n\n'
     if [[ -n "$ALIAS_BODY" ]]; then
         printf '%s\n' "$ALIAS_BODY"
@@ -319,7 +324,9 @@ i3_colors_file() {
     printf '# Fields: border, background, text, indicator, child_border.\n'
     printf '# The text is the title bar: white on a dark colour, near-black on a\n'
     printf '# light one, so the title always reads whatever number you pick.\n'
-    printf 'client.focused          %s %s %s %s %s\n' "$hex" "$hex" "$text" "$hex" "$hex"
+    printf '# The indicator is the edge where the next window opens ($mod+v bottom,\n'
+    printf '# $mod+g right): the text colour, so it always shows against the border.\n'
+    printf 'client.focused          %s %s %s %s %s\n' "$hex" "$hex" "$text" "$text" "$hex"
     # focused_inactive: the window that would get the keyboard in a container
     # you are not in. Not focused, so it takes the unfocused colour.
     printf 'client.focused_inactive %s %s %s %s %s\n' "$unhex" "$unhex" "$untext" "$unhex" "$unhex"
@@ -519,6 +526,28 @@ else
     else
         drop_gen "$I3/eww/bar.local.conf" "~/.i3rc/scripts/eww_lib.sh"
         CHANGED_BAR="$GEN_CHANGED"
+    fi
+
+    # The desktop mode. desktop_mode.sh owns it, 90-tiling-mode.local is its flag;
+    # unset leaves $mod+Control+space alone in charge.
+    DESKTOP_MODE="$I3/scripts/desktop_mode.sh"
+    if [[ -z "$BLE_I3_DESKTOP" ]]; then
+        :
+    elif [[ ! -x "$DESKTOP_MODE" ]]; then
+        warn "${DESKTOP_MODE/#$HOME/\~} missing — pull that repo, BLE_I3_DESKTOP needs it."
+    elif [[ "$("$DESKTOP_MODE" status)" == "$BLE_I3_DESKTOP" ]]; then
+        skip "i3 desktop already $BLE_I3_DESKTOP."
+    elif [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would switch:%s the i3 desktop to %s\n' "$C_DIM" "$C_OFF" "$BLE_I3_DESKTOP"
+    else
+        # No i3 running (boot): the script fails at its reload, after writing the
+        # flag files — so judge by the mode it leaves, not by its exit code.
+        "$DESKTOP_MODE" "$BLE_I3_DESKTOP" >/dev/null 2>&1 || true
+        if [[ "$("$DESKTOP_MODE" status)" == "$BLE_I3_DESKTOP" ]]; then
+            ok "i3 desktop: $BLE_I3_DESKTOP."
+        else
+            warn "Could not switch the i3 desktop to $BLE_I3_DESKTOP — \$mod+Control+space does it."
+        fi
     fi
 
     # The one thing that silently undoes this file. config.local sorts after it,

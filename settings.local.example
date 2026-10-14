@@ -92,6 +92,18 @@ BLE_FIREFOX_TITLEBAR=false
 BLE_I3_BAR=all
 
 
+# ── The i3 desktop ───────────────────────────────────────────────────────────
+# How i3 lays out windows, the mode every apply (b-apply, ./setup.sh, boot)
+# puts back.
+#
+#   floating  every window floats, overlaps, and has a title bar to grab.
+#   tiling    plain tiling i3: every window takes a share of the screen.
+#
+# $mod+Control+space still swaps the two for now; the next apply undoes that.
+# Comment the line out and the key alone decides, with nothing put back.
+BLE_I3_DESKTOP=floating
+
+
 # ── Idle poweroff ────────────────────────────────────────────────────────────
 # The timer that powers this machine off once nobody uses it (see README).
 # false stops and disables it on the next ./setup.sh; true turns it back on.
