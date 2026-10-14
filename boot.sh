@@ -23,8 +23,8 @@ It does five things and refuses to do a sixth:
      them moved.
   4. Reload what is running right now, so an edit you pushed from another
      machine is live without a logout: i3 reloads its config, every running
-     tmux server re-sources its, the font cache is rebuilt, X resources are
-     re-merged.
+     tmux server re-sources its, the wallpaper is repainted, mpd rescans the
+     music, the font cache is rebuilt, X resources are re-merged.
   5. Move the binaries apt doesn't manage to their latest release — lazygit,
      yazi/ya, fzf, opencode.
 
@@ -120,6 +120,20 @@ if [[ -n "${DISPLAY:-}" ]] && has_cmd i3-msg; then
         || skip "No i3 to reload."
 else
     skip "No graphical session — nothing to reload in i3."
+fi
+
+# i3 reload skips exec_always, so repaint by hand: an edited image shows at once.
+if [[ -n "${DISPLAY:-}" && -x "$HOME/.local/bin/b-wallpaper" ]]; then
+    run "$HOME/.local/bin/b-wallpaper" restore >/dev/null 2>&1 && ok "Wallpaper repainted." \
+        || skip "No wallpaper to repaint."
+fi
+
+# A rescan catches songs auto_update missed; music_sync.sh then adds them to the queue.
+if has_cmd mpc && mpc -q status >/dev/null 2>&1; then
+    run mpc -q update >/dev/null 2>&1 && ok "Music library rescan started." \
+        || warn "mpd rescan failed."
+else
+    skip "No mpd running — no music to rescan."
 fi
 
 # Every running tmux server, not just the default one.
