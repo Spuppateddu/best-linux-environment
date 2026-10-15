@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # b-blank — $mod+x turns the focused workspace off: visiting it shows only the wallpaper and
-# the PC's name in red binary. The same key turns it back on. Links it into ~/.local/bin.
+# the PC's name in red binary; $mod+z hides only the focused window. Links it into ~/.local/bin.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -24,12 +24,17 @@ write_gen "$I3/10-blank-screen.local" <<'EOF2'
 # Written by best-linux-environment (basic/63-blank-screen.sh). Do NOT edit: every
 # run rewrites it. Turn the focused workspace off (just the wallpaper) and back on.
 bindsym $mod+x exec --no-startup-id ~/.local/bin/b-blank
+# Hide only the focused window: its border stays, the wallpaper shows inside. Again: back.
+bindsym $mod+z exec --no-startup-id ~/.local/bin/b-blank window
+# A cover opens hidden in the scratchpad, so the swap is the first time it shows. Only while
+# titled b-blank-new: an i3 reload re-runs rules, and a cover on screen must stay there.
+for_window [class="^b-blank-cover$" title="^b-blank-new$"] move scratchpad
 # The PC's name in red binary, bottom-right of a workspace that is off: no border, never focused.
 for_window [class="^b-blank-label$"] floating enable, border none
 no_focus [class="^b-blank-label$"]
 EOF2
 if [[ "$DRY_RUN" != true && "$GEN_CHANGED" == true ]] && has_cmd i3-msg \
    && i3-msg -t get_version >/dev/null 2>&1; then
-    i3-msg reload >/dev/null && ok "i3 reloaded: \$mod+x turns the focused workspace off and on."
+    i3-msg reload >/dev/null && ok "i3 reloaded: \$mod+x turns the focused workspace off and on, \$mod+z the focused window."
 fi
 exit 0

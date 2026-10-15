@@ -86,3 +86,82 @@ LOG
     [ "$status" -eq 0 ]
     [ "$(cat "$FAKE_LOG")" = 'i3-msg [con_id=42] kill' ]
 }
+
+# tree FILE: the fake i3 answers get_tree with FILE, get_workspaces with $FAKE_WS.
+fake_tree() {
+    export FAKE_TREE="$1"
+    fake_cmd i3-msg '[[ "$1" == -t && "$2" == get_tree ]] && { cat "$FAKE_TREE"; exit; }
+        [[ "$1" == -t ]] && { cat "$FAKE_WS"; exit; }; echo "i3-msg $*" >> "$FAKE_LOG"'
+}
+
+@test "cover: \$mod+z swaps the window with a hidden cover in one redraw" {
+    workspaces "3"
+    local tree="$BATS_TEST_TMPDIR/tree.json"
+    echo '{"nodes":[{"type":"workspace","name":"3","nodes":[{"id":7,"focused":true,"border":"pixel","current_border_width":4,"name":"vim","window_properties":{"class":"Alacritty","instance":"Alacritty"}}]},
+        {"type":"workspace","name":"__i3_scratch","nodes":[]}]}' > "$tree"
+    fake_tree "$tree"
+    # The fake alacritty maps at once, as con 9 in the scratchpad (10-blank-screen.local's rule).
+    # Already renamed from b-blank-new to the window's title, as cover-wait does once hidden.
+    fake_cmd alacritty 'echo "alacritty $*" >> "$FAKE_LOG.alacritty"; inst="${2#*,}"; jq --arg i "$inst" ".nodes[1].nodes += [{id: 9, name: \"vim\", border: \"pixel\", current_border_width: 3, window_properties: {class: \"b-blank-cover\", instance: \$i}}]" "$FAKE_TREE" > "$FAKE_TREE.new" && mv "$FAKE_TREE.new" "$FAKE_TREE"'
+    run "$REPO/blank-screen/b-blank" window
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$FAKE_LOG")" -eq 1 ]
+    grep -q -- '--title b-blank-new .* cover-wait [0-9]* vim$' "$FAKE_LOG.alacritty"
+    grep -qx 'i3-msg \[con_id=9\] border pixel 4; \[con_id=7\] swap container with con_id 9; \[con_id=7\] mark --add _b-cover-[0-9]*; \[con_id=9\] focus' "$FAKE_LOG"
+}
+
+@test "cover: once hidden, the cover takes the window's title" {
+    fake_cmd i3-msg 'echo "i3-msg $*" >> "$FAKE_LOG"'
+    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR"
+    : > "$BATS_TEST_TMPDIR/b-blank-cover-55.ready"
+    run timeout 1 "$REPO/blank-screen/b-blank" cover-wait 55 vim
+    [[ "$output" == *$'\e]2;vim\a'* ]]
+    [ ! -e "$BATS_TEST_TMPDIR/b-blank-cover-55.ready" ]
+}
+
+@test "cover: the scratchpad rule matches only a new cover, so an i3 reload never hides one on screen" {
+    mkdir -p "$HOME/.i3rc"
+    local copy="$BATS_TEST_TMPDIR/repo"
+    mkdir -p "$copy/basic" "$copy/blank-screen"
+    cp -r "$REPO/lib" "$copy/"
+    cp "$REPO/basic/63-blank-screen.sh" "$copy/basic/"
+    cp "$REPO/blank-screen/b-blank" "$copy/blank-screen/"
+    run bash "$copy/basic/63-blank-screen.sh" </dev/null
+    [ "$status" -eq 0 ]
+    grep -qx 'for_window \[class="^b-blank-cover\$" title="^b-blank-new\$"\] move scratchpad' \
+        "$HOME/.i3rc/10-blank-screen.local"
+}
+
+@test "cover: \$mod+z on the cover swaps the window back and closes the cover in one redraw" {
+    workspaces "3"
+    local tree="$BATS_TEST_TMPDIR/tree.json"
+    echo '{"nodes":[{"type":"workspace","name":"3","nodes":[{"id":9,"focused":true,"border":"normal","current_border_width":3,"window_properties":{"class":"b-blank-cover","instance":"b-blank-cover-55"}}]},
+        {"type":"workspace","name":"__i3_scratch","nodes":[{"id":7,"marks":["_b-cover-55"],"window_properties":{"class":"Alacritty","instance":"Alacritty"}}]}]}' > "$tree"
+    fake_tree "$tree"
+    run "$REPO/blank-screen/b-blank" window
+    [ "$status" -eq 0 ]
+    [ "$(cat "$FAKE_LOG")" = 'i3-msg [con_id=7] border normal 3; [con_id=7] swap container with con_id 9; [con_id=7] unmark _b-cover-55, focus; [con_id=9] kill' ]
+}
+
+@test "cover: a window whose cover is gone comes back tiled" {
+    workspaces "3"
+    local tree="$BATS_TEST_TMPDIR/tree.json"
+    echo '{"type":"workspace","name":"3","nodes":[{"id":7,"focused":true,"marks":["_b-cover-55"],"window_properties":{"class":"Alacritty","instance":"Alacritty"}}]}' > "$tree"
+    fake_tree "$tree"
+    run "$REPO/blank-screen/b-blank" window
+    [ "$status" -eq 0 ]
+    [ "$(cat "$FAKE_LOG")" = 'i3-msg [con_id=7] scratchpad show, floating disable, unmark _b-cover-55' ]
+}
+
+@test "cover: the module binds \$mod+z to cover one window" {
+    mkdir -p "$HOME/.i3rc"
+    local copy="$BATS_TEST_TMPDIR/repo"
+    mkdir -p "$copy/basic" "$copy/blank-screen"
+    cp -r "$REPO/lib" "$copy/"
+    cp "$REPO/basic/63-blank-screen.sh" "$copy/basic/"
+    cp "$REPO/blank-screen/b-blank" "$copy/blank-screen/"
+    run bash "$copy/basic/63-blank-screen.sh" </dev/null
+    [ "$status" -eq 0 ]
+    grep -qx 'bindsym $mod+z exec --no-startup-id ~/.local/bin/b-blank window' \
+        "$HOME/.i3rc/10-blank-screen.local"
+}

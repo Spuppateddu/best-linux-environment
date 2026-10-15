@@ -66,3 +66,47 @@ teardown() { [[ -z "${LOOP:-}" ]] || kill "$LOOP" 2>/dev/null || true; }
     grep -qx 'exec_always --no-startup-id ~/.local/bin/b-wallpaper auto 300' \
         "$HOME/.i3rc/09-wallpaper.local"
 }
+
+# The bar colour. python3 is faked: it stands for PIL reading the image.
+@test "wallpaper: bar #RRGGBB paints a fixed colour, dark text on a light one" {
+    mkdir -p "$HOME/.i3rc/eww"
+    run "$WP/b-wallpaper" bar '#F0E0D0'
+    [ "$status" -eq 0 ]
+    grep -qx '// mode: fixed' "$HOME/.i3rc/eww/color.local.scss"
+    grep -qx '.bar { background: rgba(240, 224, 208, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+    grep -q 'color: #282828' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "wallpaper: bar wallpaper follows every new image" {
+    mkdir -p "$HOME/.i3rc/eww"
+    fake_cmd python3 'echo "#102030"'
+    "$WP/b-wallpaper" bar wallpaper
+    grep -qx '.bar { background: rgba(16, 32, 48, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+    ! grep -q 'color:' "$HOME/.i3rc/eww/color.local.scss"
+    fake_cmd python3 'echo "#405060"'
+    "$WP/b-wallpaper" next
+    grep -qx '// mode: wallpaper' "$HOME/.i3rc/eww/color.local.scss"
+    grep -qx '.bar { background: rgba(64, 80, 96, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "wallpaper: a fixed bar colour stays when the image changes" {
+    mkdir -p "$HOME/.i3rc/eww"
+    fake_cmd python3 'echo "#405060"'
+    "$WP/b-wallpaper" bar '#112233'
+    "$WP/b-wallpaper" next
+    grep -qx '.bar { background: rgba(17, 34, 51, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "wallpaper: bar wallpaper with no colour to read keeps eww's own" {
+    mkdir -p "$HOME/.i3rc/eww"
+    fake_cmd python3 'exit 1'
+    "$WP/b-wallpaper" bar wallpaper
+    grep -qx '.bar { background: rgba(40, 40, 40, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "wallpaper: bar with a bad colour stops with usage" {
+    mkdir -p "$HOME/.i3rc/eww"
+    run "$WP/b-wallpaper" bar red
+    [ "$status" -eq 2 ]
+    [ ! -e "$HOME/.i3rc/eww/color.local.scss" ]
+}

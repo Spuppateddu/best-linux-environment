@@ -23,7 +23,7 @@ BLE_SETTING_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
-    BLE_TERMINAL_OPACITY
+    BLE_TERMINAL_OPACITY BLE_BAR_COLOR BLE_TRACKPAD_SPEED
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -53,7 +53,7 @@ BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
-BLE_TERMINAL_OPACITY=""
+BLE_TERMINAL_OPACITY=""; BLE_BAR_COLOR=""; BLE_TRACKPAD_SPEED=""
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -161,6 +161,22 @@ settings_validate() {
     if [[ -n "$BLE_TERMINAL_OPACITY" && ! "$BLE_TERMINAL_OPACITY" =~ ^(0?\.[0-9]+|0|1|1\.0+)$ ]]; then
         warn "settings.local: 'BLE_TERMINAL_OPACITY=$BLE_TERMINAL_OPACITY' is not a number from 0 to 1 — ignoring it."
         BLE_TERMINAL_OPACITY=""
+    fi
+
+    # libinput's pointer speed for every touchpad: -1 (slowest) to 1 (fastest).
+    if [[ -n "$BLE_TRACKPAD_SPEED" && ! "$BLE_TRACKPAD_SPEED" =~ ^-?(0|0?\.[0-9]+|1|1\.0+)$ ]]; then
+        warn "settings.local: 'BLE_TRACKPAD_SPEED=$BLE_TRACKPAD_SPEED' is not a number from -1 to 1 — ignoring it."
+        BLE_TRACKPAD_SPEED=""
+    fi
+
+    # The top bar's colour: the wallpaper's own, or a fixed #rrggbb.
+    if [[ -n "$BLE_BAR_COLOR" ]]; then
+        case "${BLE_BAR_COLOR,,}" in
+            wallpaper|auto|match)  BLE_BAR_COLOR=wallpaper ;;
+            \#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) BLE_BAR_COLOR="${BLE_BAR_COLOR,,}" ;;
+            *)  warn "settings.local: 'BLE_BAR_COLOR=$BLE_BAR_COLOR' is not wallpaper or a #rrggbb colour — ignoring it."
+                BLE_BAR_COLOR="" ;;
+        esac
     fi
 
     # Equal colours are the one thing the prompt must never have: user@host and

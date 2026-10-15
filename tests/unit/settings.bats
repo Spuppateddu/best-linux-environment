@@ -193,3 +193,102 @@ alacritty_repo() {
     [[ "$output" == *"does not load opacity.local.toml"* ]]
     [ ! -e "$HOME/.alacritty/opacity.local.toml" ]
 }
+
+# eww_repo  — a ~/.i3rc/eww whose eww.scss imports color.local.scss.
+eww_repo() {
+    mkdir -p "$HOME/.i3rc/eww"
+    printf '@import "color.local.scss";\n' > "$HOME/.i3rc/eww/eww.scss"
+}
+
+@test "95-settings: BLE_BAR_COLOR=#rrggbb paints the top bar" {
+    eww_repo
+    run_settings 'BLE_BAR_COLOR=#3C3836'
+    [ "$status" -eq 0 ]
+    grep -qx '.bar { background: rgba(60, 56, 54, 0.94); }' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "95-settings: BLE_BAR_COLOR=wallpaper leaves the bar following the wallpaper" {
+    eww_repo
+    run_settings BLE_BAR_COLOR=auto
+    [ "$status" -eq 0 ]
+    grep -qx '// mode: wallpaper' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "95-settings: no BLE_BAR_COLOR leaves an empty import, so eww.scss decides" {
+    eww_repo
+    echo '.bar { background: red; }' > "$HOME/.i3rc/eww/color.local.scss"
+    run_settings BLE_EDITOR=vim
+    [ "$status" -eq 0 ]
+    ! grep -q 'background' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "95-settings: a BLE_BAR_COLOR that is not a colour is warned about and ignored" {
+    eww_repo
+    run_settings BLE_BAR_COLOR=red
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"is not wallpaper or a #rrggbb colour"* ]]
+    ! grep -q 'background' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+# fake_xinput  — one touchpad (id 11) and one mouse (id 12); set-prop is logged.
+fake_xinput() {
+    export BLE_XORG_CONF_DIR="$BATS_TEST_TMPDIR/xorg.conf.d" DISPLAY=:0 BLE_PROFILE=desktop
+    fake_cmd xinput 'case "$1" in
+        list) printf "11\n12\n" ;;
+        list-props) [ "$2" = 11 ] && echo "libinput Tapping Enabled (300): 1"; echo "libinput Accel Speed (301): 0.0" ;;
+        set-prop) echo "xinput $*" >> "$FAKE_LOG" ;;
+    esac'
+}
+
+@test "95-settings: BLE_TRACKPAD_SPEED lands in xorg.conf.d and on the touchpad now" {
+    fake_xinput
+    run_settings BLE_TRACKPAD_SPEED=0.4
+    [ "$status" -eq 0 ]
+    grep -q 'Option          "AccelSpeed" "0.4"' "$BLE_XORG_CONF_DIR/60-ble-trackpad-speed.conf"
+    grep -qx 'xinput set-prop 11 libinput Accel Speed 0.4' "$FAKE_LOG"
+    ! grep -q 'set-prop 12' "$FAKE_LOG"
+}
+
+@test "95-settings: the same BLE_TRACKPAD_SPEED again does not touch the root file" {
+    fake_xinput
+    run_settings BLE_TRACKPAD_SPEED=-0.5
+    : > "$FAKE_LOG"
+    run_settings BLE_TRACKPAD_SPEED=-0.5
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Trackpad speed already -0.5"* ]]
+    ! grep -q '^sudo install' "$FAKE_LOG"
+}
+
+@test "95-settings: no BLE_TRACKPAD_SPEED drops the file and puts the default back" {
+    fake_xinput
+    run_settings BLE_TRACKPAD_SPEED=1
+    : > "$FAKE_LOG"
+    run_settings BLE_EDITOR=vim
+    [ "$status" -eq 0 ]
+    [ ! -e "$BLE_XORG_CONF_DIR/60-ble-trackpad-speed.conf" ]
+    grep -qx 'xinput set-prop 11 libinput Accel Speed 0' "$FAKE_LOG"
+}
+
+@test "95-settings: a BLE_TRACKPAD_SPEED that is not -1 to 1 is warned about and ignored" {
+    fake_xinput
+    run_settings BLE_TRACKPAD_SPEED=5
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"not a number from -1 to 1"* ]]
+    [ ! -e "$BLE_XORG_CONF_DIR/60-ble-trackpad-speed.conf" ]
+    ! grep -q 'set-prop' "$FAKE_LOG"
+}
+
+@test "95-settings: a desktop without xinput gets it installed" {
+    export BLE_XORG_CONF_DIR="$BATS_TEST_TMPDIR/xorg.conf.d" BLE_PROFILE=desktop
+    run_settings BLE_TRACKPAD_SPEED=0.2
+    [ "$status" -eq 0 ]
+    grep -q 'apt-get install -y xinput' "$FAKE_LOG"
+}
+
+@test "95-settings: a server sets no trackpad speed and installs nothing for it" {
+    export BLE_XORG_CONF_DIR="$BATS_TEST_TMPDIR/xorg.conf.d" BLE_PROFILE=server
+    run_settings BLE_TRACKPAD_SPEED=0.2
+    [ "$status" -eq 0 ]
+    [ ! -e "$BLE_XORG_CONF_DIR/60-ble-trackpad-speed.conf" ]
+    ! grep -q 'xinput' "$FAKE_LOG"
+}

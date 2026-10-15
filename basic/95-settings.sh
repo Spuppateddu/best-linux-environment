@@ -542,6 +542,29 @@ else
         CHANGED_BAR="$GEN_CHANGED"
     fi
 
+    # The bar's colour. b-wallpaper writes it, so a new wallpaper can repaint it;
+    # unset still leaves the file, empty, because eww.scss imports it.
+    if hooked "$I3/eww/eww.scss" "color.local.scss"; then
+        bar_scss="$I3/eww/color.local.scss"
+        if [[ -z "$BLE_BAR_COLOR" ]]; then
+            write_gen "$bar_scss" <<'EOF'
+// Written by best-linux-environment — settings.local sets no BLE_BAR_COLOR, so
+// the bar keeps eww.scss's own colour. The file stays: eww.scss imports it.
+EOF
+        elif [[ "$DRY_RUN" == true ]]; then
+            printf '%s  would paint:%s the top bar %s\n' "$C_DIM" "$C_OFF" "$BLE_BAR_COLOR"
+        else
+            before="$(cat "$bar_scss" 2>/dev/null || true)"
+            if bash "$BLE_ROOT/wallpapers/b-wallpaper" bar "$BLE_BAR_COLOR"; then
+                [[ "$before" == "$(cat "$bar_scss")" ]] \
+                    && skip "Top bar colour already $BLE_BAR_COLOR." \
+                    || ok "Top bar colour: $BLE_BAR_COLOR."
+            else
+                warn "Could not paint the top bar $BLE_BAR_COLOR."
+            fi
+        fi
+    fi
+
     # The desktop mode. desktop_mode.sh owns it, 90-tiling-mode.local is its flag;
     # unset leaves $mod+Control+space alone in charge.
     DESKTOP_MODE="$I3/scripts/desktop_mode.sh"
@@ -625,6 +648,45 @@ EOF
     CHANGED_FIREFOX="$GEN_CHANGED"
 fi
 
+# ── 6b. the trackpad speed ───────────────────────────────────────────────────
+# An Xorg file, so it holds for every login and every reconnect; root's, so it
+# is written only when it changed. Section 8 sets the touchpads already there.
+TRACKPAD_CONF="${BLE_XORG_CONF_DIR:-/etc/X11/xorg.conf.d}/60-ble-trackpad-speed.conf"
+TRACKPAD_LIVE=""
+if is_server; then
+    [[ -z "$BLE_TRACKPAD_SPEED" ]] || skip "Server profile — no trackpad speed to set."
+elif [[ -n "$BLE_TRACKPAD_SPEED" ]]; then
+    TRACKPAD_LIVE="$BLE_TRACKPAD_SPEED"
+    trackpad_new="$(cat <<EOF
+# Written by best-linux-environment — settings.local, BLE_TRACKPAD_SPEED.
+# Do NOT edit: every run rewrites it. Change the key there, then b-apply.
+Section "InputClass"
+    Identifier      "best-linux-environment trackpad speed"
+    MatchIsTouchpad "on"
+    MatchDriver     "libinput"
+    Option          "AccelSpeed" "$BLE_TRACKPAD_SPEED"
+EndSection
+EOF
+)"
+    if [[ "$trackpad_new" == "$(cat "$TRACKPAD_CONF" 2>/dev/null)" ]]; then
+        skip "Trackpad speed already $BLE_TRACKPAD_SPEED."
+    elif [[ "$DRY_RUN" != true ]] && ! can_sudo; then
+        warn "sudo unavailable — trackpad speed $BLE_TRACKPAD_SPEED is set for now, not for the next login."
+    else
+        trackpad_tmp="$(mktemp)"
+        printf '%s\n' "$trackpad_new" > "$trackpad_tmp"
+        run sudo install -D -m 0644 "$trackpad_tmp" "$TRACKPAD_CONF" \
+            && { [[ "$DRY_RUN" == true ]] || ok "Trackpad speed: $BLE_TRACKPAD_SPEED."; } \
+            || warn "Could not write $TRACKPAD_CONF."
+        rm -f "$trackpad_tmp"
+    fi
+    # xinput is what changes the speed without a logout.
+    has_cmd xinput || apt_ensure xinput
+elif [[ -e "$TRACKPAD_CONF" ]]; then
+    # Back to libinput's own default, now and from the next login.
+    remove_files --sudo "$TRACKPAD_CONF" && TRACKPAD_LIVE=0
+fi
+
 # ── 7. git ───────────────────────────────────────────────────────────────────
 # Asserted, not seeded: basic/05-defaults.sh sets what is missing and leaves
 # your own values alone, but a value in settings.local IS your own value, said
@@ -682,6 +744,17 @@ if [[ "$CHANGED_FIREFOX" == true && -x "$FF/install.sh" ]]; then
     step "Re-applying the Firefox config, so the new pref reaches the profile"
     bash "$BLE_ROOT/basic/10-tools.sh" firefox || warn "Could not re-apply ~/.firefox."
     warn "Restart Firefox to see it."
+fi
+
+# Every touchpad plugged in now: the ones with a tap setting and a speed.
+if [[ -n "$TRACKPAD_LIVE" && -n "${DISPLAY:-}" ]] && has_cmd xinput; then
+    for id in $(xinput list --id-only 2>/dev/null); do
+        props="$(xinput list-props "$id" 2>/dev/null)" || continue
+        [[ "$props" == *"libinput Tapping Enabled ("* && "$props" == *"libinput Accel Speed ("* ]] || continue
+        xinput set-prop "$id" "libinput Accel Speed" "$TRACKPAD_LIVE" 2>/dev/null \
+            && ok "Trackpad $id: speed $TRACKPAD_LIVE, live." \
+            || warn "Could not set the speed of trackpad $id."
+    done
 fi
 
 # Nothing can push a new prompt into a shell that already exists, so say it

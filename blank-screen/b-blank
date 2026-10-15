@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Turn the focused workspace off (only the wallpaper and the PC's name show) or back on.
-# Symlinked into ~/.local/bin by basic/63-blank-screen.sh; i3 binds it to $mod+x.
+# `b-blank window` covers only the focused window. i3 binds them to $mod+x and $mod+z.
 set -euo pipefail
 
 # Off, workspace N is renamed off-N (windows and layout kept); a new empty N holds the label.
@@ -8,6 +8,11 @@ PREFIX="off-"
 # The label window's class; 10-blank-screen.local floats it, borderless, without focus.
 LABEL_CLASS="b-blank-label"
 MARGIN=12
+# A covered window waits in the scratchpad with mark _b-cover-KEY; a see-through cover-KEY takes its place.
+COVER_CLASS="b-blank-cover"
+COVER_MARK="_b-cover-"
+# A cover's title until it is hidden: the only one 10-blank-screen.local's scratchpad rule matches.
+COVER_NEW_TITLE="b-blank-new"
 # Inside the label: blank (so unseen) until $2 exists, i.e. until it sits in its corner.
 # shellcheck disable=SC2016
 LABEL_SH='printf "\e[?25l"; for _ in $(seq 100); do [ -e "$2" ] && break; sleep 0.05; done
@@ -52,6 +57,35 @@ float_geometry() {
         | "\(.id) \(.rect.width) \(.rect.height)"' | head -n1
 }
 
+# Con id of the first window where the jq test $1 holds ($v is $2): empty when none does.
+find_con() {
+    i3-msg -t get_tree | jq -r --arg v "$2" \
+        "[.. | objects | select(.window_properties? != null) | select($1) | .id][0] // empty"
+}
+
+# Waits up to 5 s for the window of instance $1 to map, then prints its con id.
+wait_window() {
+    local id=""
+    for _ in $(seq 50); do
+        id="$(find_con '.window_properties.instance == $v' "$1")"
+        [[ -n "$id" ]] && break
+        sleep 0.1
+    done
+    printf '%s\n' "$id"
+}
+
+# i3's "border" command that gives a window the same border as con $1.
+border_of() {
+    i3-msg -t get_tree | jq -r --arg v "$1" '[.. | objects | select(.id? == ($v | tonumber))
+        | if .border == "none" then "border none" else "border \(.border) \(.current_border_width)" end][0]
+        // "border pixel 3"'
+}
+
+in_scratchpad() {
+    i3-msg -t get_tree | jq -e --arg v "$1" '.. | objects | select(.name == "__i3_scratch")
+        | any(.. | objects; .id? == ($v | tonumber))' >/dev/null
+}
+
 # Opens the red label, then waits for it to map and moves it to workspace $1's bottom-right.
 show_label() {
     local ws="$1" text inst ready id="" w h x y
@@ -64,12 +98,7 @@ show_label() {
         -o "window.dimensions.columns=${#text}" -o 'window.dimensions.lines=1' \
         -e bash -c "$LABEL_SH" _ "$text" "$ready" >/dev/null 2>&1 &
     disown
-    for _ in $(seq 50); do
-        id="$(i3-msg -t get_tree | jq -r --arg i "$inst" \
-            '.. | objects | select(.window_properties?.instance == $i) | .id' | head -n1)"
-        [[ -n "$id" ]] && break
-        sleep 0.1
-    done
+    id="$(wait_window "$inst")"
     [[ -n "$id" ]] || { : > "$ready"; return 0; }
     # Floated here, not only by the i3 rule: tiling mode's later rules un-float every window.
     i3 "[con_id=$id] floating enable, border none, move container to workspace $(i3str "$ws")"
@@ -105,7 +134,83 @@ on() {
     go "$ws"
 }
 
-[[ "${1:-}" == label-text ]] && { label_text; exit 0; }
+cover_ready() { printf '%s\n' "${XDG_RUNTIME_DIR:-/tmp}/$COVER_CLASS-$1.ready"; }
+
+# Inside a cover: no cursor, no echo. Closed by hand, it brings its window back first.
+# Takes title $2 once hidden, so a rule re-run by an i3 reload never hides it again.
+cover_wait() {
+    local mark="$COVER_MARK$1" ready
+    ready="$(cover_ready "$1")"
+    printf '\e[?25l'; stty -echo 2>/dev/null || true
+    trap 'i3 "[con_mark=\"^$mark\$\"] scratchpad show, floating disable, unmark $mark"; exit 0' HUP TERM
+    for _ in $(seq 100); do [[ -e "$ready" ]] && break; sleep 0.05; done
+    rm -f "$ready"; printf '\e]2;%s\a' "$2"
+    sleep infinity & wait
+}
+
+# Window $1 trades places with a see-through cover, border and all, that opened in the scratchpad.
+cover_off() {
+    local id="$1" title="$2" key="$$" cover ready
+    has_cmd alacritty || { echo "b-blank: covering a window needs alacritty" >&2; return 1; }
+    ready="$(cover_ready "$key")"; rm -f "$ready"
+    alacritty --class "$COVER_CLASS,$COVER_CLASS-$key" --title "$COVER_NEW_TITLE" \
+        -o 'window.opacity=0' -e "$0" cover-wait "$key" "$title" >/dev/null 2>&1 &
+    disown
+    cover="$(wait_window "$COVER_CLASS-$key")"
+    [[ -n "$cover" ]] || { : > "$ready"; return 1; }
+    # 10-blank-screen.local sends it there unseen; without that rule it shows for a moment.
+    in_scratchpad "$cover" || i3 "[con_id=$cover] move scratchpad"
+    # Renamed before it shows: one still titled $COVER_NEW_TITLE is one the rule can hide again.
+    : > "$ready"
+    for _ in $(seq 20); do
+        [[ -n "$(find_con '.window_properties.instance == $v and .name != "'"$COVER_NEW_TITLE"'"' \
+            "$COVER_CLASS-$key")" ]] && break
+        sleep 0.05
+    done
+    # The same border first: a floating window whose border changes grows or shrinks.
+    # One command list, so one redraw: the window just goes, its spot and size stay.
+    i3 "[con_id=$cover] $(border_of "$id"); [con_id=$id] swap container with con_id $cover; [con_id=$id] mark --add $COVER_MARK$key; [con_id=$cover] focus"
+}
+
+# Puts the window of cover KEY back in the cover's spot, and closes the cover.
+cover_on() {
+    local mark="$COVER_MARK$1" real cover
+    real="$(find_con '(.marks // []) | index($v)' "$mark")"
+    cover="$(find_con '.window_properties.instance == $v' "$COVER_CLASS-$1")"
+    if [[ -n "$real" && -n "$cover" ]]; then
+        # Unmarked first: the cover, once killed, looks for the mark to bring the window back.
+        i3 "[con_id=$real] $(border_of "$cover"); [con_id=$real] swap container with con_id $cover; [con_id=$real] unmark $mark, focus; [con_id=$cover] kill"
+    elif [[ -n "$real" ]]; then
+        i3 "[con_id=$real] scratchpad show, floating disable, unmark $mark"
+    elif [[ -n "$cover" ]]; then
+        i3 "[con_id=$cover] kill"
+    fi
+    return 0
+}
+
+# $mod+z: covers the focused window, or uncovers it when the cover (or the window) has focus.
+cover_toggle() {
+    local node id class inst mark
+    node="$(i3-msg -t get_tree | jq -c \
+        '[.. | objects | select(.focused == true and .window_properties? != null)][0] // empty')"
+    [[ -n "$node" ]] || return 0
+    IFS=$'\t' read -r id class inst mark < <(jq -r --arg m "$COVER_MARK" '[.id,
+        .window_properties.class // "", .window_properties.instance // "",
+        ((.marks // []) | map(select(startswith($m))) | .[0] // "-")] | @tsv' <<<"$node")
+    if [[ "$class" == "$COVER_CLASS" ]]; then
+        cover_on "${inst#"$COVER_CLASS-"}"
+    elif [[ "$mark" != "-" ]]; then
+        cover_on "${mark#"$COVER_MARK"}"
+    elif [[ "$class" != "$LABEL_CLASS" ]]; then
+        cover_off "$id" "$(jq -r '.name // ""' <<<"$node")"
+    fi
+}
+
+case "${1:-}" in
+    label-text) label_text; exit 0 ;;
+    window) cover_toggle; exit ;;
+    cover-wait) cover_wait "${2:?}" "${3:-}"; exit 0 ;;
+esac
 
 name="$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused) | .name')"
 [[ -n "$name" ]] || { echo "b-blank: no focused workspace (is i3 running?)" >&2; exit 1; }

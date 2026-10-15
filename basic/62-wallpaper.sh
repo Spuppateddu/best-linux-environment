@@ -17,6 +17,8 @@ fi
 
 # The i3 repo's setup.sh installs feh too; this one cannot rely on it having run.
 has_cmd feh || apt_ensure feh
+# python3-pil reads an image's colour, for BLE_BAR_COLOR=wallpaper.
+apt_ensure python3 python3-pil
 
 # A link, not a copy: the script finds the images beside itself through it.
 run chmod +x "$SRC"

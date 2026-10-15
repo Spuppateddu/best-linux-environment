@@ -351,8 +351,10 @@ never the run.
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
+| `BLE_BAR_COLOR` | the top bar's colour: `wallpaper` — the wallpaper's own colour just under the bar, again on every new wallpaper — or a fixed `#rrggbb` | `~/.i3rc/eww/color.local.scss`, written by `b-wallpaper bar` |
 | `BLE_I3_DESKTOP` | the i3 desktop each apply puts back: `floating` or `tiling` (`$mod+Control+space` still swaps it until then) | `~/.i3rc/scripts/desktop_mode.sh` → `90-tiling-mode.local` |
 | `BLE_TERMINAL_OPACITY` | how see-through Alacritty is, `0` to `1` (`1` is solid); wins over the theme's opacity | `~/.alacritty/opacity.local.toml` |
+| `BLE_TRACKPAD_SPEED` | how fast the pointer moves on every trackpad and touchpad, `-1` to `1` (`0` is libinput's default); live at once, and kept for the next login | `/etc/X11/xorg.conf.d/60-ble-trackpad-speed.conf` → `AccelSpeed`, plus `xinput` for the touchpads already plugged in |
 | `BLE_IDLE_POWEROFF` | `false` stops and disables the [idle poweroff](#-idle-poweroff) timer; `true` (the default) turns it back on | `idle-poweroff.timer`, via `basic/25-idle-poweroff.sh` |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
@@ -375,7 +377,8 @@ Just edited `settings.local`, `aliases.local` or `fonts.local`? Type
 **`b-apply`**: it re-applies all three (idle poweroff, settings, font sizes), then
 re-loads the result into the shell you are typing in — no full `setup.sh`, no
 pull, no new terminal. An alias you deleted stays in that one shell until it
-closes. Idle poweroff asks for sudo only when its timer has to change.
+closes. Idle poweroff asks for sudo only when its timer has to change, the trackpad
+speed only when its value does.
 
 ### Your colours, rolled once
 
@@ -849,6 +852,10 @@ repos install into it, and fonts before the tools that render them. Items marked
    borderless Alacritty window that never takes focus). `$mod+x` on `N` (or on
    `off-N`) turns it back on. A window opened on `N` while it was off joins the
    others.
+   `$mod+z` does the same for one window: the window waits in the scratchpad and
+   a see-through window takes its exact spot, tiled or floating. Only the border
+   stays, with the wallpaper inside it. `$mod+z` on that cover puts the window
+   back. Closing the cover by hand brings the window back too.
 17. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`

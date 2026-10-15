@@ -91,6 +91,16 @@ BLE_FIREFOX_TITLEBAR=false
 # once either way. Comment the line out and the i3 repo decides — one per monitor.
 BLE_I3_BAR=all
 
+# Its colour:
+#
+#   wallpaper  the colour of the wallpaper just under the bar, so the two blend.
+#              Follows every new wallpaper ($mod+Shift+w and the 5-minute cycle).
+#   #rrggbb    one fixed colour, e.g. #3c3836.
+#
+# Text turns dark on a light bar. Lands in ~/.i3rc/eww/color.local.scss; the bar
+# changes at once. Comment the line out and eww.scss's own colour applies.
+BLE_BAR_COLOR=wallpaper
+
 
 # ── The i3 desktop ───────────────────────────────────────────────────────────
 # How i3 lays out windows, the mode every apply (b-apply, ./setup.sh, boot)
@@ -110,6 +120,12 @@ BLE_I3_DESKTOP=floating
 # Lands in ~/.alacritty/opacity.local.toml; open terminals change at once.
 # Comment the line out and the theme decides again ($mod+Shift+t).
 BLE_TERMINAL_OPACITY=0.9
+
+
+# ── The trackpad ─────────────────────────────────────────────────────────────
+# Pointer speed on every trackpad: -1 slowest, 1 fastest, 0 libinput's default.
+# b-apply sets it at once (sudo only when it changed); commented out = default.
+BLE_TRACKPAD_SPEED=0
 
 
 # ── Idle poweroff ────────────────────────────────────────────────────────────

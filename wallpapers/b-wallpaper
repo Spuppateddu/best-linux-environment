@@ -9,7 +9,7 @@ STATE="${XDG_CACHE_HOME:-$HOME/.cache}/b-wallpaper"
 
 usage() {
     cat <<EOF
-b-wallpaper [next|prev|random|restore|list|current|auto [SECONDS]]
+b-wallpaper [next|prev|random|restore|list|current|auto [SECONDS]|bar COLOR]
 
   next      the next image, in name order (the default)
   prev      the previous image
@@ -18,6 +18,8 @@ b-wallpaper [next|prev|random|restore|list|current|auto [SECONDS]]
   list      every image it cycles through
   current   the one on screen
   auto      the next one every SECONDS (300), forever — what i3 starts on login
+  bar       paint the eww top bar COLOR (#rrggbb), or \`wallpaper\`: the colour of
+            the top of the image on screen, again on every change
 
 Images: drop any .jpg/.jpeg/.png/.webp/.bmp/.gif into
   $DIR
@@ -35,19 +37,73 @@ images() {
 
 current() { [[ -f "$STATE" ]] && cat "$STATE" || true; }
 
+# The bar's colours, imported by ~/.i3rc/eww/eww.scss. The mode line is the flag
+# `show` reads: only a bar set to `wallpaper` follows the image.
+BAR_SCSS="$HOME/.i3rc/eww/color.local.scss"
+BAR_DEFAULT="#282828"   # eww.scss's own .bar background
+
+# top_color IMAGE  — the mean colour of the band just under the bar (2-5% down);
+# eww.scss's own colour when there is no image or no python3-pil to read it.
+top_color() {
+    local hex
+    hex="$(python3 - "$1" 2>/dev/null <<'PY' || true
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGB")
+w, h = im.size
+r, g, b = im.crop((0, h * 2 // 100, w, max(1, h * 5 // 100))).resize((1, 1), Image.BOX).getpixel((0, 0))
+print(f"#{r:02x}{g:02x}{b:02x}")
+PY
+)"
+    [[ "$hex" =~ ^#[0-9a-f]{6}$ ]] && printf '%s\n' "$hex" || printf '%s\n' "$BAR_DEFAULT"
+}
+
+# paint_bar MODE HEX  — dark text on a light bar, the theme's light text otherwise.
+paint_bar() {
+    local mode="$1" hex="${2#\#}" r g b fg
+    r=$((16#${hex:0:2})) g=$((16#${hex:2:2})) b=$((16#${hex:4:2}))
+    fg=""; (( r * 299 + g * 587 + b * 114 > 150000 )) && fg="#282828"
+    {
+        printf '// Written by b-wallpaper — settings.local, BLE_BAR_COLOR. Do NOT edit.\n'
+        printf '// mode: %s\n' "$mode"
+        printf '.bar { background: rgba(%d, %d, %d, 0.94); }\n' "$r" "$g" "$b"
+        [[ -z "$fg" ]] || printf '.bar, .island, .ptitle { color: %s; }\n' "$fg"
+    } > "$BAR_SCSS.tmp" && mv "$BAR_SCSS.tmp" "$BAR_SCSS"
+}
+
+# follow_bar IMAGE  — repaint the bar from IMAGE when it is set to follow it.
+follow_bar() {
+    grep -qx '// mode: wallpaper' "$BAR_SCSS" 2>/dev/null || return 0
+    paint_bar wallpaper "$(top_color "$1")"
+}
+
 # Same image on every monitor, scaled to fill it; --no-fehbg keeps ~ clean.
 show() {
     feh --no-fehbg --bg-fill "$1"
     mkdir -p "$(dirname "$STATE")"
     printf '%s\n' "$1" > "$STATE"
+    follow_bar "$1"
 }
 
 cmd="${1:-next}"
 case "$cmd" in
     -h|--help|help) usage; exit 0 ;;
-    next|prev|random|restore|list|current|auto) ;;
+    next|prev|random|restore|list|current|auto|bar) ;;
     *) usage >&2; exit 2 ;;
 esac
+
+if [[ "$cmd" == bar ]]; then
+    want="${2:-}"
+    [[ -d "$(dirname "$BAR_SCSS")" ]] || { echo "b-wallpaper: no ~/.i3rc/eww — no bar to paint" >&2; exit 1; }
+    if [[ "$want" == wallpaper ]]; then
+        paint_bar wallpaper "$(top_color "$(current)")"
+    elif [[ "$want" =~ ^#[0-9a-fA-F]{6}$ ]]; then
+        paint_bar fixed "${want,,}"
+    else
+        usage >&2; exit 2
+    fi
+    exit 0
+fi
 
 # One loop per session: a second `auto` (i3 restart, a re-run) exits at once.
 if [[ "$cmd" == auto ]]; then
