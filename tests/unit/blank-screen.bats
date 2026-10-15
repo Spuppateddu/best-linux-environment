@@ -94,20 +94,54 @@ fake_tree() {
         [[ "$1" == -t ]] && { cat "$FAKE_WS"; exit; }; echo "i3-msg $*" >> "$FAKE_LOG"'
 }
 
-@test "cover: \$mod+z swaps the window with a hidden cover in one redraw" {
-    workspaces "3"
+# Workspace 3 holds one focused window, con 7 titled vim; the scratchpad is empty.
+cover_tree() {
     local tree="$BATS_TEST_TMPDIR/tree.json"
     echo '{"nodes":[{"type":"workspace","name":"3","nodes":[{"id":7,"focused":true,"border":"pixel","current_border_width":4,"name":"vim","window_properties":{"class":"Alacritty","instance":"Alacritty"}}]},
         {"type":"workspace","name":"__i3_scratch","nodes":[]}]}' > "$tree"
     fake_tree "$tree"
-    # The fake alacritty maps at once, as con 9 in the scratchpad (10-blank-screen.local's rule).
-    # Already renamed from b-blank-new to the window's title, as cover-wait does once hidden.
-    fake_cmd alacritty 'echo "alacritty $*" >> "$FAKE_LOG.alacritty"; inst="${2#*,}"; jq --arg i "$inst" ".nodes[1].nodes += [{id: 9, name: \"vim\", border: \"pixel\", current_border_width: 3, window_properties: {class: \"b-blank-cover\", instance: \$i}}]" "$FAKE_TREE" > "$FAKE_TREE.new" && mv "$FAKE_TREE.new" "$FAKE_TREE"'
+}
+
+# The fake alacritty maps at once, as con 9 in the scratchpad, already titled like the window.
+# `alacritty msg` fails (no running Alacritty) unless FAKE_MSG_OK is set.
+fake_alacritty() {
+    fake_cmd alacritty 'echo "alacritty $*" >> "$FAKE_LOG.alacritty"
+        if [[ "$1" == msg ]]; then [[ -n "$FAKE_MSG_OK" ]] || exit 1; shift 2; fi
+        inst="${2#*,}"; jq --arg i "$inst" ".nodes[1].nodes += [{id: 9, name: \"vim\", border: \"pixel\", current_border_width: 3, window_properties: {class: \"b-blank-cover\", instance: \$i}}]" "$FAKE_TREE" > "$FAKE_TREE.new" && mv "$FAKE_TREE.new" "$FAKE_TREE"'
+}
+
+@test "cover: \$mod+z swaps the window with a hidden cover in one redraw" {
+    workspaces "3"
+    cover_tree
+    fake_alacritty
     run "$REPO/blank-screen/b-blank" window
     [ "$status" -eq 0 ]
     [ "$(wc -l < "$FAKE_LOG")" -eq 1 ]
-    grep -q -- '--title b-blank-new .* cover-wait [0-9]* vim$' "$FAKE_LOG.alacritty"
+    grep -q -- 'window.title="b-blank-new" .* cover-wait [0-9]* vim$' "$FAKE_LOG.alacritty"
+    # --title would lock the title: the cover could never rename itself, and \$mod+z waits 1 s.
+    ! grep -q -- '--title' "$FAKE_LOG.alacritty"
     grep -qx 'i3-msg \[con_id=9\] border pixel 4; \[con_id=7\] swap container with con_id 9; \[con_id=7\] mark --add _b-cover-[0-9]*; \[con_id=9\] focus' "$FAKE_LOG"
+}
+
+@test "cover: the cover opens in a running Alacritty when one answers, the faster way" {
+    workspaces "3"
+    cover_tree
+    export FAKE_MSG_OK=1
+    fake_alacritty
+    run "$REPO/blank-screen/b-blank" window
+    [ "$status" -eq 0 ]
+    grep -q '^alacritty msg create-window --class b-blank-cover,' "$FAKE_LOG.alacritty"
+    [ "$(wc -l < "$FAKE_LOG.alacritty")" -eq 1 ]
+}
+
+@test "cover: no running Alacritty answers, so a new one starts" {
+    workspaces "3"
+    cover_tree
+    fake_alacritty
+    run "$REPO/blank-screen/b-blank" window
+    [ "$status" -eq 0 ]
+    grep -q '^alacritty msg create-window ' "$FAKE_LOG.alacritty"
+    grep -q '^alacritty --class b-blank-cover,' "$FAKE_LOG.alacritty"
 }
 
 @test "cover: once hidden, the cover takes the window's title" {

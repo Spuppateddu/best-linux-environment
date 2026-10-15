@@ -15,10 +15,13 @@ COVER_MARK="_b-cover-"
 COVER_NEW_TITLE="b-blank-new"
 # Inside the label: blank (so unseen) until $2 exists, i.e. until it sits in its corner.
 # shellcheck disable=SC2016
-LABEL_SH='printf "\e[?25l"; for _ in $(seq 100); do [ -e "$2" ] && break; sleep 0.05; done
+LABEL_SH='printf "\e[?25l"; for _ in $(seq 500); do [ -e "$2" ] && break; sleep 0.01; done
 rm -f "$2"; printf "\e[1;31m%s" "$1"; exec sleep infinity'
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+# A new Alacritty window: from a running Alacritty when one answers (~2x faster), else a new one.
+term() { alacritty msg create-window "$@" >/dev/null 2>&1 || { alacritty "$@" >/dev/null 2>&1 & disown; }; }
 
 # Quoted for i3's parser: a workspace name may hold spaces or quotes.
 i3str() { local s="${1//\\/\\\\}"; printf '"%s"' "${s//\"/\\\"}"; }
@@ -66,10 +69,10 @@ find_con() {
 # Waits up to 5 s for the window of instance $1 to map, then prints its con id.
 wait_window() {
     local id=""
-    for _ in $(seq 50); do
+    for _ in $(seq 500); do
         id="$(find_con '.window_properties.instance == $v' "$1")"
         [[ -n "$id" ]] && break
-        sleep 0.1
+        sleep 0.01
     done
     printf '%s\n' "$id"
 }
@@ -92,12 +95,11 @@ show_label() {
     has_cmd alacritty || return 0
     text="$(label_text)"; inst="$LABEL_CLASS-$$"
     ready="${XDG_RUNTIME_DIR:-/tmp}/$inst.ready"; rm -f "$ready"
-    alacritty --class "$LABEL_CLASS,$inst" \
+    term --class "$LABEL_CLASS,$inst" \
         -o 'window.opacity=0' -o 'window.decorations="None"' \
         -o 'window.padding.x=0' -o 'window.padding.y=0' \
         -o "window.dimensions.columns=${#text}" -o 'window.dimensions.lines=1' \
-        -e bash -c "$LABEL_SH" _ "$text" "$ready" >/dev/null 2>&1 &
-    disown
+        -e bash -c "$LABEL_SH" _ "$text" "$ready"
     id="$(wait_window "$inst")"
     [[ -n "$id" ]] || { : > "$ready"; return 0; }
     # Floated here, not only by the i3 rule: tiling mode's later rules un-float every window.
@@ -143,7 +145,7 @@ cover_wait() {
     ready="$(cover_ready "$1")"
     printf '\e[?25l'; stty -echo 2>/dev/null || true
     trap 'i3 "[con_mark=\"^$mark\$\"] scratchpad show, floating disable, unmark $mark"; exit 0' HUP TERM
-    for _ in $(seq 100); do [[ -e "$ready" ]] && break; sleep 0.05; done
+    for _ in $(seq 500); do [[ -e "$ready" ]] && break; sleep 0.01; done
     rm -f "$ready"; printf '\e]2;%s\a' "$2"
     sleep infinity & wait
 }
@@ -153,19 +155,20 @@ cover_off() {
     local id="$1" title="$2" key="$$" cover ready
     has_cmd alacritty || { echo "b-blank: covering a window needs alacritty" >&2; return 1; }
     ready="$(cover_ready "$key")"; rm -f "$ready"
-    alacritty --class "$COVER_CLASS,$COVER_CLASS-$key" --title "$COVER_NEW_TITLE" \
-        -o 'window.opacity=0' -e "$0" cover-wait "$key" "$title" >/dev/null 2>&1 &
-    disown
+    # The title as config, not --title: --title locks it, and the wait below then takes 1 s.
+    term --class "$COVER_CLASS,$COVER_CLASS-$key" -o "window.title=\"$COVER_NEW_TITLE\"" \
+        -o 'window.opacity=0' -o 'window.dynamic_title=true' \
+        -e "$(readlink -f "$0")" cover-wait "$key" "$title"
     cover="$(wait_window "$COVER_CLASS-$key")"
     [[ -n "$cover" ]] || { : > "$ready"; return 1; }
     # 10-blank-screen.local sends it there unseen; without that rule it shows for a moment.
     in_scratchpad "$cover" || i3 "[con_id=$cover] move scratchpad"
     # Renamed before it shows: one still titled $COVER_NEW_TITLE is one the rule can hide again.
     : > "$ready"
-    for _ in $(seq 20); do
+    for _ in $(seq 100); do
         [[ -n "$(find_con '.window_properties.instance == $v and .name != "'"$COVER_NEW_TITLE"'"' \
             "$COVER_CLASS-$key")" ]] && break
-        sleep 0.05
+        sleep 0.01
     done
     # The same border first: a floating window whose border changes grows or shrinks.
     # One command list, so one redraw: the window just goes, its spot and size stay.
