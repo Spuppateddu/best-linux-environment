@@ -408,12 +408,33 @@ install_tarball_bin() {
 
 # ── git ─────────────────────────────────────────────────────────────────────
 # clone_or_pull URL DEST  — clone if absent, fast-forward pull if present.
+# Uncommitted edits ride along in a stash; one that clashes with upstream undoes the pull.
 clone_or_pull() {
-    local url="$1" dest="$2"
+    local url="$1" dest="$2" name old stashed=false
+    name="$(basename "$dest")"
     if [[ -d "$dest/.git" ]]; then
-        step "Updating $(basename "$dest") ($dest)"
-        run git -C "$dest" pull --ff-only --quiet || warn "Could not pull $dest — leaving as-is."
-        ok "$(basename "$dest") up to date."
+        step "Updating $name ($dest)"
+        if [[ "$DRY_RUN" == true ]]; then
+            run git -C "$dest" pull --ff-only --quiet
+            return 0
+        fi
+        old="$(git -C "$dest" rev-parse HEAD)"
+        if [[ -n "$(git -C "$dest" status --porcelain --untracked-files=no)" ]]; then
+            git -C "$dest" stash push --quiet -m "best-linux-environment pull" && stashed=true
+        fi
+        if ! git -C "$dest" pull --ff-only --quiet; then
+            [[ "$stashed" == false ]] || git -C "$dest" stash pop --quiet
+            warn "Could not pull $dest — leaving as-is."
+            return 0
+        fi
+        if [[ "$stashed" == true ]] && ! git -C "$dest" stash pop --quiet >/dev/null 2>&1; then
+            git -C "$dest" reset --quiet --hard "$old" && git -C "$dest" stash pop --quiet
+            warn "$name: your uncommitted edits clash with upstream — kept them, did NOT pull."
+            warn "Commit or drop them in $dest (git diff), then re-run."
+            return 0
+        fi
+        [[ "$stashed" == false ]] || ok "$name: kept your uncommitted edits on top."
+        ok "$name up to date."
     elif [[ -e "$dest" ]]; then
         warn "$dest exists but is not a git checkout — leaving untouched."
     else

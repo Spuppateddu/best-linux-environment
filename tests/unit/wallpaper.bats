@@ -110,3 +110,18 @@ teardown() { [[ -z "${LOOP:-}" ]] || kill "$LOOP" 2>/dev/null || true; }
     [ "$status" -eq 2 ]
     [ ! -e "$HOME/.i3rc/eww/color.local.scss" ]
 }
+
+@test "wallpaper: the module paints and starts the loop in a running i3" {
+    mkdir -p "$HOME/.i3rc"
+    # Like the real one, getopt takes any --flag as i3-msg's own and fails.
+    fake_cmd i3-msg 'for a; do [[ "$a" == --* ]] && exit 1; done; echo "i3-msg $*" >> "$FAKE_LOG"'
+    local copy="$BATS_TEST_TMPDIR/repo"
+    mkdir -p "$copy/basic" "$copy/wallpapers"
+    cp -r "$REPO/lib" "$copy/"
+    cp "$REPO/basic/62-wallpaper.sh" "$copy/basic/"
+    cp "$REPO/wallpapers/b-wallpaper" "$copy/wallpapers/"
+    run bash "$copy/basic/62-wallpaper.sh" </dev/null
+    [ "$status" -eq 0 ]
+    grep -q '^i3-msg exec --no-startup-id .*/b-wallpaper restore$' "$FAKE_LOG"
+    grep -q '^i3-msg exec --no-startup-id .*/b-wallpaper auto 300$' "$FAKE_LOG"
+}

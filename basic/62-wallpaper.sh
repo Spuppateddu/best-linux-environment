@@ -43,7 +43,10 @@ if [[ "$DRY_RUN" != true ]] && has_cmd i3-msg && i3-msg -t get_version >/dev/nul
     if [[ "$GEN_CHANGED" == true ]]; then
         i3-msg reload >/dev/null && ok "i3 reloaded: \$mod+Shift+w is the next wallpaper."
     fi
-    i3-msg exec --no-startup-id "$HOME/.local/bin/b-wallpaper auto 300" >/dev/null \
+    # One string: i3-msg would take a bare --no-startup-id as its own option.
+    i3-msg "exec --no-startup-id $HOME/.local/bin/b-wallpaper restore" >/dev/null \
+        && ok "Wallpaper painted."
+    i3-msg "exec --no-startup-id $HOME/.local/bin/b-wallpaper auto 300" >/dev/null \
         && ok "Wallpaper changes every 5 minutes."
 fi
 

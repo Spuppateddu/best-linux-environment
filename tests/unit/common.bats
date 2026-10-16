@@ -113,3 +113,38 @@ load helpers
     ble 'remember_shell bash'
     [ "$(cat "$BLE_STATE_DIR/shell")" = bash ]
 }
+
+# A real upstream and clone in the test's dir; `commit_up FILE TEXT` adds a commit.
+git_pair() {
+    export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+    UP="$BATS_TEST_TMPDIR/up" CL="$BATS_TEST_TMPDIR/cl"
+    git init -q -b main "$UP"
+    printf 'a\nb\nc\nd\n' > "$UP/f"
+    git -C "$UP" add f && git -C "$UP" commit -qm one
+    git clone -q "$UP" "$CL"
+}
+commit_up() { printf '%s\n' "$2" > "$UP/$1"; git -C "$UP" add "$1"; git -C "$UP" commit -qm up; }
+
+@test "clone_or_pull: pulls with uncommitted edits and keeps them" {
+    git_pair
+    printf 'a\nb\nc\nD\n' > "$UP/f"; git -C "$UP" commit -qam up
+    printf 'A\nb\nc\nd\n' > "$CL/f"
+    ble "clone_or_pull x '$CL'"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$CL" rev-parse HEAD)" = "$(git -C "$UP" rev-parse HEAD)" ]
+    [ "$(cat "$CL/f")" = "$(printf 'A\nb\nc\nD')" ]
+    [ -z "$(git -C "$CL" stash list)" ]
+}
+
+@test "clone_or_pull: edits that clash with upstream stay, and nothing is pulled" {
+    git_pair
+    local old; old="$(git -C "$CL" rev-parse HEAD)"
+    commit_up f upstream
+    printf 'mine\n' > "$CL/f"
+    ble "clone_or_pull x '$CL'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"did NOT pull"* ]]
+    [ "$(git -C "$CL" rev-parse HEAD)" = "$old" ]
+    [ "$(cat "$CL/f")" = mine ]
+    [ -z "$(git -C "$CL" stash list)" ]
+}
