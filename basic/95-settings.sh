@@ -500,12 +500,15 @@ elif [[ -z "$BLE_I3_BORDER_COLOR" ]]; then
     drop_gen "$TMUXRC/colors.local.conf" "~/.tmuxrc/config"
     CHANGED_TMUX="$GEN_CHANGED"
 elif hooked "$TMUXRC/config" "colors.local.conf"; then
+    PREFIX_STYLE="#[bg=#D79921]"
+    [[ -n "$BLE_I3_UNFOCUSED_COLOR" ]] &&
+        PREFIX_STYLE="#[bg=#$(color_hex "$BLE_I3_UNFOCUSED_COLOR")]#[fg=#$(color_text_on "$BLE_I3_UNFOCUSED_COLOR")]"
     write_gen "$TMUXRC/colors.local.conf" <<EOF
 # Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.
 # Do NOT edit: every run rewrites it. Change it in ${BLE_ROOT/#$HOME/\~}/settings.local.
 set -g mode-style "bg=#$(color_hex "$BLE_I3_BORDER_COLOR"),fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")"
-# The session name, bottom left: dracula's own format, our colour. Yellow while prefix is held.
-set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,#[bg=#D79921],} #S "
+# The session name, bottom left: dracula's own format, our colour. i3's unfocused one while prefix is held.
+set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,$PREFIX_STYLE,} #S "
 EOF
     CHANGED_TMUX="$GEN_CHANGED"
 fi

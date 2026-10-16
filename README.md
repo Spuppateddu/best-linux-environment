@@ -347,7 +347,7 @@ never the run.
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
 | `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused`; also tmux's list highlight (prefix+s/w, copy-mode) and session name, `~/.tmuxrc/colors.local.conf` → `mode-style`, `status-left` |
-| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
+| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also tmux's session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `status-left` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |

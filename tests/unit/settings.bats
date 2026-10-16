@@ -32,6 +32,8 @@ run_settings() {
     [ "$status" -eq 0 ]
     grep -qx 'set -g mode-style "bg=#8700d7,fg=#ffffff"' "$HOME/.tmuxrc/colors.local.conf"
     grep -qF 'status-left "#[bg=#8700d7]#[fg=#ffffff]' "$HOME/.tmuxrc/colors.local.conf"
+    # Prefix held: i3's unfocused colour (22, dark green), white text on it.
+    grep -qF '#{?client_prefix,#[bg=#005f00]#[fg=#ffffff],}' "$HOME/.tmuxrc/colors.local.conf"
 }
 
 @test "95-settings: a server rolls no i3 colours and lists none" {
