@@ -74,27 +74,8 @@ fi
 
 # ── the root half ────────────────────────────────────────────────────────────
 # Copies only when the contents differ, so ./boot.sh re-running this at every
-# boot is silent. CHANGED decides whether the timer needs restarting.
-CHANGED=false
-install_root_file() {
-    local mode="$1" src="$2" dest="$3"
-    if [[ ! -r "$src" ]]; then
-        warn "Missing $src — skipping ${dest}."
-        return 1
-    fi
-    if cmp -s "$src" "$dest"; then
-        skip "$dest already current."
-        return 0
-    fi
-    step "installing $dest"
-    if run sudo install -D -m "$mode" -o root -g root "$src" "$dest"; then
-        CHANGED=true
-        return 0
-    fi
-    warn "Could not write $dest."
-    return 1
-}
-
+# boot is silent. ROOT_FILE_CHANGED decides whether the timer needs restarting.
+ROOT_FILE_CHANGED=false
 install_root_file 0755 "$SRC/idle-poweroff.sh"      /usr/local/sbin/idle-poweroff || true
 install_root_file 0644 "$SRC/idle-poweroff.service" /etc/systemd/system/idle-poweroff.service || true
 install_root_file 0644 "$SRC/idle-poweroff.timer"   /etc/systemd/system/idle-poweroff.timer || true
@@ -112,7 +93,7 @@ if [[ "$DRY_RUN" == true ]]; then
     exit 0
 fi
 
-if [[ "$CHANGED" == true ]]; then
+if [[ "$ROOT_FILE_CHANGED" == true ]]; then
     sudo systemctl daemon-reload || warn "systemctl daemon-reload failed."
     sudo systemctl enable --quiet idle-poweroff.timer 2>/dev/null \
         || warn "Could not enable idle-poweroff.timer."

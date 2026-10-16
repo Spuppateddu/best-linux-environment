@@ -287,6 +287,27 @@ remove_files() {
     [[ "$DRY_RUN" == true ]] || ok "removed ${present[*]/#$HOME/\~}"
 }
 
+# install_root_file MODE SRC DEST  — copy SRC to DEST as root:root, only when the
+# contents differ. Sets ROOT_FILE_CHANGED=true when it wrote; callers reset it.
+install_root_file() {
+    local mode="$1" src="$2" dest="$3"
+    if [[ ! -r "$src" ]]; then
+        warn "Missing $src — skipping ${dest}."
+        return 1
+    fi
+    if cmp -s "$src" "$dest"; then
+        skip "$dest already current."
+        return 0
+    fi
+    step "installing $dest"
+    if run sudo install -D -m "$mode" -o root -g root "$src" "$dest"; then
+        ROOT_FILE_CHANGED=true
+        return 0
+    fi
+    warn "Could not write $dest."
+    return 1
+}
+
 # apt_repo_drop NAME  — undo apt_repo_add NAME: its keyring and its source list.
 apt_repo_drop() {
     remove_files --sudo "/usr/share/keyrings/$1.gpg" "/etc/apt/sources.list.d/$1.list"

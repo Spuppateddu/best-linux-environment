@@ -1,0 +1,134 @@
+/* BLE-Retro: the login screen as a Windows 95 dialog, in gruvbox dark.
+   Installed as /usr/share/themes/BLE-Retro/gtk-3.0/gtk.css by basic/30-lightdm.sh. */
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+
+@define-color face    #3c3836;
+@define-color face_hi #504945;
+@define-color light   #a89984;
+@define-color mid     #665c54;
+@define-color dark    #1d2021;
+@define-color well    #282828;
+@define-color text    #ebdbb2;
+@define-color dim     #928374;
+@define-color title_a #076678;
+@define-color title_b #458588;
+@define-color accent  #fabd2f;
+@define-color alert   #fb4934;
+
+* {
+    border-radius: 0;
+    -gtk-outline-radius: 0;
+    text-shadow: none;
+    -gtk-icon-shadow: none;
+}
+
+/* ── the dialog: see-through raised bevel, title bar in the grid's top margin ── */
+#login_window, #power_window {
+    color: @text;
+    background-color: alpha(@face, 0.55);
+    background-image: linear-gradient(to right, alpha(@title_a, 0.85), alpha(@title_b, 0.85));
+    background-size: 100% 18px;
+    background-position: 0 0;
+    background-repeat: no-repeat;
+    border: 3px solid transparent;
+    box-shadow: inset 1px 1px @light, inset -1px -1px @dark,
+                inset 2px 2px @mid,   inset -2px -2px @well,
+                0 0 0 1px @dark,      6px 6px 0 rgba(0, 0, 0, 0.45);
+}
+#login_window #content_frame, #login_window #buttonbox_frame,
+#power_window #content_frame, #power_window #buttonbox_frame {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+#power_window #content_frame { padding-top: 6px; }
+#login_window label, #power_window label { color: @text; }
+
+/* ── text boxes: sunken well ── */
+#login_window entry, #login_window combobox button.combo {
+    min-height: 22px;
+    color: @text;
+    caret-color: @accent;
+    background: alpha(@well, 0.7);
+    background-image: none;
+    border: 2px solid;
+    border-color: @mid @light @light @mid;
+    box-shadow: inset 1px 1px @dark;
+    padding: 2px 6px;
+}
+#login_window entry:focus { border-color: @dark @accent @accent @dark; }
+#login_window entry selection { color: @well; background: @accent; }
+#login_window entry placeholder, #login_window entry.dim-label { color: @dim; }
+
+/* ── push buttons: raised, pressed in when held ── */
+#login_window button, #power_window button {
+    min-height: 22px;
+    min-width: 76px;
+    padding: 2px 12px;
+    color: @text;
+    background: alpha(@face_hi, 0.75);
+    background-image: none;
+    border: 1px solid @dark;
+    box-shadow: inset 1px 1px @light, inset -1px -1px @well,
+                inset 2px 2px @mid,   inset -2px -2px @face;
+}
+#login_window button:hover, #power_window button:hover { background: #5a524c; }
+#login_window button:active, #power_window button:active,
+#login_window button:checked {
+    background: @face;
+    box-shadow: inset 1px 1px @dark, inset 2px 2px @well;
+    padding: 3px 11px 1px 13px;
+}
+#login_window button:focus, #power_window button:focus {
+    outline: 1px dotted @text;
+    outline-offset: -5px;
+}
+#login_button, #power_ok_button { border-color: @accent; font-weight: bold; }
+
+/* ── wrong password and other PAM messages ── */
+#greeter_infobar, #greeter_infobar > revealer > box {
+    color: @well;
+    background: @alert;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+}
+#greeter_infobar label { color: @well; font-weight: bold; }
+#greeter_infobar.info, #greeter_infobar.info > revealer > box { background: @accent; }
+
+/* ── the panel: a taskbar along the top ── */
+#panel_window {
+    color: @text;
+    background: @face;
+    background-image: none;
+    box-shadow: inset 0 -1px @dark, inset 0 -2px @well;
+    padding-bottom: 2px;
+}
+#panel_window menubar { background: transparent; box-shadow: none; padding: 0 4px; }
+#panel_window menubar > menuitem {
+    color: @text;
+    margin: 2px 2px;
+    padding: 1px 8px;
+}
+#panel_window menubar > menuitem:hover {
+    background: @face_hi;
+    box-shadow: inset 1px 1px @light, inset -1px -1px @dark;
+}
+#panel_window #clock_menuitem {
+    margin: 2px 4px;
+    padding: 1px 10px;
+    box-shadow: inset 1px 1px @dark, inset -1px -1px @light;
+}
+
+/* ── the menus that drop out of the taskbar ── */
+menu, .menu, .context-menu {
+    color: @text;
+    background: @face;
+    border: 1px solid @dark;
+    box-shadow: inset 1px 1px @light, inset -1px -1px @well;
+    padding: 2px;
+}
+menu menuitem { color: @text; padding: 3px 18px; }
+menu menuitem:hover { color: @text; background: @title_a; }
+menu separator { background: @mid; margin: 3px 2px; }
+menu check, menu radio { color: @text; }
