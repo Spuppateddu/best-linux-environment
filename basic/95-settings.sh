@@ -55,7 +55,7 @@ for k in "${BLE_COLOR_KEYS[@]}"; do HAD[$k]="${!k}"; done
 
 # The two pairs — never equal, never the same hue. The cursor stands alone.
 roll_color_pair BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
-roll_color_pair BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
+is_desktop && roll_color_pair BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 roll_color BLE_CURSOR_COLOR
 
 ROLLED=()

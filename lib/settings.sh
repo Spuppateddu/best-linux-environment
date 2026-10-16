@@ -37,6 +37,8 @@ BLE_COLOR_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 )
+# A server has no i3: its two colours are never rolled, written back or shown.
+is_server && BLE_COLOR_KEYS=(BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH BLE_CURSOR_COLOR)
 
 # What each colour paints, for the comment written beside it in settings.local
 # and for the list printed at the end of a run. One line per key above.

@@ -14,6 +14,7 @@ run_settings() {
     BLE_SETTINGS_LOCAL="$BATS_TEST_TMPDIR/settings.local" \
     BLE_ALIASES_LOCAL="$BATS_TEST_TMPDIR/aliases.local" \
     BLE_SETTINGS_EXAMPLE="$BATS_TEST_TMPDIR/settings.local.example" \
+    BLE_PROFILE="${BLE_PROFILE:-desktop}" \
         run bash "$REPO/basic/95-settings.sh" </dev/null
 }
 
@@ -31,6 +32,15 @@ run_settings() {
     [ "$status" -eq 0 ]
     grep -qx 'set -g mode-style "bg=#8700d7,fg=#ffffff"' "$HOME/.tmuxrc/colors.local.conf"
     grep -qF 'status-left "#[bg=#8700d7]#[fg=#ffffff]' "$HOME/.tmuxrc/colors.local.conf"
+}
+
+@test "95-settings: a server rolls no i3 colours and lists none" {
+    BLE_PROFILE=server run_settings BLE_PROMPT_COLOR_USER=39
+    [ "$status" -eq 0 ]
+    grep -q '^BLE_CURSOR_COLOR=' "$BATS_TEST_TMPDIR/settings.local"
+    [[ "$output" != *"in i3"* ]]
+    run grep -c 'BLE_I3_' "$BATS_TEST_TMPDIR/settings.local"
+    [ "$output" = 0 ]
 }
 
 # fake_desktop_mode [BODY]  — a desktop_mode.sh whose flag is the 90- file, as
