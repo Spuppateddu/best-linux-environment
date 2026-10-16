@@ -346,7 +346,7 @@ never the run.
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
-| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused` |
+| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused`; also tmux's list highlight (prefix+s/w, copy-mode) and session name, `~/.tmuxrc/colors.local.conf` → `mode-style`, `status-left` |
 | `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
@@ -409,7 +409,7 @@ Five surfaces, one palette of twenty xterm-256 colours across six families:
 | `BLE_PROMPT_COLOR_USER` | `user@host` in the prompt | zsh and bash alike |
 | `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
 | `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
-| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator | the **focused** class |
+| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator; tmux's list highlight and session name | the **focused** class; the picked row of prefix+s/w, the bottom-left label |
 | `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
 
 The two prompt colours can never come out the same. They cannot even come out

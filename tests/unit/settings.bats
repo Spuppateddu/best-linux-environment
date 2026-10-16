@@ -24,6 +24,15 @@ run_settings() {
     grep -qx 'client.focused          #8700d7 #8700d7 #ffffff #8700d7 #8700d7' "$HOME/.i3rc/06-colors.local"
 }
 
+@test "95-settings: tmux's list highlight takes i3's focused colour" {
+    mkdir -p "$HOME/.tmuxrc"
+    echo 'source-file -q "$HOME/.tmuxrc/colors.local.conf"' > "$HOME/.tmuxrc/config"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    grep -qx 'set -g mode-style "bg=#8700d7,fg=#ffffff"' "$HOME/.tmuxrc/colors.local.conf"
+    grep -qF 'status-left "#[bg=#8700d7]#[fg=#ffffff]' "$HOME/.tmuxrc/colors.local.conf"
+}
+
 # fake_desktop_mode [BODY]  — a desktop_mode.sh whose flag is the 90- file, as
 # the real one; BODY replaces how it switches.
 fake_desktop_mode() {

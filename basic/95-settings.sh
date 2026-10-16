@@ -491,6 +491,25 @@ opacity = $BLE_TERMINAL_OPACITY
 EOF
 fi
 
+# ── 4c. tmux: the list highlight, in i3's focused colour ─────────────────────
+# mode-style paints the picked row of prefix+s/w and the copy-mode selection.
+TMUXRC="$HOME/.tmuxrc"
+if [[ ! -d "$TMUXRC" ]]; then
+    skip "${TMUXRC/#$HOME/\~} not cloned yet — no tmux highlight to set (./setup.sh clones it)."
+elif [[ -z "$BLE_I3_BORDER_COLOR" ]]; then
+    drop_gen "$TMUXRC/colors.local.conf" "~/.tmuxrc/config"
+    CHANGED_TMUX="$GEN_CHANGED"
+elif hooked "$TMUXRC/config" "colors.local.conf"; then
+    write_gen "$TMUXRC/colors.local.conf" <<EOF
+# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.
+# Do NOT edit: every run rewrites it. Change it in ${BLE_ROOT/#$HOME/\~}/settings.local.
+set -g mode-style "bg=#$(color_hex "$BLE_I3_BORDER_COLOR"),fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")"
+# The session name, bottom left: dracula's own format, our colour. Yellow while prefix is held.
+set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,#[bg=#D79921],} #S "
+EOF
+    CHANGED_TMUX="$GEN_CHANGED"
+fi
+
 # ── 5. i3: the agent key ($mod+c), the window colours, the title bars ────────
 # 05- so it sorts before config.local, which i3's `include ~/.i3rc/*.local`
 # reads after it: a value you put in config.local by hand still wins.
@@ -726,6 +745,13 @@ if [[ "${CHANGED_I3:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd i3-msg \
             i3_sweep_titlebar pixel normal
         fi
     fi
+fi
+
+# Every running tmux server re-reads its config. Dropping the file leaves the old
+# colour until tmux restarts: nothing in the config sets it back.
+if [[ "${CHANGED_TMUX:-false}" == true ]] && has_cmd tmux && tmux list-sessions >/dev/null 2>&1; then
+    tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 && ok "tmux re-sourced — new highlight and session colour." \
+        || warn "tmux reload failed — check ~/.tmux.conf."
 fi
 
 # The bar is eww, not i3: an i3 reload does not move it, only its own launcher
