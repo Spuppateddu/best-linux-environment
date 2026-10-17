@@ -507,8 +507,8 @@ elif hooked "$TMUXRC/config" "colors.local.conf"; then
 # Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.
 # Do NOT edit: every run rewrites it. Change it in ${BLE_ROOT/#$HOME/\~}/settings.local.
 set -g mode-style "bg=#$(color_hex "$BLE_I3_BORDER_COLOR"),fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")"
-# The session name, bottom left: dracula's own format, our colour. i3's unfocused one while prefix is held.
-set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,$PREFIX_STYLE,} #S "
+# The session name, bottom left — its group's, so every terminal shows the hostname, not <host>-2: dracula's own format, our colour. i3's unfocused one while prefix is held.
+set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,$PREFIX_STYLE,} #{?session_group,#{session_group},#{session_name}} "
 EOF
     CHANGED_TMUX="$GEN_CHANGED"
 fi
