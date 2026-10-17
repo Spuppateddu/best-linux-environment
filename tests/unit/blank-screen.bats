@@ -27,6 +27,21 @@ i3-msg workspace --no-auto-back-and-forth "3"
 LOG
 }
 
+@test "blank: the label is tiled, so \$mod+hjkl can move focus off a workspace that is off" {
+    workspaces "3"
+    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR" FAKE_TREE="$BATS_TEST_TMPDIR/tree.json"
+    echo '{"type":"workspace","name":"3","nodes":[]}' > "$FAKE_TREE"
+    fake_cmd i3-msg '[[ "$1" == -t && "$2" == get_tree ]] && { cat "$FAKE_TREE"; exit; }
+        [[ "$1" == -t ]] && { cat "$FAKE_WS"; exit; }; echo "i3-msg $*" >> "$FAKE_LOG"'
+    # The fake alacritty maps the label at once, as con 9.
+    fake_cmd alacritty '[[ "$1" == msg ]] && exit 1; inst="${2#*,}"
+        jq --arg i "$inst" ".nodes += [{id: 9, window_properties: {class: \"b-blank-label\", instance: \$i}}]" "$FAKE_TREE" > "$FAKE_TREE.new" && mv "$FAKE_TREE.new" "$FAKE_TREE"'
+    run "$REPO/blank-screen/b-blank"
+    [ "$status" -eq 0 ]
+    grep -qx 'i3-msg \[con_id=9\] floating disable, border none, move container to workspace "3"' "$FAKE_LOG"
+    ! grep -q 'floating enable\|move position' "$FAKE_LOG"
+}
+
 @test "blank: on, from the empty N, gives the windows their name back" {
     workspaces "3" "off-3"
     run "$REPO/blank-screen/b-blank"
@@ -74,6 +89,7 @@ LOG
     grep -qx 'bindsym $mod+x exec --no-startup-id ~/.local/bin/b-blank' \
         "$HOME/.i3rc/10-blank-screen.local"
     grep -qx 'no_focus \[class="^b-blank-label\$"\]' "$HOME/.i3rc/10-blank-screen.local"
+    grep -qx 'for_window \[class="^b-blank-label\$"\] floating disable, border none' "$HOME/.i3rc/10-blank-screen.local"
     [ -L "$HOME/.local/bin/b-blank" ]
 }
 

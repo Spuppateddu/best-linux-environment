@@ -849,7 +849,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    off: workspace `N` is renamed `off-N`, so its windows and layout stay as they
    are, and a new empty `N` takes its place. Visiting `N` then shows only the
    wallpaper and the PC's name in red binary, bottom-right (a see-through,
-   borderless Alacritty window that never takes focus). `$mod+x` on `N` (or on
+   borderless Alacritty window, tiled alone on `N`, so `$mod+hjkl` moves focus
+   off it like off any single window). `$mod+x` on `N` (or on
    `off-N`) turns it back on. A window opened on `N` while it was off joins the
    others.
    `$mod+z` does the same for one window: the window waits in the scratchpad and

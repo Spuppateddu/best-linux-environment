@@ -29,8 +29,9 @@ bindsym $mod+z exec --no-startup-id ~/.local/bin/b-blank window
 # A cover opens hidden in the scratchpad, so the swap is the first time it shows. Only while
 # titled b-blank-new: an i3 reload re-runs rules, and a cover on screen must stay there.
 for_window [class="^b-blank-cover$" title="^b-blank-new$"] move scratchpad
-# The PC's name in red binary, bottom-right of a workspace that is off: no border, never focused.
-for_window [class="^b-blank-label$"] floating enable, border none
+# The PC's name in red binary, bottom-right of a workspace that is off: tiled, so $mod+hjkl
+# can leave it (a lone floating window traps focus), no border, not focused when it opens.
+for_window [class="^b-blank-label$"] floating disable, border none
 no_focus [class="^b-blank-label$"]
 EOF2
 if [[ "$DRY_RUN" != true && "$GEN_CHANGED" == true ]] && has_cmd i3-msg \

@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Off, workspace N is renamed off-N (windows and layout kept); a new empty N holds the label.
 PREFIX="off-"
-# The label window's class; 10-blank-screen.local floats it, borderless, without focus.
+# The label window's class; 10-blank-screen.local tiles it, borderless, without focus.
 LABEL_CLASS="b-blank-label"
 MARGIN=12
 # A covered window waits in the scratchpad with mark _b-cover-KEY; a see-through cover-KEY takes its place.
@@ -13,10 +13,12 @@ COVER_CLASS="b-blank-cover"
 COVER_MARK="_b-cover-"
 # A cover's title until it is hidden: the only one 10-blank-screen.local's scratchpad rule matches.
 COVER_NEW_TITLE="b-blank-new"
-# Inside the label: blank (so unseen) until $2 exists, i.e. until it sits in its corner.
+# Inside the label: blank until $2 exists, then $1 bottom-right, redrawn on resize; keys do nothing.
 # shellcheck disable=SC2016
-LABEL_SH='printf "\e[?25l"; for _ in $(seq 500); do [ -e "$2" ] && break; sleep 0.01; done
-rm -f "$2"; printf "\e[1;31m%s" "$1"; exec sleep infinity'
+LABEL_SH='trap "" INT QUIT TSTP; stty -echo -icanon 2>/dev/null; printf "\e[?25l"; t="$1"
+for _ in $(seq 500); do [ -e "$2" ] && break; sleep 0.01; done; rm -f "$2"
+draw() { read -r r c < <(stty size); c=$((c - ${#t} + 1)); printf "\e[2J\e[%d;%dH\e[1;31m%s" "$r" "$((c > 1 ? c : 1))" "$t"; }
+trap draw WINCH; draw; while :; do sleep 60 & s=$!; wait "$s"; kill "$s" 2>/dev/null; done'
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -53,13 +55,6 @@ windows_on() {
         | select((.window_properties.class == $c) == ($want == "label")) | .id'
 }
 
-# "ID WIDTH HEIGHT" of the floating container around that window: the window's own rect is stale.
-float_geometry() {
-    i3-msg -t get_tree | jq -r --arg i "$1" '.. | objects | select(.type == "floating_con")
-        | select(any(.nodes[]; .window_properties?.instance == $i))
-        | "\(.id) \(.rect.width) \(.rect.height)"' | head -n1
-}
-
 # Con id of the first window where the jq test $1 holds ($v is $2): empty when none does.
 find_con() {
     i3-msg -t get_tree | jq -r --arg v "$2" \
@@ -89,25 +84,21 @@ in_scratchpad() {
         | any(.. | objects; .id? == ($v | tonumber))' >/dev/null
 }
 
-# Opens the red label, then waits for it to map and moves it to workspace $1's bottom-right.
+# Opens the red label, then waits for it to map and tiles it alone on workspace $1.
 show_label() {
-    local ws="$1" text inst ready id="" w h x y
+    local ws="$1" text inst ready id=""
     has_cmd alacritty || return 0
     text="$(label_text)"; inst="$LABEL_CLASS-$$"
     ready="${XDG_RUNTIME_DIR:-/tmp}/$inst.ready"; rm -f "$ready"
     term --class "$LABEL_CLASS,$inst" \
         -o 'window.opacity=0' -o 'window.decorations="None"' \
-        -o 'window.padding.x=0' -o 'window.padding.y=0' \
-        -o "window.dimensions.columns=${#text}" -o 'window.dimensions.lines=1' \
+        -o "window.padding.x=$MARGIN" -o "window.padding.y=$MARGIN" -o 'scrolling.history=0' \
         -e bash -c "$LABEL_SH" _ "$text" "$ready"
     id="$(wait_window "$inst")"
     [[ -n "$id" ]] || { : > "$ready"; return 0; }
-    # Floated here, not only by the i3 rule: tiling mode's later rules un-float every window.
-    i3 "[con_id=$id] floating enable, border none, move container to workspace $(i3str "$ws")"
-    read -r _ w h < <(float_geometry "$inst")
-    read -r x y < <(i3-msg -t get_workspaces | jq -r --arg n "$ws" \
-        '.[] | select(.name == $n) | "\(.rect.x + .rect.width) \(.rect.y + .rect.height)"')
-    i3 "[con_id=$id] move position $((x - w - MARGIN)) px $((y - h - MARGIN)) px"
+    # Tiled, not floating: $mod+hjkl on a floating window only cycles the floating ones on its
+    # workspace, so focus that landed on a lone floating label could never leave it.
+    i3 "[con_id=$id] floating disable, border none, move container to workspace $(i3str "$ws")"
     : > "$ready"
 }
 
