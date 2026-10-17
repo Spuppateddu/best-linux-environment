@@ -129,7 +129,7 @@ commit_up() { printf '%s\n' "$2" > "$UP/$1"; git -C "$UP" add "$1"; git -C "$UP"
     git_pair
     printf 'a\nb\nc\nD\n' > "$UP/f"; git -C "$UP" commit -qam up
     printf 'A\nb\nc\nd\n' > "$CL/f"
-    ble "clone_or_pull x '$CL'"
+    ble "clone_or_pull '$UP' '$CL'"
     [ "$status" -eq 0 ]
     [ "$(git -C "$CL" rev-parse HEAD)" = "$(git -C "$UP" rev-parse HEAD)" ]
     [ "$(cat "$CL/f")" = "$(printf 'A\nb\nc\nD')" ]
@@ -141,10 +141,26 @@ commit_up() { printf '%s\n' "$2" > "$UP/$1"; git -C "$UP" add "$1"; git -C "$UP"
     local old; old="$(git -C "$CL" rev-parse HEAD)"
     commit_up f upstream
     printf 'mine\n' > "$CL/f"
-    ble "clone_or_pull x '$CL'"
+    ble "clone_or_pull '$UP' '$CL'"
     [ "$status" -eq 0 ]
     [[ "$output" == *"did NOT pull"* ]]
     [ "$(git -C "$CL" rev-parse HEAD)" = "$old" ]
     [ "$(cat "$CL/f")" = mine ]
     [ -z "$(git -C "$CL" stash list)" ]
+}
+
+@test "clone_or_pull: a renamed repo gets the new origin and pulls" {
+    git_pair
+    commit_up f upstream
+    git -C "$CL" remote set-url origin https://github.com/me/old-name.git
+    ble "clone_or_pull '$UP' '$CL'"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$CL" remote get-url origin)" = "$UP" ]
+    [ "$(git -C "$CL" rev-parse HEAD)" = "$(git -C "$UP" rev-parse HEAD)" ]
+}
+
+@test "repo_id: the ssh and https URLs of one repo match" {
+    ble 'repo_id git@github.com:Me/Repo.git; repo_id https://github.com/me/repo/'
+    [ "${lines[0]}" = me/repo ]
+    [ "${lines[1]}" = me/repo ]
 }

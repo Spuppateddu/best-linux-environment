@@ -428,13 +428,26 @@ install_tarball_bin() {
 }
 
 # ── git ─────────────────────────────────────────────────────────────────────
+# repo_id URL — "owner/name" of a git URL, so ssh and https forms of one repo match.
+repo_id() {
+    local u="${1%/}"
+    u="${u%.git}"; u="${u//://}"
+    printf '%s\n' "${u#"${u%/*/*}"/}" | tr '[:upper:]' '[:lower:]'
+}
+
 # clone_or_pull URL DEST  — clone if absent, fast-forward pull if present.
 # Uncommitted edits ride along in a stash; one that clashes with upstream undoes the pull.
 clone_or_pull() {
-    local url="$1" dest="$2" name old stashed=false
+    local url="$1" dest="$2" name old cur stashed=false
     name="$(basename "$dest")"
     if [[ -d "$dest/.git" ]]; then
         step "Updating $name ($dest)"
+        # A repo renamed upstream: point origin to the new URL, or every pull fails.
+        cur="$(git -C "$dest" remote get-url origin 2>/dev/null || true)"
+        if [[ -n "$cur" && "$(repo_id "$cur")" != "$(repo_id "$url")" ]]; then
+            run git -C "$dest" remote set-url origin "$url"
+            ok "$name: origin moved from $cur to $url."
+        fi
         if [[ "$DRY_RUN" == true ]]; then
             run git -C "$dest" pull --ff-only --quiet
             return 0
