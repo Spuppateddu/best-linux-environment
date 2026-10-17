@@ -164,3 +164,17 @@ commit_up() { printf '%s\n' "$2" > "$UP/$1"; git -C "$UP" add "$1"; git -C "$UP"
     [ "${lines[0]}" = me/repo ]
     [ "${lines[1]}" = me/repo ]
 }
+
+@test "clone_or_pull: a checkout with no history in common is kept aside and cloned anew" {
+    git_pair
+    local old="$BATS_TEST_TMPDIR/old"
+    git init -q -b main "$old"
+    printf 'mine\n' > "$old/f"
+    git -C "$old" add f && git -C "$old" commit -qm mine
+    git -C "$old" remote add origin "$UP"
+    git -C "$old" fetch -q origin && git -C "$old" branch -q -u origin/main
+    ble "clone_or_pull '$UP' '$old'"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$old" rev-parse HEAD)" = "$(git -C "$UP" rev-parse HEAD)" ]
+    grep -qx mine "$old".backup.*/f
+}

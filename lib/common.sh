@@ -458,6 +458,15 @@ clone_or_pull() {
         fi
         if ! git -C "$dest" pull --ff-only --quiet; then
             [[ "$stashed" == false ]] || git -C "$dest" stash pop --quiet
+            # Upstream shares no history with this checkout: it is another repo, so clone it anew.
+            if git -C "$dest" rev-parse -q --verify '@{u}' >/dev/null \
+                && ! git -C "$dest" merge-base HEAD '@{u}' >/dev/null; then
+                warn "$name shares no history with $url — old copy kept as $dest.backup.$$"
+                run mv "$dest" "$dest.backup.$$"
+                run git clone --quiet "$url" "$dest"
+                ok "Cloned $name."
+                return 0
+            fi
             warn "Could not pull $dest — leaving as-is."
             return 0
         fi
