@@ -1,5 +1,5 @@
 # Two images from one file. `fresh`: a bare Ubuntu with a sudo user, the machine
-# ./setup.sh meets on a first run. `tools`: fresh plus shellcheck, bats and jq.
+# ./setup.sh meets on a first run. `tools`: fresh plus shellcheck, bats, jq and Pillow.
 FROM ubuntu:26.04 AS fresh
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
 RUN apt-get update \
@@ -13,6 +13,6 @@ WORKDIR /home/tester
 FROM fresh AS tools
 USER root
 RUN apt-get update \
- && apt-get install -y --no-install-recommends shellcheck bats git jq \
+ && apt-get install -y --no-install-recommends shellcheck bats git jq python3-pil \
  && rm -rf /var/lib/apt/lists/*
 USER tester

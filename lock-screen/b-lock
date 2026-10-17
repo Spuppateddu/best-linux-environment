@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Lock the screen: i3lock over wallpapers/default.jpg, its typing ring in a sunken gruvbox well.
+# Linked into ~/.local/bin by basic/64-lock-screen.sh; ~/.i3rc/scripts/lock.sh calls it.
+set -euo pipefail
+
+# The link in ~/.local/bin points back here, so the repo is always found.
+DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+SELF="$DIR/b-lock"
+PHOTO="$DIR/../wallpapers/default.jpg"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/b-lock"
+BG=282828   # gruvbox dark: what i3lock shows where the picture is missing
+
+usage() {
+    cat <<EOF
+b-lock [image | i3lock options...]
+
+  (none)   lock the screen; any options go to i3lock (xss-lock passes --nofork)
+  image    draw the lock picture for the monitors on now, print its path
+
+The picture is wallpapers/default.jpg with a round well in the middle of each
+monitor, where i3lock draws its ring. It is drawn once per monitor layout and kept in
+  $CACHE
+EOF
+}
+
+# monitors  — one WxH+X+Y per monitor, from xrandr.
+monitors() {
+    xrandr --listmonitors 2>/dev/null \
+        | awk 'NR > 1 { split($3, g, /[\/x+]/); print g[1] "x" g[3] "+" g[5] "+" g[6] }'
+}
+
+# dpi  — the screen's DPI the way i3lock reads it, so the well grows with its ring.
+dpi() {
+    xdpyinfo 2>/dev/null | awk '/dimensions:/ {
+        split($2, p, "x"); gsub(/\(/, "", $4); split($4, m, "x")
+        if (m[2] > 0) printf "%d", p[2] * 25.4 / m[2] }'
+}
+
+# image  — print the picture's path, drawing it first when this layout has none.
+image() {
+    local mons dots key out
+    mons="$(monitors)"
+    [[ -n "$mons" && -r "$PHOTO" ]] || return 1
+    dots="$(dpi || true)"
+    key="$(printf '%s\n' "$mons" "$dots" "$(stat -c '%s %Y' "$PHOTO")" \
+        "$(cksum < "$SELF")" | md5sum | cut -c1-12)"
+    out="$CACHE/$key.png"
+    if [[ ! -s "$out" ]]; then
+        mkdir -p "$CACHE"
+        # Older layouts go: a 4K pair is tens of MB each.
+        find "$CACHE" -maxdepth 1 -name '*.png' -delete
+        # shellcheck disable=SC2086  # one argument per monitor
+        draw "$out.tmp" "$PHOTO" "$dots" $mons && mv "$out.tmp" "$out"
+    fi
+    printf '%s\n' "$out"
+}
+
+# draw OUT PHOTO DPI WxH+X+Y...  — the colours are login-screen/gtk.css's.
+draw() {
+    python3 - "$@" <<'PY'
+import math, re, sys
+from PIL import Image, ImageDraw
+
+out, photo, dpi, *mons = sys.argv[1:]
+s = int(dpi) / 96 if dpi else 1.0
+px = lambda v: max(1, round(v * s))
+LIGHT, MID, DARK, WELL = (168, 153, 132), (102, 92, 84), (29, 32, 33), (40, 40, 40)
+
+def cover(img, w, h):
+    r = max(w / img.width, h / img.height)
+    big = img.resize((math.ceil(img.width * r), math.ceil(img.height * r)), Image.LANCZOS, reducing_gap=3.0)
+    x, y = (big.width - w) // 2, (big.height - h) // 2
+    return big.crop((x, y, x + w, y + h)).convert("RGBA")
+
+def well(size, r):
+    # A sunken round well for i3lock's ring; drawn 4x and shrunk, PIL draws no smooth edges.
+    k = 4
+    im = Image.new("RGBA", (size * k, size * k))
+    d = ImageDraw.Draw(im)
+    c, R = size * k // 2, r * k
+    d.ellipse((c - R, c - R, c + R, c + R), fill=WELL + (178,))
+    for i, (tl, br) in enumerate(((MID, LIGHT), (DARK, WELL))):
+        b = (c - R + i * 2 * k, c - R + i * 2 * k, c + R - i * 2 * k, c + R - i * 2 * k)
+        d.arc(b, 135, 315, fill=tl + (255,), width=2 * k)
+        d.arc(b, 315, 135, fill=br + (255,), width=2 * k)
+    return im.resize((size, size), Image.LANCZOS)
+
+geo = [tuple(map(int, re.fullmatch(r"(\d+)x(\d+)\+(\d+)\+(\d+)", m).groups())) for m in mons]
+canvas = Image.new("RGB", (max(x + w for w, h, x, y in geo), max(y + h for w, h, x, y in geo)), "#282828")
+src = Image.open(photo)
+src.draft("RGB", (max(w for w, *_ in geo), max(h for _, h, *_ in geo)))
+src = src.convert("RGB")
+# i3lock draws its ring in the middle of each monitor: the well goes there too.
+size = px(214)
+ring = well(size, px(101))
+for w, h, x, y in geo:
+    tile = cover(src, w, h)
+    tile.alpha_composite(ring, ((w - size) // 2, (h - size) // 2))
+    canvas.paste(tile.convert("RGB"), (x, y))
+canvas.save(out, "PNG", compress_level=1)
+PY
+}
+
+case "${1:-}" in
+    -h|--help) usage ;;
+    image) image ;;
+    *)
+        # Never leave the screen unlocked: no picture means a plain gruvbox one.
+        if png="$(image 2>/dev/null)"; then
+            exec i3lock -c "$BG" -i "$png" "$@"
+        fi
+        exec i3lock -c "$BG" "$@"
+        ;;
+esac

@@ -856,7 +856,14 @@ repos install into it, and fonts before the tools that render them. Items marked
    a see-through window takes its exact spot, tiled or floating. Only the border
    stays, with the wallpaper inside it. `$mod+z` on that cover puts the window
    back. Closing the cover by hand brings the window back too.
-17. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+17. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
+   `wallpapers/default.jpg`, the login screen's picture, on the lock screen, with a
+   sunken gruvbox well in the middle of each monitor. It draws that picture with
+   Pillow, once per monitor layout (kept in `~/.cache/b-lock`), then runs
+   `i3lock -i` on it; i3lock's typing ring shows inside the well, in its own colours.
+   The i3 repo's `scripts/lock.sh` calls it for `$mod+Shift+x`, the power menu
+   and suspend (`xss-lock`), and falls back to plain `i3lock` without it.
+18. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -873,7 +880,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-18. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+19. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
    places that have to agree on it: yazi's Enter and `xdg-open`. It installs
    nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
    not**, because Okular is a `secondary` app — the repo wants it, and still has
@@ -903,7 +910,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-19. **`76-text-editor`** — **which program opens a text file**, in the same two
+20. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -928,8 +935,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-20. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-21. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+21. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+22. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
