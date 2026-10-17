@@ -119,7 +119,7 @@ BLE_I3_DESKTOP=floating
 # lower is more. It wins over the theme's own opacity, dark and light alike.
 # Lands in ~/.alacritty/opacity.local.toml; open terminals change at once.
 # Comment the line out and the theme decides again ($mod+Shift+t).
-BLE_TERMINAL_OPACITY=0.9
+BLE_TERMINAL_OPACITY=0.7
 
 
 # ── The trackpad ─────────────────────────────────────────────────────────────
