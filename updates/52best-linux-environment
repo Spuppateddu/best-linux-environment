@@ -1,0 +1,14 @@
+// Written by best-linux-environment (advanced/auto-updates.sh). Untick
+// 'auto-updates' in ./setup.sh to remove it and go back to security fixes only.
+//
+// Ubuntu's 50unattended-upgrades lets the daily run install security fixes only.
+// This adds the normal bug-fix updates (the -updates pocket) to that list; apt
+// joins the two lists, so nothing in 50unattended-upgrades has to change.
+Unattended-Upgrade::Allowed-Origins {
+	"${distro_id}:${distro_codename}-updates";
+};
+
+// The daily run itself: refresh the package lists, then upgrade. Ubuntu turns
+// both on in 20auto-upgrades; this file is read later, so it wins if they were off.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";

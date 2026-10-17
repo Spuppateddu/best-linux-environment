@@ -642,6 +642,47 @@ skipped with a warning — run `./setup.sh` from a terminal to pick those up.
 If you skip the cron, run `./boot.sh` by hand, or re-run `./setup.sh` to be
 offered it again.
 
+## Updates
+
+Out of the box, Ubuntu **does** update itself, but only part of the way: the
+daily `unattended-upgrades` run installs **security fixes only**. Normal bug-fix
+updates (the `-updates` pocket) wait for you, which is why `apt list
+--upgradable` slowly fills up. The careful default is on purpose: an update can
+restart a service or replace a library under a running program, and a run with
+nobody watching has nobody to answer a question.
+
+Three pieces here, each optional to use:
+
+| | What it does | When |
+| --- | --- | --- |
+| `b-update` | `apt update` → `full-upgrade` → `autoremove --purge` → `snap refresh` → `flatpak update` | when you type it |
+| `auto-updates` *(secondary)* | adds `${distro_id}:${distro_codename}-updates` to unattended-upgrades' list, so bug fixes go in automatically too | every day, by Ubuntu's own `apt-daily-upgrade.timer` |
+| the count | `b-update --count`, shown in the bars below; hidden at 0 | always |
+
+**Why not `apt upgrade` in `./boot.sh`?** A boot runs with no terminal, so it
+would need passwordless sudo, and it would be deciding something for you — the
+one thing `boot.sh` never does. `auto-updates` uses the system's own tool
+instead: it already handles the apt lock, logs to
+`/var/log/unattended-upgrades/`, survives a run that is cut off, and never
+reboots the machine.
+
+**The count** is what `apt full-upgrade` would install right now — a
+simulation, no root needed. It can be lower than `apt list --upgradable`: that
+list also shows **phased** updates, which Ubuntu sends to only some machines
+at first and apt holds back here for now. The number is cached in
+`~/.cache/b-update/count` and recomputed only when the package lists
+(`apt update`) or the installed packages (an upgrade) are newer than the cache,
+so the bars can ask every few seconds for free. It shows:
+
+- **at the desk** — in the i3 top bar (the i3 config repo's `eww.yuck`), before
+  the network icon. A click opens a terminal running `b-update`;
+- **over ssh** — in the tmux status line of the machine you logged into (the
+  tmux config repo's `scripts/updates.sh`). Each tmux client decides for itself
+  from its own environment, so the same session shows it to the ssh client and
+  not to the terminal at the desk, where the i3 bar already has it.
+
+Both read `~/.local/bin/b-update`; on a machine without it they show nothing.
+
 ## Desktop vs server
 
 `setup.sh` detects up front whether the host is an **Ubuntu desktop** or a
@@ -712,13 +753,21 @@ repos install into it, and fonts before the tools that render them. Items marked
    one file, and masks `autosuspend` if it finds it — two things that can power
    the machine off is one too many. Needs root; without it only `b-idle` lands,
    with a warning. See [Idle poweroff](#-idle-poweroff).
-6. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
+6. **`26-update`** — **`b-update`**, linked into `~/.local/bin`: updates
+   everything **now**, in one command — `sudo apt update`, `apt full-upgrade`
+   (`full-`, so an update that needs a new package, like a kernel, is not left
+   behind), `apt autoremove --purge`, then `snap refresh` and `flatpak update`
+   when they are installed. It stops at the first step that fails, says when a
+   reboot is needed, and `b-update -y` does not ask. `b-update --count` changes
+   nothing: it prints how many updates are waiting, for the bars. See
+   [Updates](#updates).
+7. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
    + GTK greeter, made the **default** display manager (replacing GDM3). GDM3's
    session picker is a hard-to-find cog that on some builds never surfaces the
    i3 xsession; the LightDM greeter shows a session dropdown on the login form,
    so choosing **i3** is one click. Switch is preseeded via debconf (no
    interactive `dpkg-reconfigure`) and applies at the next reboot.
-7. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
+8. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
    TUI. Prefers apt (26.04 ships a recent build); falls back to the latest
    prebuilt binary from GitHub (→ `~/.local/bin`) on releases without a package.
    `./boot.sh` bumps that fallback copy to the newest release — an apt-managed
@@ -726,7 +775,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    out of the system's hands. Installed **because git is**: the module skips
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
-8. **`45-glow`** — [glow](https://github.com/charmbracelet/glow), markdown in
+9. **`45-glow`** — [glow](https://github.com/charmbracelet/glow), markdown in
    the terminal, from apt, plus **`mdv`** (`glow/mdv` → `~/.local/bin`). glow alone
    sticks the text to the left edge and stops at 120 columns; `mdv file.md` opens
    it full screen in glow's pager, in a 100-column block (`MDV_WIDTH`) that grows
@@ -736,7 +785,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    the default for both `mdv` (`MDV_STYLE` picks another) and plain `glow`, through
    `~/.config/glow/glow.yml`. `./setup.sh` rewrites that file, `./boot.sh` never
    does. Files are copied only when they differ.
-9. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
+10. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
    owned here so the per-tool repos stay light. **One family for the whole
    machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
    advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
@@ -756,13 +805,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
    the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
    [`fonts.local`](#font-sizes-per-machine-fontslocal).
-10. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
+11. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
    `~/.config/alacritty/` — where Alacritty actually reads it — and the symbol
    fallback rule into `~/.config/fontconfig/conf.d/`. This module keeps the
    package so the terminal exists even when that tool was skipped in the menu.
-11. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+12. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -781,7 +830,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-12. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
+13. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
    **`libheif-plugin-libde265`**, and the three places that have to agree on
    which program shows a picture. It owns yazi's `[opener] image` key (Enter on
    an image → `nsxiv -a -- %s`, `orphan = true` so quitting yazi does not take
@@ -820,7 +869,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    PDFs are the same idea, one module along: [`75-pdf-viewer`](#what-the-necessary-tier-installs)
    owns `[opener] pdf` and the `application/pdf` rule, and inserts that rule into
    the `prepend_rules` array this module writes.
-13. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
+14. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
    have to agree on which program plays a video. It owns yazi's `[opener] video`
    key (Enter on a video → `vlc -- %s`, `orphan = true`, `%s` so a
    multi-selection becomes one playlist) and inserts a `{ mime = "video/*", use =
@@ -835,8 +884,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    `avi`, `mpeg`, `flv`, `wmv`, `3gp`, `ogv`, `m4v`). Audio is left alone.
    A `video` opener or an `[open]` block this repo did not write is left as it
    is, with the line to add printed instead.
-14. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-15. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
+15. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+16. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
    it cycles the images in [`wallpapers/`](wallpapers/README.md) with `feh`.
    That folder is gitignored (bar its README, the script and `default.jpg`, the
    wallpaper a fresh clone starts with), so your images stay on the machine. `$mod+Shift+w` shows the next one, through
@@ -844,7 +893,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    `b-wallpaper restore` on login and reload, and keeps the solid colour when
    the folder is empty. `b-wallpaper auto 300`, started by i3 on login, shows the next one every 5
    minutes. `b-wallpaper prev|random|list` for the rest.
-16. **`63-blank-screen`** *(desktop)* — `b-blank`, linked into `~/.local/bin`, on
+17. **`63-blank-screen`** *(desktop)* — `b-blank`, linked into `~/.local/bin`, on
    `$mod+x` through `~/.i3rc/10-blank-screen.local`. It turns the focused workspace
    off: workspace `N` is renamed `off-N`, so its windows and layout stay as they
    are, and a new empty `N` takes its place. Visiting `N` then shows only the
@@ -857,14 +906,14 @@ repos install into it, and fonts before the tools that render them. Items marked
    a see-through window takes its exact spot, tiled or floating. Only the border
    stays, with the wallpaper inside it. `$mod+z` on that cover puts the window
    back. Closing the cover by hand brings the window back too.
-17. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
+18. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
    `wallpapers/default.jpg`, the login screen's picture, on the lock screen, with a
    sunken gruvbox well in the middle of each monitor. It draws that picture with
    Pillow, once per monitor layout (kept in `~/.cache/b-lock`), then runs
    `i3lock -i` on it; i3lock's typing ring shows inside the well, in its own colours.
    The i3 repo's `scripts/lock.sh` calls it for `$mod+Shift+x`, the power menu
    and suspend (`xss-lock`), and falls back to plain `i3lock` without it.
-18. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+19. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -881,7 +930,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-19. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
+20. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
    places that have to agree on it: yazi's Enter and `xdg-open`. It installs
    nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
    not**, because Okular is a `secondary` app — the repo wants it, and still has
@@ -911,7 +960,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-20. **`76-text-editor`** — **which program opens a text file**, in the same two
+21. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -936,8 +985,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-21. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
-22. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+22. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+23. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -1253,7 +1302,7 @@ to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
 the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd`,
-`google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
+`auto-updates`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
 still appear on a headless box, and can be installed there directly (Chrome is on
 that list because `chrome-headless` needs it, and **headless** use needs no display):
 
@@ -1300,6 +1349,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | --- | --- |
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
+| `auto-updates` | Ubuntu repos (`unattended-upgrades`, already there on a stock install) + `updates/52best-linux-environment` → `/etc/apt/apt.conf.d/` — the daily automatic run installs **bug-fix updates too**, not only security fixes. Unticking removes the file and goes back to security only. See [Updates](#updates) |
 | `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
 | `trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `trackpad/` — gestures for any trackpad or laptop touchpad: two-finger back/forward in Firefox, three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces; classic scrolling on an Apple Magic Trackpad, [below](#-trackpad--touchpad-gestures) |
 | `steam` | multiverse (`steam-installer`) + i386 |
