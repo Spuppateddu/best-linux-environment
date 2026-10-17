@@ -8,9 +8,6 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 PW_CACHE="$HOME/.cache/ms-playwright"
 # Snapshots and screenshots land here, not as .playwright-mcp/ inside the repo you test.
 PW_OUT="$HOME/.cache/playwright-mcp"
-# One profile for every folder, so a login in one repo holds in all of them.
-# Firefox locks it: one agent at a time can have the browser open.
-PW_PROFILE="$PW_OUT/firefox-profile"
 PW_PKG="@playwright/mcp@latest"
 PW_PORT="${PW_DISPLAY_PORT:-9323}"
 
@@ -27,9 +24,11 @@ NOTE_END='<!-- /playwright-remote -->'
 
 # Desktop: the Firefox on this screen. Server: the one at the end of b-pw-display's
 # ssh -R tunnel — no browser is installed here.
+# --isolated: each session keeps its profile in memory. A shared profile on disk
+# is locked by the first Firefox, so a second agent's browser failed to start.
 if is_desktop; then
     MCP_NAME=playwright
-    PW_ARGS=(-y "$PW_PKG" --browser firefox --executable-path "$FIREFOX_DST" --output-dir "$PW_OUT" --user-data-dir "$PW_PROFILE")
+    PW_ARGS=(-y "$PW_PKG" --browser firefox --executable-path "$FIREFOX_DST" --output-dir "$PW_OUT" --isolated)
 else
     MCP_NAME=playwright-remote
     PW_ARGS=(-y "$PW_PKG" --endpoint "ws://127.0.0.1:$PW_PORT/firefox" --output-dir "$PW_OUT")
@@ -114,7 +113,7 @@ if [[ "${1:-}" == --uninstall ]]; then
         fi
     fi
     # Only the Firefox build: other Playwright browsers in that cache belong to your projects.
-    # $PW_OUT holds the shared profile; ms-playwright-mcp the per-folder ones of older setups.
+    # $PW_OUT and ms-playwright-mcp hold the profiles of older setups.
     for d in "$PW_CACHE"/firefox-* "$PW_OUT" "$HOME/.cache/ms-playwright-mcp"/mcp-firefox-* "$DISPLAY_DST" "$FIREFOX_DST"; do
         [[ -e "$d" ]] || continue
         run rm -rf "$d"
@@ -153,7 +152,6 @@ else
         warn "Could not fetch Playwright's Firefox (offline?) — continuing."
     fi
 fi
-is_desktop && run mkdir -p "$PW_PROFILE"
 
 # Global git ignore: catches a .playwright-mcp/ written by a server started without
 # --output-dir (a project's own .mcp.json, an older entry) in every repo at once.

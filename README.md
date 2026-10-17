@@ -1503,7 +1503,7 @@ watch while the agent clicks, types and reads the page — through
 [Playwright MCP](https://github.com/microsoft/playwright-mcp), which hands the
 agent tools like `browser_navigate`, `browser_click`, `browser_type` and
 `browser_snapshot`. It is the one to use when you log in by hand first and then
-let the agent work in that session.
+let the agent work in that session (the login lasts until that browser closes).
 
 The module does three things:
 
@@ -1514,7 +1514,7 @@ The module does three things:
   `npx @playwright/mcp@latest install-browser firefox` too; it downloads only
   when the revision moved. Old revisions are not deleted.
 - **the server, in every agent that is here.** The same command,
-  `npx -y @playwright/mcp@latest --browser firefox --output-dir ~/.cache/playwright-mcp --user-data-dir ~/.cache/playwright-mcp/firefox-profile`,
+  `npx -y @playwright/mcp@latest --browser firefox --output-dir ~/.cache/playwright-mcp --isolated`,
   is written into:
 
   | Agent | Where |
@@ -1536,13 +1536,11 @@ The module does three things:
   other way still leaves every repo clean.
 
 Restart the agent after the install — MCP servers load when a session starts.
-**One login, everywhere.** Left to itself the server keeps one Firefox profile
-*per project folder* (`~/.cache/ms-playwright-mcp/mcp-firefox-<hash>`), so a
-login in one repo means nothing in the next. `--user-data-dir` points every
-agent, in every folder, at the same profile instead: log in to a site once and it
-holds in all of them, until the site's own session expires. The cost is Firefox's
-profile lock — **one agent at a time** can have the browser open; a second gets
-*browser is already in use* until the first closes its browser.
+**Many agents at once.** `--isolated` gives every session its own Firefox
+profile, kept in memory and dropped when the browser closes. Two agents can each
+have a browser open at the same time; with one profile on disk, Firefox locked it
+and the second agent's browser failed to start. The cost: **no saved logins** —
+log in again in each new session.
 Playwright moves no mouse pointer you can see: it sends events straight to the
 page, so you watch fields fill and pages change, not a cursor.
 
@@ -1575,8 +1573,8 @@ Things to know:
 - **One PC at a time per host.** The port is fixed, so a second `b-pw-display`
   into the same host fails with *remote port forwarding failed*. Another port:
   `PW_DISPLAY_PORT=9324` on both sides (re-run the host module with it set).
-- **No saved logins.** The server starts a fresh Firefox each time, unlike the
-  shared profile of the local setup. Snapshots and screenshots stay on the host,
+- **No saved logins.** The server starts a fresh Firefox each time, as the local
+  setup does. Snapshots and screenshots stay on the host,
   in `~/.cache/playwright-mcp`.
 
 ## Shared library
