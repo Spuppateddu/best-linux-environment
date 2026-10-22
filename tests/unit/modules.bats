@@ -62,3 +62,49 @@ load helpers
     # A check must ask, never act: no apt or sudo call at all.
     [ ! -s "$FAKE_LOG" ] || { cat "$FAKE_LOG"; false; }
 }
+
+@test "megacmd: a machine with MEGAsync loses it, and gets the boot service" {
+    pkg_status megacmd installed
+    pkg_status megasync installed
+    export BLE_MEGA_SOURCES="$BATS_TEST_TMPDIR/megaio.sources"
+    touch "$BLE_MEGA_SOURCES"
+    mkdir -p "$HOME/.config/autostart" "$HOME/.local/bin"
+    touch "$HOME/.config/autostart/megasync.desktop" "$HOME/.local/bin/megasync-wait-tray"
+    fake_cmd systemctl 'exit 1'
+    fake_cmd loginctl 'echo yes'
+    run bash "$REPO/advanced/megacmd.sh" </dev/null
+    [ "$status" -eq 0 ] || { echo "$output"; false; }
+    grep -qx 'apt-get remove -y megasync' "$FAKE_LOG"
+    [ ! -e "$HOME/.config/autostart/megasync.desktop" ]
+    [ ! -e "$HOME/.local/bin/megasync-wait-tray" ]
+    local unit="$HOME/.config/systemd/user/mega-cmd.service"
+    grep -q '^ExecStart=/usr/bin/mega-cmd-server' "$unit"
+    [ "$(readlink "$HOME/.config/systemd/user/default.target.wants/mega-cmd.service")" = "$unit" ]
+}
+
+@test "megacmd: a re-run with no MEGAsync touches no package" {
+    pkg_status megacmd installed
+    export BLE_MEGA_SOURCES="$BATS_TEST_TMPDIR/megaio.sources"
+    touch "$BLE_MEGA_SOURCES"
+    fake_cmd systemctl 'exit 1'
+    fake_cmd loginctl 'echo yes'
+    run bash "$REPO/advanced/megacmd.sh" </dev/null
+    [ "$status" -eq 0 ]
+    run bash "$REPO/advanced/megacmd.sh" </dev/null
+    [ "$status" -eq 0 ]
+    ! grep -q apt-get "$FAKE_LOG"
+}
+
+@test "megacmd --uninstall: removes the package and the boot service" {
+    pkg_status megacmd installed
+    fake_cmd systemctl 'exit 1'
+    local dir="$HOME/.config/systemd/user"
+    mkdir -p "$dir/default.target.wants"
+    touch "$dir/mega-cmd.service"
+    ln -s "$dir/mega-cmd.service" "$dir/default.target.wants/mega-cmd.service"
+    run bash "$REPO/advanced/megacmd.sh" --uninstall
+    [ "$status" -eq 0 ]
+    grep -qx 'apt-get remove -y megacmd' "$FAKE_LOG"
+    [ ! -e "$dir/mega-cmd.service" ]
+    [ ! -L "$dir/default.target.wants/mega-cmd.service" ]
+}

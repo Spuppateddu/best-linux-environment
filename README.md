@@ -1302,7 +1302,7 @@ to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
 the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd`,
-`auto-updates`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
+`auto-updates`, `megacmd`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
 still appear on a headless box, and can be installed there directly (Chrome is on
 that list because `chrome-headless` needs it, and **headless** use needs no display):
 
@@ -1354,7 +1354,7 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `trackpad/` — gestures for any trackpad or laptop touchpad: two-finger back/forward in Firefox, three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces; classic scrolling on an Apple Magic Trackpad, [below](#-trackpad--touchpad-gestures) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
-| `megasync` | [MEGA apt repo](https://mega.io/desktop) (`xUbuntu_<release>`) — the module also rewrites `~/.config/autostart/megasync.desktop` to go through `~/.local/bin/megasync-wait-tray`. `dex --autostart` and the bar that hosts the tray start at the same moment and MEGAsync usually wins; with no tray to sit in it opens a frameless window i3 can never focus, which is the drawn-but-dead MEGAsync window. The wrapper waits for the tray's bus name (`org.kde.StatusNotifierWatcher`, 60s cap) and only then starts MEGAsync. Toggling *Start on login* inside MEGAsync rewrites that file back — re-run the module to restore it |
+| `megacmd` | [MEGA apt repo](https://mega.io/cmd) (`xUbuntu_<release>`) — MEGA from the terminal, scope `all`: it works over ssh on a server with no desktop. Log in once inside `mega-cmd` with `login <email>` — the one-shot `mega-login` never asks for a password, it wants it on the command line (so in your shell history) — then `mega-sync <local folder> <MEGA folder>` (a folder another account shared with you is `<their email>:<folder>`, see `mega-mount`). The module writes `~/.config/systemd/user/mega-cmd.service` and turns on linger, so `mega-cmd-server` and its syncs run from boot, not from the first `mega-*` command. The package writes its own `megaio.sources`; the module then drops its `mega.nz.list`, since two sources with different `Signed-By` keys make apt fail. **Replaces MEGAsync**: on a machine that has the MEGAsync app, it is removed with its autostart. Its syncs are not carried over — re-add them with `mega-sync` |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
 | `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
@@ -1744,7 +1744,7 @@ re-run and change nothing. It answers the lists with `BLE_ANSWERS=FILE`, one
   `--no-login-shell`, so no boot ever changes which shell you log in with.
 - Third-party repos resolve the Ubuntu release at runtime (`lsb_release`), so
   nothing is hardcoded to a codename. If MEGA hasn't published an `xUbuntu_26.04`
-  build yet, that module warns and points to the manual `.deb`.
+  build yet, the `megacmd` module warns and points to the manual `.deb`.
 - **A failing module doesn't stop the run.** Every module and app
   is allowed to fail on its own — a download that 404s, a repo that's briefly
   offline — and the rest still install. The names of whatever failed are listed
