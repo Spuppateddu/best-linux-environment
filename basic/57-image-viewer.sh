@@ -22,13 +22,19 @@ require_desktop "nsxiv"
 # nsxiv, GNOME's Loupe, gThumb, the file-manager thumbnailer. Without it a .heic
 # looks like a broken viewer rather than a missing codec, since nothing says
 # "no decoder" — the image simply fails to open.
-apt_ensure nsxiv libheif-plugin-libde265
+# xdotool: win-title finds nsxiv's window with it, to keep the zoom floor.
+apt_ensure nsxiv libheif-plugin-libde265 xdotool
 
 # b-images opens the whole folder of the image you picked, so n and p walk it.
 # A link, not a copy, so a pull updates it.
 B_IMAGES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/image-viewer/b-images"
 run chmod +x "$B_IMAGES"
 link "$B_IMAGES" "$HOME/.local/bin/b-images"
+
+# nsxiv runs exec/win-title on every zoom: it stops zooming out below the whole image.
+WIN_TITLE="$(dirname "$B_IMAGES")/win-title"
+run chmod +x "$WIN_TITLE"
+link "$WIN_TITLE" "${XDG_CONFIG_HOME:-$HOME/.config}/nsxiv/exec/win-title"
 
 # ── 2. yazi: Enter on an image ───────────────────────────────────────────────
 # %s, not "$@". yazi interpolates its own placeholders into `run` and then hands

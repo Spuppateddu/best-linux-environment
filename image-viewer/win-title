@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# nsxiv's window title, and its zoom floor: below the starting view (the whole
+# image, at most 100%) it presses `w` to go back, so nothing zooms out further.
+#
+# nsxiv runs it on every zoom or image change: $1 path, $2 number, $3 count,
+# $4 $5 image size, $6 zoom %. 57-image-viewer.sh links it into
+# ~/.config/nsxiv/exec/. "[start]" in the title tells ble-trackpad-gestures to skip a pinch out.
+exec 2>/dev/null
+
+name="${1##*/}"
+if [[ -z "${4:-}" || -z "${6:-}" ]]; then    # thumbnail mode: no size, no zoom
+    printf 'nsxiv - %s [%s/%s]' "$name" "$2" "$3"
+    exit 0
+fi
+img_w="$4" img_h="$5" zoom="$6"
+
+# The starting view: 100%, or less when that is what fits the window. The 30px
+# is nsxiv's bar, so this errs on the small side and never fights nsxiv's own fit.
+start=100
+win="$(xdotool search --pid "$PPID" 2>/dev/null | head -n 1)"
+if [[ -n "$win" ]] && geo="$(xdotool getwindowgeometry --shell "$win")"; then
+    eval "$geo"
+    fit_w=$(( WIDTH * 100 / img_w )) fit_h=$(( (HEIGHT - 30) * 100 / img_h ))
+    (( fit_w < start )) && start=$fit_w
+    (( fit_h < start )) && start=$fit_h
+fi
+
+# Below it: back to the start. In the background and off nsxiv's pipe, since
+# nsxiv waits for this title before it reads the next key.
+if [[ -n "$win" && "$(xdotool getactivewindow 2>/dev/null)" == "$win" ]] && (( zoom < start - 2 )); then
+    (sleep 0.05; xdotool key w) >/dev/null 2>&1 &
+fi
+
+tag=""
+(( zoom <= start + 2 )) && tag=" [start]"
+printf 'nsxiv - %s | %sx%s %s%%%s [%s/%s]' "$name" "$img_w" "$img_h" "$zoom" "$tag" "$2" "$3"

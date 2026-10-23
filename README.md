@@ -833,7 +833,10 @@ repos install into it, and fonts before the tools that render them. Items marked
 13. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
    **`libheif-plugin-libde265`**, the **`b-images`** wrapper (`image-viewer/`,
    linked into `~/.local/bin`: one image opens every image in its folder,
-   starting at it, so n and p walk the folder; several files open as given), and the three places that have to agree on
+   starting at it, so n and p walk the folder; several files open as given),
+   the **`win-title`** hook (linked into `~/.config/nsxiv/exec/`: nsxiv can never
+   zoom out below the whole image — any lower zoom, from `-`, the wheel or a pinch,
+   is sent back with `w`), and the three places that have to agree on
    which program shows a picture. It owns yazi's `[opener] image` key (Enter on
    an image → `~/.local/bin/b-images -- %s`, `orphan = true` so quitting yazi
    does not take the viewer with it), and **migrates the `firefox` line** `55-yazi` used to
@@ -882,7 +885,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    `mimeinfo.cache` and hands the file to whichever browser registered last —
    which is why an `.mp4` used to open in Firefox. It writes
    `~/.i3rc/08-video-player.local` — `for_window [class="(?i)^vlc$"] border
-   pixel 1` — for the reasons under `57-image-viewer`, and points `xdg-mime` at
+   pixel 3` (the terminal's width, no title bar) — for the reasons under `57-image-viewer`, and points `xdg-mime` at
    `vlc.desktop` for the common video types (`mp4`, `mkv`, `webm`, `mov`,
    `avi`, `mpeg`, `flv`, `wmv`, `3gp`, `ogv`, `m4v`). Audio is left alone.
    A `video` opener or an `[open]` block this repo did not write is left as it
@@ -1352,7 +1355,6 @@ secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate 
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
 | `auto-updates` | Ubuntu repos (`unattended-upgrades`, already there on a stock install) + `updates/52best-linux-environment` → `/etc/apt/apt.conf.d/` — the daily automatic run installs **bug-fix updates too**, not only security fixes. Unticking removes the file and goes back to security only. See [Updates](#updates) |
-| `trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `trackpad/` — gestures for any trackpad or laptop touchpad: two-finger back/forward in Firefox, three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces; classic scrolling on an Apple Magic Trackpad, [below](#-trackpad--touchpad-gestures) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megacmd` | [MEGA apt repo](https://mega.io/cmd) (`xUbuntu_<release>`) — MEGA from the terminal, scope `all`: it works over ssh on a server with no desktop. Log in once inside `mega-cmd` with `login <email>` — the one-shot `mega-login` never asks for a password, it wants it on the command line (so in your shell history) — then `mega-sync <local folder> <MEGA folder>` (a folder another account shared with you is `<their email>:<folder>`, see `mega-mount`). The module writes `~/.config/systemd/user/mega-cmd.service` and turns on linger, so `mega-cmd-server` and its syncs run from boot, not from the first `mega-*` command. The package writes its own `megaio.sources`; the module then drops its `mega.nz.list`, since two sources with different `Signed-By` keys make apt fail. **Replaces MEGAsync**: on a machine that has the MEGAsync app, it is removed with its autostart. Its syncs are not carried over — re-add them with `mega-sync` |
@@ -1412,7 +1414,8 @@ bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest rele
 
 ### 🖐 Trackpad / touchpad gestures
 
-Tick **`trackpad`** and your trackpad or laptop touchpad gets Mac-like gestures.
+Every desktop gets **`trackpad`** (a necessary module since pinch-to-zoom in
+nsxiv needs it), so your trackpad or laptop touchpad gets Mac-like gestures.
 They work on any touchpad libinput can read. Only the classic scrolling is
 specific to the Apple Magic Trackpad. Everything it installs is in
 [`trackpad/`](trackpad/):
@@ -1437,6 +1440,11 @@ specific to the Apple Magic Trackpad. Everything it installs is in
   `dex --autostart` runs. Three-finger up and down swipes are left alone.
   `BLE_SWIPE_THRESHOLD` (default `40`) is how far the fingers must travel
   before a swipe counts.
+- **Pinch → zoom in nsxiv.** Spread the fingers to zoom in, close them to zoom
+  out: the same script presses nsxiv's `+` / `-`, one step each time the pinch
+  grows or shrinks by `BLE_PINCH_STEP` percent (default `125`, a quarter). Only
+  nsxiv gets the keys — Firefox already zooms on a pinch by itself through
+  `MOZ_USE_XINPUT2`, so the script leaves it alone.
 - **Four-finger swipe → fullscreen.** Swipe up and the focused window goes
   fullscreen (`i3-msg fullscreen enable`); swipe down and it comes back. It works
   on any window, not just browsers.
@@ -1455,7 +1463,8 @@ Reading gestures needs the **`input` group**, so the module adds you to it. That
 lets any program you run read every keyboard and mouse too — the usual price of
 any gesture tool on X. Nothing applies until you **log out and back in** (or
 reboot): X reads `xorg.conf.d` and `~/.xsessionrc` only when it starts, and a
-new group only reaches a new login.
+new group only reaches a new login. After that, a re-run that changes the script
+restarts the running copy itself, so a new gesture works at once.
 
 ### Headless Chrome for a coding agent: `b-chrome`
 

@@ -2,6 +2,7 @@
 # Three-finger swipe left/right, in a browser → the tab on the left or right.
 # Four-finger swipe up/down → the focused window goes fullscreen / back.
 # Four-finger swipe left/right → the workspace on the left or right, this monitor only.
+# Pinch, in nsxiv → zoom in / out, never below the whole image. Firefox zooms on a pinch by itself (MOZ_USE_XINPUT2).
 # Started once per login by ~/.config/autostart/ble-trackpad-gestures.desktop,
 # which i3's `dex --autostart` runs. Installed by advanced/trackpad.sh.
 #
@@ -12,25 +13,34 @@ set -uo pipefail
 # before a swipe counts. Smaller = more sensitive.
 THRESHOLD="${BLE_SWIPE_THRESHOLD:-40}"
 
-# One copy per machine, however many times it is started.
-exec 9>"${XDG_RUNTIME_DIR:-/tmp}/ble-trackpad-gestures.lock"
-flock -n 9 || exit 0
-
-# Without I3SOCK, i3-msg finds i3 through the X root window, so a copy left over
-# from an earlier login still reaches the i3 of the current one.
-unset I3SOCK
+# How much the fingers spread, in percent, for one zoom step. 125 = a quarter.
+PINCH_STEP="${BLE_PINCH_STEP:-125}"
 
 # Chrome, Brave and Firefox all take Ctrl+PageUp/PageDown as previous/next tab.
 BROWSERS='"(firefox[^"]*|google-chrome[^"]*|chromium[^"]*|brave-browser[^"]*)"$'
 
-# tab KEY  — send Ctrl+KEY, but only when the focused window is a browser.
+# Image viewers that zoom on keys but not on a pinch.
+VIEWERS='"nsxiv"$'
+
+# focused RE  — 0 when the focused window's class matches RE.
 # xprop prints: WM_CLASS(STRING) = "Navigator", "firefox" (Ubuntu's xdotool can't).
-tab() {
+focused() {
     local win class
-    win="$(xdotool getactivewindow 2>/dev/null)" || return 0
-    class="$(xprop -id "$win" WM_CLASS 2>/dev/null)" || return 0
-    [[ "${class,,}" =~ $BROWSERS ]] && xdotool key --clearmodifiers "ctrl+$1"
+    win="$(xdotool getactivewindow 2>/dev/null)" || return 1
+    class="$(xprop -id "$win" WM_CLASS 2>/dev/null)" || return 1
+    [[ "${class,,}" =~ $1 ]]
 }
+
+# at_start  — 0 when nsxiv already shows the whole image: its win-title hook
+# (image-viewer/ in best-linux-environment) puts "[start]" in the title.
+at_start() {
+    local win
+    win="$(xdotool getactivewindow 2>/dev/null)" || return 1
+    [[ "$(xprop -id "$win" _NET_WM_NAME 2>/dev/null)" == *"[start]"* ]]
+}
+
+# tab KEY  — send Ctrl+KEY, but only when the focused window is a browser.
+tab() { focused "$BROWSERS" && xdotool key --clearmodifiers "ctrl+$1"; }
 
 # Reads libinput's lines on stdin and acts at the end of a swipe.
 # The lines look like this — the number after the type is a repeat counter that
@@ -38,11 +48,26 @@ tab() {
 #  event9   GESTURE_SWIPE_UPDATE      2  +6.690s<TAB>3 365.02/-0.43 (68.44/-0.08 unaccelerated)
 #  event9   GESTURE_SWIPE_END            +6.723s<TAB>3
 # Whole units are plenty here, so the decimals are dropped: bash has no floats.
-swipes() {
-    local line dx=0 dy=0 tab=$'\t'
+# A pinch line ends in its scale since BEGIN, then the angle:  ... 1.27 @  0.40
+gestures() {
+    local line dx=0 dy=0 tab=$'\t' viewer=false ref=100 s
     local update="${tab}[34] +(-?[0-9]+)\\.[0-9]+/ *(-?[0-9]+)\\."
+    local scale=" ([0-9]+)\\.([0-9]{2}) @ "
     while IFS= read -r line; do
         case "$line" in
+            # Asked once per pinch: an xprop on every update would lag the zoom.
+            *GESTURE_PINCH_BEGIN*) ref=100 viewer=false; focused "$VIEWERS" && viewer=true ;;
+            *GESTURE_PINCH_UPDATE*)
+                [[ $viewer == true && "$line" =~ $scale ]] || continue
+                s=$(( 10#${BASH_REMATCH[1]} * 100 + 10#${BASH_REMATCH[2]} ))
+                # nsxiv's own + and -; it ignores the keypad's KP_Add.
+                while (( s * 100 >= ref * PINCH_STEP )); do
+                    xdotool key plus; ref=$(( ref * PINCH_STEP / 100 ))
+                done
+                while (( ref > 10 && s * PINCH_STEP <= ref * 100 )); do
+                    at_start || xdotool key minus; ref=$(( ref * 100 / PINCH_STEP ))
+                done
+                ;;
             *GESTURE_SWIPE_BEGIN*) dx=0 dy=0 ;;
             *GESTURE_SWIPE_UPDATE*)
                 [[ "$line" =~ $update ]] || continue
@@ -76,6 +101,17 @@ swipes() {
     done
 }
 
+# Sourced by the tests, which feed gestures() their own lines.
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
+
+# One copy per machine, however many times it is started.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/ble-trackpad-gestures.lock"
+flock -n 9 || exit 0
+
+# Without I3SOCK, i3-msg finds i3 through the X root window, so a copy left over
+# from an earlier login still reaches the i3 of the current one.
+unset I3SOCK
+
 # libinput exits if its devices vanish (the trackpad unplugged, a suspend).
 # Start it again rather than lose gestures for the rest of the session — but stop
 # once i3 is gone, so a logout does not leave this running forever.
@@ -83,6 +119,6 @@ while i3-msg -t get_version >/dev/null 2>&1; do
     # stdbuf: through a pipe libinput buffers its output, and a swipe would only
     # arrive a few kilobytes later. The reader is bash, not awk: Ubuntu's awk is
     # mawk, which reads a pipe in big blocks and so sits on every swipe.
-    stdbuf -oL libinput debug-events 2>/dev/null | swipes
+    stdbuf -oL libinput debug-events 2>/dev/null | gestures
     sleep 2
 done

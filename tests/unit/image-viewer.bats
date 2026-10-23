@@ -38,7 +38,7 @@ setup() {
 }
 
 @test "57-image-viewer: yazi's old plain nsxiv opener is moved to b-images" {
-    pkg_status nsxiv installed; pkg_status libheif-plugin-libde265 installed
+    pkg_status nsxiv installed; pkg_status libheif-plugin-libde265 installed; pkg_status xdotool installed
     mkdir -p "$(dirname "$YAZI_TOML")" "$HOME/.i3rc"
     printf '%s\n' '[opener]' 'image = [' \
         $'\t{ run = \'nsxiv -a -- %s\', orphan = true, desc = "nsxiv", for = "unix" },' ']' \
@@ -48,7 +48,7 @@ setup() {
     mkdir -p "$copy/basic" "$copy/image-viewer"
     cp -r "$REPO/lib" "$copy/"
     cp "$REPO/basic/57-image-viewer.sh" "$copy/basic/"
-    cp "$REPO/image-viewer/b-images" "$copy/image-viewer/"
+    cp "$REPO"/image-viewer/* "$copy/image-viewer/"
     run bash "$copy/basic/57-image-viewer.sh" </dev/null
     [ "$status" -eq 0 ]
     grep -qF "run = '~/.local/bin/b-images -- %s'" "$YAZI_TOML"
@@ -57,15 +57,65 @@ setup() {
 }
 
 @test "57-image-viewer: nsxiv gets the terminal's 3px border, no title bar" {
-    pkg_status nsxiv installed; pkg_status libheif-plugin-libde265 installed
+    pkg_status nsxiv installed; pkg_status libheif-plugin-libde265 installed; pkg_status xdotool installed
     mkdir -p "$HOME/.i3rc"
     echo 'include ~/.i3rc/*.local' > "$HOME/.i3rc/config"
     local copy="$BATS_TEST_TMPDIR/repo"
     mkdir -p "$copy/basic" "$copy/image-viewer"
     cp -r "$REPO/lib" "$copy/"
     cp "$REPO/basic/57-image-viewer.sh" "$copy/basic/"
-    cp "$REPO/image-viewer/b-images" "$copy/image-viewer/"
+    cp "$REPO"/image-viewer/* "$copy/image-viewer/"
     run bash "$copy/basic/57-image-viewer.sh" </dev/null
     [ "$status" -eq 0 ]
     grep -qxF 'for_window [class="(?i)^nsxiv$"] border pixel 3' "$HOME/.i3rc/07-image-viewer.local"
+}
+
+@test "58-video-player: VLC gets the terminal's 3px border, no title bar" {
+    pkg_status vlc installed
+    mkdir -p "$HOME/.i3rc"
+    echo 'include ~/.i3rc/*.local' > "$HOME/.i3rc/config"
+    run bash "$REPO/basic/58-video-player.sh" </dev/null
+    [ "$status" -eq 0 ]
+    grep -qxF 'for_window [class="(?i)^vlc$"] border pixel 3' "$HOME/.i3rc/08-video-player.local"
+}
+
+@test "57-image-viewer: links win-title, the hook that keeps the zoom floor" {
+    pkg_status nsxiv installed; pkg_status libheif-plugin-libde265 installed; pkg_status xdotool installed
+    local copy="$BATS_TEST_TMPDIR/repo"
+    mkdir -p "$copy/basic" "$copy/image-viewer"
+    cp -r "$REPO/lib" "$copy/"
+    cp "$REPO/basic/57-image-viewer.sh" "$copy/basic/"
+    cp "$REPO"/image-viewer/* "$copy/image-viewer/"
+    run bash "$copy/basic/57-image-viewer.sh" </dev/null
+    [ "$status" -eq 0 ]
+    [ "$(readlink "$HOME/.config/nsxiv/exec/win-title")" = "$copy/image-viewer/win-title" ]
+}
+
+# win-title, with xdotool saying the window is focused, 800x630 (600 + the 30px bar).
+win_title() {
+    fake_cmd xdotool 'case "$1" in
+        search) echo 7 ;; getactivewindow) echo 7 ;;
+        getwindowgeometry) printf "WINDOW=7\nX=0\nY=0\nWIDTH=800\nHEIGHT=630\n" ;;
+        key) echo "xdotool key $2" >> "$FAKE_LOG" ;; esac'
+    "$REPO/image-viewer/win-title" "$@"
+}
+
+@test "win-title: below the starting view it presses w, at it it does not" {
+    # 1600x1200 in 800x600 fits at 50%.
+    run win_title /p/a.jpg 1 3 1600 1200 25
+    [[ "$output" == *"[start]"* ]]
+    sleep 0.3
+    grep -qx 'xdotool key w' "$FAKE_LOG"
+    : > "$FAKE_LOG"
+    run win_title /p/a.jpg 1 3 1600 1200 50
+    [[ "$output" == *"50% [start] [1/3]" ]]
+    sleep 0.3
+    ! grep -q 'xdotool key' "$FAKE_LOG"
+}
+
+@test "win-title: a small image starts at 100%, zoomed in it is not at the start" {
+    run win_title /p/s.jpg 2 3 300 200 100
+    [[ "$output" == *"[start]"* ]]
+    run win_title /p/s.jpg 2 3 300 200 150
+    [[ "$output" != *"[start]"* ]]
 }

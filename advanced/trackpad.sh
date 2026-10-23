@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Gestures for any trackpad/touchpad: two-finger back/forward in Firefox, three-finger swipes for tabs,
-# four-finger ones for fullscreen and workspaces. Classic scrolling on a Magic Trackpad only. Files in trackpad/.
+# four-finger ones for fullscreen and workspaces, pinch to zoom in nsxiv. Classic scrolling on a Magic Trackpad only. Files in trackpad/.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -42,11 +42,23 @@ require_desktop "Trackpad / touchpad gestures"
 
 # ── the user half: works without root ───────────────────────────────────────
 run mkdir -p "$HOME/.local/bin"
+GESTURES_CHANGED=false
 if cmp -s "$SRC/ble-trackpad-gestures" "$GESTURES"; then
     skip "ble-trackpad-gestures already current."
 else
     run install -m 0755 "$SRC/ble-trackpad-gestures" "$GESTURES"
     ok "ble-trackpad-gestures installed to ~/.local/bin."
+    GESTURES_CHANGED=true
+fi
+# A running copy keeps the old script until the next login: restart it. Its
+# libinput child holds the lock, so it goes too. Started from i3, not from here.
+if [[ "$GESTURES_CHANGED" == true && "$DRY_RUN" != true ]] && has_cmd i3-msg \
+        && i3-msg -t get_version >/dev/null 2>&1 \
+        && pgrep -u "$(id -u)" -f "^bash $GESTURES\$" >/dev/null; then
+    pkill -u "$(id -u)" -f "^bash $GESTURES\$" || true
+    pkill -u "$(id -u)" -f '^libinput-debug-events' || true
+    sleep 1
+    i3-msg "exec --no-startup-id $GESTURES" >/dev/null && ok "Gestures restarted with the new script."
 fi
 # i3 runs `dex --autostart` at login, and dex starts everything in this folder.
 config_write "$AUTOSTART" < "$SRC/ble-trackpad-gestures.desktop"
