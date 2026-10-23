@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# b-images FILE...  — nsxiv on every image in FILE's folder, starting at FILE, so
+# n and p walk the folder. Several files: just those, as given.
+#
+# basic/57-image-viewer.sh links it into ~/.local/bin and points yazi's Enter
+# and xdg-open's image/* default at it.
+set -euo pipefail
+
+[[ "${1:-}" == "--" ]] && shift
+[[ $# -gt 0 ]] || { printf 'usage: %s FILE...\n' "${0##*/}" >&2; exit 2; }
+
+# -a animates GIFs. A selection of several, or something that is not a file,
+# goes through untouched: the folder is only a guess when there is one image.
+if [[ $# -gt 1 || ! -f "$1" ]]; then
+    exec nsxiv -a -- "$@"
+fi
+
+# Raster only, the same types 57-image-viewer.sh makes nsxiv the default for.
+EXT_RE='\.(jpe?g|png|gif|bmp|tiff?|webp|hei[cf]|avif|jxl|jp2|xpm|ppm|pnm)$'
+
+file="$(realpath -- "$1")"
+dir="${file%/*}"
+files=()
+while IFS= read -r -d '' f; do
+    files+=("$f")
+done < <(find "$dir" -maxdepth 1 -type f ! -name '.*' -regextype posix-extended \
+             -iregex ".*$EXT_RE" -print0 | sort -zV)
+
+# Its position, 1-based. A file with another extension is not in the list:
+# open it alone rather than at the wrong picture.
+start=0
+for i in "${!files[@]}"; do
+    [[ "${files[$i]}" == "$file" ]] && { start=$((i + 1)); break; }
+done
+[[ $start -gt 0 ]] || exec nsxiv -a -- "$file"
+
+# Names on stdin, not argv: a folder of thousands would pass ARG_MAX.
+printf '%s\0' "${files[@]}" | exec nsxiv -a -0 -i -n "$start"

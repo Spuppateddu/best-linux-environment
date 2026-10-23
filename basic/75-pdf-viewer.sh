@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PDF viewer — Okular when installed, Firefox when not, in the two places that
-# decide what opens a PDF: yazi's Enter and xdg-open. Installs nothing itself.
+# Okular — installs it and makes it the PDF viewer in yazi's Enter and xdg-open,
+# plus yazi's Enter on a markdown file. Firefox takes PDFs if the install was skipped.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -8,8 +8,8 @@ title "PDF viewer"
 require_desktop "PDF viewer"
 
 # ── 1. Which viewer ──────────────────────────────────────────────────────────
-# Okular first, always — but it is a `secondary` app, so it may not be here.
-# advanced/okular.sh re-runs this module the moment it installs the package.
+# apt_ensure only warns without sudo (the boot cron), so Okular may still be missing.
+apt_ensure okular
 
 # `--` stops "-file.pdf" being read as an option: Okular's Qt parser takes it,
 # Firefox would open "--" as a URL instead, so the fallback goes without.
@@ -23,13 +23,18 @@ if has_cmd okular; then
     # x-gzpdf/x-bzpdf are a gzipped and a bzipped PDF: Okular reads both,
     # Firefox neither, so they only join the list on this branch.
     PDF_MIMES=(application/pdf application/x-gzpdf application/x-bzpdf)
+    # A rule on the name: `file` calls a .md text/plain, which yazi sends to vim.
+    # Shift+O still offers vim, the second opener in the list.
+    md_rule=$'\t{ url = "*.{md,markdown}", use = [ "pdf", "edit" ] },'
 elif has_cmd firefox; then
     PDF_RUN='firefox %s'
     PDF_DESC="Firefox (PDF)"
     PDF_DESKTOP="firefox.desktop"
     PDF_MIMES=(application/pdf)
+    # Firefox shows a .md as plain text, so markdown stays with yazi's own rules.
+    md_rule=""
     skip "Okular is not installed — falling back to Firefox for PDFs."
-    skip "Tick 'okular' in ./setup.sh's secondary list to make Okular the default."
+    skip "Run ./setup.sh from a terminal to install it."
 else
     warn "Neither okular nor firefox is installed — PDF defaults left as they are."
     exit 0
@@ -69,7 +74,8 @@ if [[ ! -f "$yazi_toml" ]]; then
             "$C_DIM" "$C_OFF" "${yazi_toml/#$HOME/\~}"
     else
         mkdir -p "$(dirname "$yazi_toml")"
-        printf '[opener]\n%s\n\n[open]\nprepend_rules = [\n%s\n]\n' "$pdf_key" "$open_rule" > "$yazi_toml"
+        printf '[opener]\n%s\n\n[open]\nprepend_rules = [\n%s\n]\n' "$pdf_key" \
+            "$open_rule${md_rule:+$'\n'$md_rule}" > "$yazi_toml"
     fi
     ok "yazi.toml → Enter on a PDF opens $PDF_DESC."
 else
@@ -142,6 +148,26 @@ else
             printf '\n[open]\nprepend_rules = [\n%s\n]\n' "$open_rule" >> "$yazi_toml"
         fi
         ok "yazi.toml → application/pdf uses the pdf opener."
+    fi
+
+    # ── 2c. the [open] rule sending a markdown file to the same opener ────────
+    # Runs after 2b, so prepend_rules exists unless the [open] block is hand-written.
+    if [[ -z "$md_rule" ]]; then
+        :   # Firefox branch: no markdown rule to write.
+    elif grep -qF "$md_rule" "$yazi_toml"; then
+        skip "yazi.toml already opens markdown in $PDF_DESC."
+    elif grep -q '^prepend_rules = \[' "$yazi_toml"; then
+        step "Routing markdown to the pdf opener"
+        if [[ "$DRY_RUN" == true ]]; then
+            printf '%s  would add:%s %s → %s\n' \
+                "$C_DIM" "$C_OFF" "${md_rule#$'\t'}" "${yazi_toml/#$HOME/\~}"
+        else
+            insert_after '^prepend_rules = \[' "$md_rule"
+        fi
+        ok "yazi.toml → Enter on a markdown file opens $PDF_DESC."
+    else
+        skip "yazi.toml has an [open] block this repo did not write — markdown rule left to you."
+        skip "Add to its rules:  ${md_rule#$'\t'}"
     fi
 fi
 

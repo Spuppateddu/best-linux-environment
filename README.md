@@ -831,10 +831,12 @@ repos install into it, and fonts before the tools that render them. Items marked
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
 13. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
-   **`libheif-plugin-libde265`**, and the three places that have to agree on
+   **`libheif-plugin-libde265`**, the **`b-images`** wrapper (`image-viewer/`,
+   linked into `~/.local/bin`: one image opens every image in its folder,
+   starting at it, so n and p walk the folder; several files open as given), and the three places that have to agree on
    which program shows a picture. It owns yazi's `[opener] image` key (Enter on
-   an image → `nsxiv -a -- %s`, `orphan = true` so quitting yazi does not take
-   the viewer with it), and **migrates the `firefox` line** `55-yazi` used to
+   an image → `~/.local/bin/b-images -- %s`, `orphan = true` so quitting yazi
+   does not take the viewer with it), and **migrates the `firefox` line** `55-yazi` used to
    write there; an `[opener]` block naming neither is treated as hand-written
    and left alone. **`%s`, not `"$@"`** — yazi interpolates its own placeholders
    into `run` and then hands the result to a shell with *no* positional
@@ -844,7 +846,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    TOML is valid — only meaningless. The placeholders are `%s` (every selected
    file), `%s1` (just the first) and `%d1` (its parent dir); `strings $(command
    -v yazi)` around `[opener]` is the authority for the version you have. It writes `~/.i3rc/07-image-viewer.local` —
-   `for_window [class="(?i)^nsxiv$"] border pixel 1` — because the i3 config
+   `for_window [class="(?i)^nsxiv$"] border pixel 3` (the terminal's width, no title bar) — because the i3 config
    floats every window with `border normal 3`, and a title bar is the widest
    thing between you and a photo; `07-` sorts after `06-colors.local` and before
    `config.local`, so `border none` there still wins, and after
@@ -856,7 +858,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    over any per-app rule — being read last is not enough, and nothing reports
    it. The module greps for the chained form and warns, rather than patching a
    file that belongs to the i3 repo. Finally it
-   points `xdg-mime` at `nsxiv.desktop` for the raster image types, which is what
+   points `xdg-mime` at `nsxiv.desktop` for the raster image types (a copy in
+   `~/.local/share/applications` whose `Exec` is `b-images %F`), which is what
    a browser download or a mail attachment opens with — Ubuntu leaves that at
    whichever browser registered last, so a double-clicked photo opens a new tab.
    **SVG is deliberately not in that list**: imlib2 rasterises it once at a fixed
@@ -930,28 +933,27 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-20. **`75-pdf-viewer`** *(desktop)* — **which program opens a PDF**, in the two
-   places that have to agree on it: yazi's Enter and `xdg-open`. It installs
-   nothing. It picks **Okular when `okular` is on `PATH` and Firefox when it is
-   not**, because Okular is a `secondary` app — the repo wants it, and still has
-   to leave a working PDF key on a machine that never ticked it. It writes
-   yazi's `[opener] pdf` key (`okular -- %s`, `orphan = true`, so quitting yazi
-   does not take the viewer with it) and points `xdg-mime` at
-   `okularApplication_pdf.desktop` for `application/pdf` — plus
-   `application/x-gzpdf` and `application/x-bzpdf`, a gzipped and a bzipped PDF,
-   which Okular reads and Firefox does not, so those two join the list only on
-   the Okular branch. The Firefox fallback is `firefox %s` with **no `--`**:
-   Okular's Qt parser takes `--` as "no more options", which is what stops a
-   file named `-report.pdf` being read as one, and Firefox has no such notion —
-   it would try to open `--` as a URL. `%s`, not `"$@"`, for the reason spelt
-   out under [`57-image-viewer`](#what-the-necessary-tier-installs).
-   Ticking **`okular`** flips the default **in the same run**: the necessary
-   tier, where this module lives, has already finished by the time a secondary
-   app installs, so [`advanced/okular.sh`](advanced/okular.sh) calls this module
-   again itself. Untick `okular` later and confirm the removal: its
-   `--uninstall` calls this module again too, so PDFs go back to Firefox in the
-   same run. The rewrite is keyed on the `desc` in the line, so it is
-   only ever a line this repo wrote that gets replaced.
+20. **`75-pdf-viewer`** *(desktop)* — **Okular**, and which program opens a PDF
+   in the two places that have to agree on it: yazi's Enter and `xdg-open`. It
+   installs the `okular` package itself (its `modules.conf` id is `okular`, in
+   the necessary tier), then writes yazi's `[opener] pdf` key (`okular -- %s`,
+   `orphan = true`, so quitting yazi does not take the viewer with it) and points
+   `xdg-mime` at `okularApplication_pdf.desktop` for `application/pdf` — plus
+   `application/x-gzpdf` and `application/x-bzpdf`, a gzipped and a bzipped PDF.
+   **Markdown opens in Okular too**, from yazi: one `{ url = "*.{md,markdown}",
+   use = [ "pdf", "edit" ] }` rule sends a `.md` to the same opener. It goes by
+   the file name, because `file` calls a `.md` `text/plain`, which yazi's preset
+   would hand to vim. `edit` is second in the list, so **Shift+O still offers
+   vim**. `xdg-open` keeps `text/markdown` on vim — see `76-text-editor`.
+   If the install could not run (no `sudo` under the boot cron), it falls back to
+   **Firefox** for PDFs and writes no markdown rule. The Firefox line is
+   `firefox %s` with **no `--`**: Okular's Qt parser takes `--` as "no more
+   options", which is what stops a file named `-report.pdf` being read as one,
+   and Firefox has no such notion — it would try to open `--` as a URL. `%s`, not
+   `"$@"`, for the reason spelt out under
+   [`57-image-viewer`](#what-the-necessary-tier-installs). The next run with
+   Okular rewrites that line; the rewrite is keyed on the `desc` in the line, so
+   it is only ever a line this repo wrote that gets replaced.
    `57-image-viewer` owns `[opener] image`, this one owns `[opener] pdf`, and
    they **share the `[open] prepend_rules` array**, because TOML cannot carry
    two `[open]` tables: this module *inserts* its `{ mime = "application/pdf",
@@ -968,9 +970,9 @@ repos install into it, and fonts before the tools that render them. Items marked
    `xdg-open` has no default for those types either, so it falls back to
    `mimeopen`, which walks up to the parent type `text/plain` and takes the first
    entry in `mimeinfo.cache` — `okularApplication_txt.desktop`, because Okular
-   claims `text/plain` and sorts first. Tick `okular` for your PDFs and every
-   `.yaml`, `.md`, `.log` and `.conf` on the machine starts opening in a PDF
-   reader. So this module adds one `[open]` rule pointing the text-ish
+   claims `text/plain` and sorts first. Okular is always installed, so without
+   this module every `.yaml`, `.md`, `.log` and `.conf` on the machine would open
+   in a PDF reader. So this module adds one `[open]` rule pointing the text-ish
    `application/*` types at yazi's `edit` opener, and points `xdg-mime` at a
    generated `~/.local/share/applications/ble-vim.desktop` for `text/plain`,
    `text/markdown`, the three yaml spellings, `application/toml`,
@@ -1337,12 +1339,12 @@ are wired rather than asked about:
 For an app that is just one package from the Ubuntu repos, that last point is a
 single line — `apt_app_module <pkg> "<Label>" --desktop` does the title, the
 server skip, the already-installed check and the final `ok`. See
-[`advanced/okular.sh`](advanced/okular.sh).
+[`advanced/xournalpp.sh`](advanced/xournalpp.sh).
 
 The manifest line is what puts it in the list:
 
 ```
-secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and the default one
+secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate and sign PDFs
 ```
 
 | App | Source |
@@ -1350,7 +1352,6 @@ secondary|okular|gui|script|run:advanced/okular.sh|Okular — PDF reader, and th
 | `brave` | [Brave apt repo](https://brave.com/linux/) |
 | `xournalpp` | Ubuntu repos |
 | `auto-updates` | Ubuntu repos (`unattended-upgrades`, already there on a stock install) + `updates/52best-linux-environment` → `/etc/apt/apt.conf.d/` — the daily automatic run installs **bug-fix updates too**, not only security fixes. Unticking removes the file and goes back to security only. See [Updates](#updates) |
-| `okular` | Ubuntu repos — ticking it also **makes Okular the default PDF viewer**, in yazi and in `xdg-open` alike: the module re-runs [`75-pdf-viewer`](#what-the-necessary-tier-installs) after the install, so the flip happens in the same run. Okular also claims `text/plain`, which is why [`76-text-editor`](#what-the-necessary-tier-installs) pins the text types to vim — without it, installing Okular quietly makes it the default `.yaml`, `.md` and `.log` viewer too |
 | `trackpad` | Ubuntu repos (`libinput-tools`, `xdotool`, `x11-utils`) + the files in `trackpad/` — gestures for any trackpad or laptop touchpad: two-finger back/forward in Firefox, three-finger swipes to change browser tab, four-finger swipes for fullscreen and workspaces; classic scrolling on an Apple Magic Trackpad, [below](#-trackpad--touchpad-gestures) |
 | `steam` | multiverse (`steam-installer`) + i386 |
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |

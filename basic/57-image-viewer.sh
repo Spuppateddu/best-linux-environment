@@ -24,6 +24,12 @@ require_desktop "nsxiv"
 # "no decoder" — the image simply fails to open.
 apt_ensure nsxiv libheif-plugin-libde265
 
+# b-images opens the whole folder of the image you picked, so n and p walk it.
+# A link, not a copy, so a pull updates it.
+B_IMAGES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/image-viewer/b-images"
+run chmod +x "$B_IMAGES"
+link "$B_IMAGES" "$HOME/.local/bin/b-images"
+
 # ── 2. yazi: Enter on an image ───────────────────────────────────────────────
 # %s, not "$@". yazi interpolates its own placeholders into `run` and then hands
 # the result to a shell with NO positional arguments, so a "$@" written here is
@@ -34,11 +40,12 @@ apt_ensure nsxiv libheif-plugin-libde265
 # `strings $(command -v yazi)` around "[opener]" is the authority for the
 # version you have. %s rather than %s1 so selecting several images and pressing
 # Enter opens them as one browsable set, which nsxiv takes and xdg-open cannot.
+# One image opens its whole folder (b-images).
 #
-# orphan = true or quitting yazi takes the viewer with it. `-a` animates GIFs;
-# `--` stops a filename that starts with `-` being read as a flag.
+# orphan = true or quitting yazi takes the viewer with it. The shell expands
+# the ~; `--` stops a filename that starts with `-` being read as a flag.
 yazi_toml="$HOME/.config/yazi/yazi.toml"
-nsxiv_run='nsxiv -a -- %s'
+nsxiv_run='~/.local/bin/b-images -- %s'
 nsxiv_line=$'\t{ run = \''"$nsxiv_run"$'\', orphan = true, desc = "nsxiv", for = "unix" },'
 opener_toml=$(cat <<TOML
 [opener]
@@ -54,10 +61,10 @@ TOML
 )
 
 # Ours to rewrite when it carries either signature: the Firefox line 55-yazi.sh
-# used to write, or an nsxiv line from a version of this module that still spelt
-# the placeholder "$@". Anything else in [opener] was written by hand.
+# used to write, or an nsxiv line from an older version of this module (the "$@"
+# placeholder, or plain nsxiv before b-images). Anything else was written by hand.
 if [[ -f "$yazi_toml" ]] && grep -qF "$nsxiv_run" "$yazi_toml"; then
-    skip "yazi.toml already opens images in nsxiv."
+    skip "yazi.toml already opens images in nsxiv (b-images)."
 elif [[ -f "$yazi_toml" ]] && grep -Eq 'desc = "(Firefox|nsxiv)"' "$yazi_toml"; then
     step "Pointing yazi's image opener at nsxiv"
     if [[ "$DRY_RUN" == true ]]; then
@@ -99,8 +106,8 @@ i3_viewer_file() {
     printf '#\n'
     printf '# config floats every window with `border normal 3` — a real title bar you\n'
     printf '# can grab, which is right for an editor and wrong for a picture: the bar is\n'
-    printf '# then the widest thing between you and the image. This drops the viewer to a\n'
-    printf '# 1px edge. Still the focused colour 06-colors.local sets, still a mouse\n'
+    printf '# then the widest thing between you and the image. This keeps the 3px edge a\n'
+    printf '# terminal has and drops the title. Still the focused colour 06-colors.local sets, still a mouse\n'
     printf '# resize handle, no title.\n'
     printf '#\n'
     printf '# It has to be a rule here rather than a `default_border`, because config sets\n'
@@ -120,7 +127,7 @@ i3_viewer_file() {
     printf '#   for_window [class="(?i)^nsxiv$"] border none\n'
     printf '# there goes all the way to zero. 90-tiling-mode.local sorts after both, so\n'
     printf '# the tiling desktop is unaffected either way.\n'
-    printf 'for_window [class="(?i)^nsxiv$"] border pixel 1\n'
+    printf 'for_window [class="(?i)^nsxiv$"] border pixel 3\n'
 }
 
 if [[ ! -d "$I3" ]]; then
@@ -169,6 +176,14 @@ if ! has_cmd xdg-mime; then
 elif ! apt_installed nsxiv; then
     skip "nsxiv not installed — nothing to make the default yet."
 else
+    # nsxiv.desktop runs `nsxiv %F`, which shows only the one file. A copy with the
+    # same name in ~/.local/share/applications wins over /usr/share: run b-images.
+    sys_desktop=/usr/share/applications/nsxiv.desktop
+    if [[ -f "$sys_desktop" ]]; then
+        write_gen "$HOME/.local/share/applications/nsxiv.desktop" \
+            <<< "$(sed "s|^Exec=.*|Exec=$HOME/.local/bin/b-images %F|" "$sys_desktop")"
+    fi
+
     MIMES=(
         image/jpeg image/png image/gif image/bmp image/tiff image/webp
         image/heic image/heif image/avif image/jxl image/jp2
