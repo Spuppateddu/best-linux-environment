@@ -991,6 +991,12 @@ repos install into it, and fonts before the tools that render them. Items marked
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
 22. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+   ARandR shows no refresh rate, and X starts each monitor at its preferred mode,
+   often 60 Hz. So the module also links **`b-max-hz`** (`max-hz/b-max-hz`) into
+   `~/.local/bin` and writes `~/.i3rc/11-max-hz.local`, whose `exec_always` sets
+   every monitor that is on to the highest rate of its current resolution at each
+   i3 login and restart. A monitor that is off stays off. After changing the layout
+   in ARandR, run `b-max-hz` by hand.
 23. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped

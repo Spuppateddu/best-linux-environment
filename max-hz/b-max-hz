@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# b-max-hz — every monitor that is on runs at the highest refresh rate its current
+# resolution offers. ARandR shows no refresh rate at all, so it cannot pick one, and
+# the X server starts each monitor at its preferred mode, which is often 60 Hz.
+# i3 runs it at every login (~/.i3rc/11-max-hz.local). Run it by hand after ARandR.
+set -euo pipefail
+
+if [[ "${1:-}" == -h || "${1:-}" == --help ]]; then
+    echo "Usage: b-max-hz   — set every monitor that is on to its highest refresh rate"
+    exit 0
+fi
+
+# One "OUTPUT MODE BEST CURRENT" line per monitor that is on. The mode line holding
+# '*' is the current one; xrandr may list one resolution on several lines.
+plan="$(xrandr --query | awk '
+    function flush(   i, j, n, f, r, best) {
+        if (out == "" || mode == "") return
+        best = 0
+        for (i = 1; i <= nl; i++) {
+            n = split(lines[i], f, " ")
+            if (f[1] != mode) continue
+            for (j = 2; j <= n; j++) {
+                r = f[j]; gsub(/[*+]/, "", r)
+                if (r != "" && r + 0 > best + 0) best = r
+            }
+        }
+        print out, mode, best, cur
+    }
+    /^[^ \t]/ { flush(); out = ""; mode = ""; nl = 0; if ($2 == "connected") out = $1; next }
+    out != "" {
+        lines[++nl] = $0
+        if (index($0, "*")) {
+            mode = $1
+            for (j = 2; j <= NF; j++) if (index($j, "*")) { cur = $j; gsub(/[*+]/, "", cur) }
+        }
+    }
+    END { flush() }
+')"
+
+[[ -n "$plan" ]] || { echo "b-max-hz: no monitor is on." >&2; exit 1; }
+
+while read -r out mode best cur; do
+    if [[ "$best" == "$cur" ]]; then
+        echo "$out: $mode already at $cur Hz"
+    else
+        xrandr --output "$out" --mode "$mode" --rate "$best"
+        echo "$out: $mode $cur → $best Hz"
+    fi
+done <<< "$plan"
