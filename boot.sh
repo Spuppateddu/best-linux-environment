@@ -75,7 +75,7 @@ source "$HERE/lib/runner.sh"
 source "$HERE/lib/registry.sh"
 
 require_apt
-export BLE_PROFILE="${BLE_PROFILE:-auto}"
+profile_init
 
 # The cron line's `>>` creates the log file but NOT the directory holding it, and
 # a cache cleaner removing it would send every boot's output nowhere.

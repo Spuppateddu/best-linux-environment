@@ -129,11 +129,11 @@ require_apt() {
 }
 
 # ── profile: desktop vs server ───────────────────────────────────────────────
-# GUI modules skip themselves on a server. Force with BLE_PROFILE=desktop|server.
+# GUI modules skip themselves on a server. Force with BLE_PROFILE=desktop|server|minimal.
 is_desktop() {
     case "${BLE_PROFILE:-auto}" in
         desktop) return 0 ;;
-        server)  return 1 ;;
+        server|minimal) return 1 ;;
     esac
     # The install-type metapackage is the one signal our own lightdm+i3 install
     # can't pollute, so it is checked before any runtime signal below.
@@ -155,9 +155,18 @@ is_desktop() {
     apt_installed xserver-xorg || has_cmd Xorg
 }
 is_server() { ! is_desktop; }
+# A server with less on it: only ever chosen, never detected.
+is_minimal() { [[ "${BLE_PROFILE:-}" == minimal ]]; }
 
 # One-word label for the detected profile (for banners/logs).
-profile_label() { is_desktop && echo desktop || echo server; }
+profile_label() { is_minimal && echo minimal || { is_desktop && echo desktop || echo server; }; }
+
+# BLE_PROFILE from the env, else the minimal one setup.sh remembered, else auto.
+BLE_PROFILE_FILE="$BLE_STATE_DIR/profile"
+profile_init() {
+    [[ -n "${BLE_PROFILE:-}" ]] || BLE_PROFILE="$(cat "$BLE_PROFILE_FILE" 2>/dev/null || true)"
+    export BLE_PROFILE="${BLE_PROFILE:-auto}"
+}
 
 # GUI modules call this right after their title; on a headless server it prints a
 # skip and exits 0 so the run moves on to the next module cleanly.

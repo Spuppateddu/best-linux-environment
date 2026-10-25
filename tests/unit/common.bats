@@ -107,6 +107,22 @@ load helpers
     [ "$status" -eq 0 ]
 }
 
+@test "is_minimal: a server, labelled minimal" {
+    BLE_PROFILE=minimal ble 'is_server && is_minimal && profile_label'
+    [ "$status" -eq 0 ]
+    [ "$output" = minimal ]
+}
+
+@test "profile_init: the env wins, else the remembered profile, else auto" {
+    ble 'profile_init; echo "$BLE_PROFILE"'
+    [ "$output" = auto ]
+    mkdir -p "$BLE_STATE_DIR"; echo minimal > "$BLE_STATE_DIR/profile"
+    ble 'profile_init; echo "$BLE_PROFILE"'
+    [ "$output" = minimal ]
+    BLE_PROFILE=server ble 'profile_init; echo "$BLE_PROFILE"'
+    [ "$output" = server ]
+}
+
 @test "remember_shell: rejects anything but zsh or bash" {
     ble 'remember_shell fish'
     [ "$status" -eq 1 ]

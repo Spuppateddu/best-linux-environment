@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # One alias, `fn`, added to <shell>-alias.local (gitignored, so machine-local) for
 # both shells: creates/opens ~/fastnote.txt in vim. Never over an alias you have.
+# --check exits 0 when an alias opens fastnote.txt; --uninstall removes only ours.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -10,13 +11,12 @@ ALIAS_CMD='touch ~/fastnote.txt && vim ~/fastnote.txt'
 # Both config repos name things the same way: ~/.<shell>/<shell>-alias(.local).
 SHELLS=(zsh bash)
 
-title "fastnote alias for your shell ($ALIAS_NAME)"
-
-# ── 1. is vim here? ──────────────────────────────────────────────────────────
-if ! has_cmd vim; then
-    skip "vim is not installed — nothing to alias."
-    exit 0
-fi
+# The exact lines the install appends: --uninstall deletes these and nothing else.
+OUR_LINES=(
+    '# Quick scratch note: create/open ~/fastnote.txt in vim. Added by'
+    '# best-linux-environment.'
+    "alias $ALIAS_NAME='$ALIAS_CMD'"
+)
 
 # grep without -q (a SIGPIPE'd grep reads as "no match" under pipefail), across
 # both files: the alias may have been committed as easily as written by us.
@@ -27,6 +27,41 @@ grep_aliases() {
     [[ ${#files[@]} -gt 0 ]] || return 1
     grep -hE "$pattern" "${files[@]}" >/dev/null 2>&1
 }
+
+case "${1:-}" in
+    --check)
+        for shell_name in "${SHELLS[@]}"; do
+            f="$HOME/.$shell_name/$shell_name-alias"
+            grep_aliases '^[[:space:]]*alias[[:space:]]+[^=]+=.*fastnote\.txt' "$f" "$f.local" && exit 0
+        done
+        exit 1
+        ;;
+    --uninstall)
+        title "fastnote alias — uninstall"
+        for shell_name in "${SHELLS[@]}"; do
+            f="$HOME/.$shell_name/$shell_name-alias.local"
+            [[ -f "$f" ]] && grep -qxF "${OUR_LINES[2]}" "$f" || continue
+            if [[ "$DRY_RUN" == true ]]; then
+                printf "%s  would remove:%s alias %s from %s\n" "$C_DIM" "$C_OFF" "$ALIAS_NAME" "${f/#$HOME/\~}"
+                continue
+            fi
+            # The blank line the install put before the block goes with it.
+            awk -v c="${OUR_LINES[0]}" 'NR > 1 && !(prev == "" && $0 == c) { print prev } { prev = $0 }
+                END { if (NR) print prev }' "$f" | grep -vxF -e "${OUR_LINES[0]}" -e "${OUR_LINES[1]}" -e "${OUR_LINES[2]}" > "$f.tmp" || true
+            mv "$f.tmp" "$f"
+            ok "$shell_name: removed alias $ALIAS_NAME from ${f/#$HOME/\~}."
+        done
+        exit 0
+        ;;
+esac
+
+title "fastnote alias for your shell ($ALIAS_NAME)"
+
+# ── 1. is vim here? ──────────────────────────────────────────────────────────
+if ! has_cmd vim; then
+    skip "vim is not installed — nothing to alias."
+    exit 0
+fi
 
 # ── 2. one shell at a time ───────────────────────────────────────────────────
 # `did_one` tells "no shell config here" from "the alias is in place" at the end.
@@ -76,9 +111,7 @@ for shell_name in "${SHELLS[@]}"; do
 
     {
         printf '\n'
-        printf '# Quick scratch note: create/open ~/fastnote.txt in vim. Added by\n'
-        printf '# best-linux-environment.\n'
-        printf "alias %s='%s'\n" "$ALIAS_NAME" "$ALIAS_CMD"
+        printf '%s\n' "${OUR_LINES[@]}"
     } >> "$local_file"
 
     ok "$shell_name: added alias $ALIAS_NAME='$ALIAS_CMD' to $label (open a new shell to use it)."

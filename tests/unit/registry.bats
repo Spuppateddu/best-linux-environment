@@ -13,6 +13,7 @@ core|desk|gui|path:~/marker|tool:i3|a desktop-only entry
 secondary|app|all|script|run:advanced/brave.sh|uses brave.sh for its --uninstall
 secondary|noun|all|-|apt:foo|no script, so no --uninstall
 bogus|bad|all|-|apt:x|unknown tier
+secondary|big|full|-|apt:bar|dropped on minimal only
 EOF
 }
 
@@ -27,7 +28,20 @@ EOF
 @test "registry_load: a server never sees gui entries" {
     fixture
     BLE_PROFILE=server ble 'registry_load; echo "ids=${M_ID[*]}"'
+    [[ "$output" == *"ids=tools app noun big"* ]]
+}
+
+@test "registry_load: minimal drops gui and full entries" {
+    fixture
+    BLE_PROFILE=minimal ble 'registry_load; echo "ids=${M_ID[*]}"'
     [[ "$output" == *"ids=tools app noun"* ]]
+    [[ "$output" != *big* ]]
+}
+
+@test "modules.conf: minimal has no Chrome but keeps playwright-mcp" {
+    BLE_PROFILE=minimal ble 'registry_load; echo "ids=${M_ID[*]}"'
+    [[ "$output" != *chrome* ]]
+    [[ "$output" == *playwright-mcp* ]]
 }
 
 @test "mod_actions splits on + only; mod_apt_packages splits the words" {

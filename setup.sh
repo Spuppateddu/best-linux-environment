@@ -81,7 +81,11 @@ require_apt
 
 # Detected (or forced with BLE_PROFILE) once and exported, so every sub-script
 # agrees. On a server the gui entries drop out of modules.conf as it loads.
-export BLE_PROFILE="${BLE_PROFILE:-auto}"
+profile_init
+# Only minimal is remembered, since nothing can detect it; any other value forgets it.
+if [[ "$DRY_RUN" != true ]]; then
+    if is_minimal; then mkdir -p "$BLE_STATE_DIR"; echo minimal > "$BLE_PROFILE_FILE"; else rm -f "$BLE_PROFILE_FILE"; fi
+fi
 
 registry_load
 

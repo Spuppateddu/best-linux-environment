@@ -9,7 +9,7 @@ _BLE_REGISTRY_LOADED=1
 M_TIER=(); M_ID=(); M_SCOPE=(); M_CHECK=(); M_ACT=(); M_LABEL=()
 
 # registry_load  — parse modules.conf. A 'gui' scope is dropped outright on a
-# server, so a headless box never lists, installs or misses them.
+# server, a 'full' scope on minimal, so the box never lists, installs or misses them.
 registry_load() {
     local conf="${BLE_MODULES_CONF:-$BLE_ROOT/modules.conf}"
     [[ -f "$conf" ]] || { fail "Missing $conf — this repo is incomplete."; exit 1; }
@@ -22,6 +22,7 @@ registry_load() {
             *) warn "modules.conf: unknown tier '$tier' on '$id' — line ignored."; continue ;;
         esac
         [[ "$scope" == gui ]] && is_server && continue
+        [[ "$scope" == full ]] && is_minimal && continue
         M_TIER+=("$tier"); M_ID+=("$id"); M_SCOPE+=("$scope")
         M_CHECK+=("$check"); M_ACT+=("$act"); M_LABEL+=("$label")
     done < "$conf"

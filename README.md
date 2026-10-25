@@ -705,7 +705,20 @@ desktop by every other test. Force it either way:
 ```bash
 BLE_PROFILE=server  ./setup.sh   # treat as headless — no GUI
 BLE_PROFILE=desktop ./setup.sh   # force the full graphical set
+BLE_PROFILE=minimal ./setup.sh   # a server with less on it (below)
 ```
+
+### The minimal profile
+
+`minimal` is the server profile with fewer apps to choose from. Every line whose
+scope is `full` is dropped too: today that is `google-chrome` and
+`chrome-headless`. `playwright-mcp` stays, and works the same as on a server.
+
+Nothing can detect it, so you choose it once with `BLE_PROFILE=minimal
+./setup.sh`. It is written to `~/.cache/best-linux-environment/profile`, so a
+plain `./setup.sh` and every boot keep it. Running with `BLE_PROFILE=server`,
+`desktop` or `auto` forgets it. An app that is already installed and has scope
+`full` is not removed when you switch: it just leaves the list.
 
 GUI modules also self-skip via `require_desktop` in `lib/common.sh`, and config
 repos are tagged desktop-only with a `gui` scope in
@@ -1320,7 +1333,7 @@ to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
 the list entirely on a server. `docker`, `lazydocker`, `opencode`, `sshd`,
-`auto-updates`, `megacmd`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
+`auto-updates`, `megacmd`, `fastnote`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` (`full` for the two Chrome ones, which the [minimal profile](#the-minimal-profile) drops) — so they
 still appear on a headless box, and can be installed there directly (Chrome is on
 that list because `chrome-headless` needs it, and **headless** use needs no display):
 
@@ -1372,6 +1385,7 @@ secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate 
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megacmd` | [MEGA apt repo](https://mega.io/cmd) (`xUbuntu_<release>`) — MEGA from the terminal, scope `all`: it works over ssh on a server with no desktop. Log in once inside `mega-cmd` with `login <email>` — the one-shot `mega-login` never asks for a password, it wants it on the command line (so in your shell history) — then `mega-sync <local folder> <MEGA folder>` (a folder another account shared with you is `<their email>:<folder>`, see `mega-mount`). The module writes `~/.config/systemd/user/mega-cmd.service` and turns on linger, so `mega-cmd-server` and its syncs run from boot, not from the first `mega-*` command. The package writes its own `megaio.sources`; the module then drops its `mega.nz.list`, since two sources with different `Signed-By` keys make apt fail. **Replaces MEGAsync**: on a machine that has the MEGAsync app, it is removed with its autostart. Its syncs are not carried over — re-add them with `mega-sync` |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
+| `fastnote` | Nothing to download: appends `alias fn=…` to `~/.<shell>/<shell>-alias.local` for zsh and bash, which creates/opens `~/fastnote.txt` in vim. Unticking removes only the lines it wrote |
 | `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
 | `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
