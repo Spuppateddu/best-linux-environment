@@ -53,16 +53,19 @@ installed() { printf '[[ "$(dpkg-query -W -f="\\${db:Status-Status}" %s 2>/dev/n
 # The answers every run shares: bash login shell, no vim languages, no boot cron.
 COMMON=('Which shell* | bash*' 'Vim* | -' 'Automation | -' 'Colours | Keep*')
 
-step 1-install "${COMMON[@]}" 'Secondary* | OpenSSH server*' 'Secondary* | fastnote*'
+step 1-install "${COMMON[@]}" 'Secondary* | OpenSSH server*' 'Secondary* | fastnote*' 'Secondary* | skills*'
 check "the necessary tier is in (git, curl, zsh)" 'command -v git && command -v curl && command -v zsh'
 check "the bash config repo is linked" 'test -L ~/.bash'
 check "the ticked app is installed" "$(installed openssh-server)"
 check "it is remembered for next time" 'grep -qx sshd ~/.cache/best-linux-environment/chosen'
 check "the fastnote alias is added" "grep -q '^alias fn=' ~/best-linux-environment/aliases.local"
+check "skills is cloned and linked" 'test -d ~/code/skills/.git && test "$(readlink ~/.claude/skills)" = ~/code/skills'
+check "the global rules are imported" "grep -qx '@~/code/skills/global-rules.md' ~/.claude/CLAUDE.md"
 
-step 2-uninstall "${COMMON[@]}" 'Secondary* | -' 'Uninstall* | OpenSSH server*' 'Uninstall* | fastnote*'
+step 2-uninstall "${COMMON[@]}" 'Secondary* | -' 'Uninstall* | OpenSSH server*' 'Uninstall* | fastnote*' 'Uninstall* | skills*'
 check "the unticked app is removed" "! $(installed openssh-server)"
 check "the fastnote alias is removed" "! grep -q '^alias fn=' ~/best-linux-environment/aliases.local"
+check "skills is unhooked, the clone kept" "test ! -e ~/.claude/skills && ! grep -q global-rules ~/.claude/CLAUDE.md && test -d ~/code/skills/.git"
 check "it is forgotten" '! grep -qx sshd ~/.cache/best-linux-environment/chosen'
 
 step 3-rerun "${COMMON[@]}" 'Secondary* | -'
