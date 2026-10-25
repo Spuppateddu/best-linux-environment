@@ -990,14 +990,21 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-22. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+22. **`77-spreadsheet`** *(desktop)* — **LibreOffice Calc**, and which program
+   opens a spreadsheet. It installs the `libreoffice-calc` package, then points
+   `xdg-mime` at `libreoffice-calc.desktop` for `text/csv`,
+   `text/tab-separated-values`, xlsx, xls and ods. Without it a `.csv` inherits
+   `text/plain`'s default, so a downloaded csv opened in vim. yazi's Enter on a
+   `.csv` still opens vim (yazi sends `text/*` to `$EDITOR`); an xlsx or ods
+   falls through to xdg-open and lands in Calc.
+23. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
    ARandR shows no refresh rate, and X starts each monitor at its preferred mode,
    often 60 Hz. So the module also links **`b-max-hz`** (`max-hz/b-max-hz`) into
    `~/.local/bin` and writes `~/.i3rc/11-max-hz.local`, whose `exec_always` sets
    every monitor that is on to the highest rate of its current resolution at each
    i3 login and restart. A monitor that is off stays off. After changing the layout
    in ARandR, run `b-max-hz` by hand.
-23. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+24. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
