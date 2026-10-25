@@ -58,11 +58,11 @@ check "the necessary tier is in (git, curl, zsh)" 'command -v git && command -v 
 check "the bash config repo is linked" 'test -L ~/.bash'
 check "the ticked app is installed" "$(installed openssh-server)"
 check "it is remembered for next time" 'grep -qx sshd ~/.cache/best-linux-environment/chosen'
-check "the fastnote alias is added" "grep -q '^alias fn=' ~/.bash/bash-alias.local"
+check "the fastnote alias is added" "grep -q '^alias fn=' ~/best-linux-environment/aliases.local"
 
 step 2-uninstall "${COMMON[@]}" 'Secondary* | -' 'Uninstall* | OpenSSH server*' 'Uninstall* | fastnote*'
 check "the unticked app is removed" "! $(installed openssh-server)"
-check "the fastnote alias is removed" "! grep -q '^alias fn=' ~/.bash/bash-alias.local"
+check "the fastnote alias is removed" "! grep -q '^alias fn=' ~/best-linux-environment/aliases.local"
 check "it is forgotten" '! grep -qx sshd ~/.cache/best-linux-environment/chosen'
 
 step 3-rerun "${COMMON[@]}" 'Secondary* | -'

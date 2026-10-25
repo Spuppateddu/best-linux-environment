@@ -505,3 +505,63 @@ settings_reload() {
     for k in "${BLE_SETTING_KEYS[@]}"; do printf -v "$k" '%s' ""; done
     settings_load
 }
+
+# ── aliases.local: the one place this repo puts an alias ─────────────────────
+# A module that adds an alias (b-temp, fn) appends it to aliases.local, and
+# basic/95-settings.sh, which runs after every module, copies it into both shells.
+# The <shell>-alias.local files are never written: older runs put b-temp and fn
+# there, and aliases_drop takes those copies back out.
+
+# _alias_files  — every file an alias may already live in, one per line: this
+# repo's aliases.local, then the config repos' own files and their .local ones.
+_alias_files() {
+    local s
+    printf '%s\n' "$BLE_ALIASES_LOCAL"
+    for s in zsh bash; do
+        printf '%s\n' "$HOME/.$s/$s-alias" "$HOME/.$s/$s-alias.local"
+    done
+}
+
+# aliases_has REGEX  — true when any of those files has a line matching REGEX.
+# grep without -q: a SIGPIPE'd grep reads as "no match" under pipefail.
+aliases_has() {
+    local files=() f
+    while IFS= read -r f; do [[ -f "$f" ]] && files+=("$f"); done < <(_alias_files)
+    [[ ${#files[@]} -gt 0 ]] || return 1
+    grep -hE "$1" "${files[@]}" >/dev/null 2>&1
+}
+
+# aliases_add LINE...  — append these lines to aliases.local, after a blank one.
+# Seeds the file from the example first, so the alias is not all it holds.
+aliases_add() {
+    local label="${BLE_ALIASES_LOCAL/#$HOME/\~}"
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would append:%s %s → %s\n' "$C_DIM" "$C_OFF" "${!#}" "$label"
+        return 0
+    fi
+    [[ -f "$BLE_ALIASES_LOCAL" || ! -f "$BLE_ALIASES_EXAMPLE" ]] || \
+        config_write "$BLE_ALIASES_LOCAL" --if-missing < "$BLE_ALIASES_EXAMPLE"
+    # A hand-edited file with no trailing newline would otherwise get the block
+    # glued onto its last line.
+    if [[ -s "$BLE_ALIASES_LOCAL" ]] && [[ -n "$(tail -c 1 "$BLE_ALIASES_LOCAL")" ]]; then
+        printf '\n' >> "$BLE_ALIASES_LOCAL"
+    fi
+    { printf '\n'; printf '%s\n' "$@"; } >> "$BLE_ALIASES_LOCAL"
+}
+
+# aliases_drop FILE LINE...  — remove exactly these lines from FILE, and the
+# blank line aliases_add put before the first one. Lines of yours stay. True
+# when something was removed; --dry-run only prints what would go, and is false.
+aliases_drop() {
+    local f="$1"; shift
+    local args=() l
+    [[ -f "$f" ]] && grep -qxF "${!#}" "$f" || return 1
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would remove:%s %s from %s\n' "$C_DIM" "$C_OFF" "${!#}" "${f/#$HOME/\~}"
+        return 1
+    fi
+    for l in "$@"; do args+=(-e "$l"); done
+    awk -v c="$1" 'NR > 1 && !(prev == "" && $0 == c) { print prev } { prev = $0 }
+        END { if (NR) print prev }' "$f" | grep -vxF "${args[@]}" > "$f.tmp" || true
+    mv "$f.tmp" "$f"
+}

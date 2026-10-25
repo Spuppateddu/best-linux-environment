@@ -1385,7 +1385,7 @@ secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate 
 | `tableplus` | [TablePlus apt repo](https://tableplus.com/linux) |
 | `megacmd` | [MEGA apt repo](https://mega.io/cmd) (`xUbuntu_<release>`) — MEGA from the terminal, scope `all`: it works over ssh on a server with no desktop. Log in once inside `mega-cmd` with `login <email>` — the one-shot `mega-login` never asks for a password, it wants it on the command line (so in your shell history) — then `mega-sync <local folder> <MEGA folder>` (a folder another account shared with you is `<their email>:<folder>`, see `mega-mount`). The module writes `~/.config/systemd/user/mega-cmd.service` and turns on linger, so `mega-cmd-server` and its syncs run from boot, not from the first `mega-*` command. The package writes its own `megaio.sources`; the module then drops its `mega.nz.list`, since two sources with different `Signed-By` keys make apt fail. **Replaces MEGAsync**: on a machine that has the MEGAsync app, it is removed with its autostart. Its syncs are not carried over — re-add them with `mega-sync` |
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
-| `fastnote` | Nothing to download: appends `alias fn=…` to `~/.<shell>/<shell>-alias.local` for zsh and bash, which creates/opens `~/fastnote.txt` in vim. Unticking removes only the lines it wrote |
+| `fastnote` | Nothing to download: appends `alias fn=…` to `aliases.local`, which `95-settings` then copies into both shells; it creates/opens `~/fastnote.txt` in vim. Unticking removes only the lines it wrote |
 | `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
 | `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
@@ -1559,9 +1559,8 @@ await chromium.connectOverCDP('http://127.0.0.1:9222')          // Playwright
 
 So that those two use **this** Chrome instead of downloading a second copy of it,
 the module appends `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to
-`~/.<shell>/<shell>-alias.local` — machine-local and gitignored, the same file
-`b-temp` lands in. Never over a value you already set, and deleting the line
-undoes it.
+`~/.<shell>/<shell>-alias.local` — machine-local and gitignored. Never over a
+value you already set, and deleting the line undoes it.
 
 If the sandbox still cannot start (a container, a machine where the AppArmor
 profile could not be written), `b-chrome` retries the run with `--no-sandbox` and

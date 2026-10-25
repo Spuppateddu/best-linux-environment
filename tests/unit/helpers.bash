@@ -11,6 +11,8 @@ setup() {
     export FAKE_DPKG="$BATS_TEST_TMPDIR/dpkg-status"
     # Every fake apt-get / sudo call lands here, one per line, for assertions.
     export FAKE_LOG="$BATS_TEST_TMPDIR/calls.log"
+    # Modules append aliases here: never the repo's own aliases.local.
+    export BLE_ALIASES_LOCAL="$BATS_TEST_TMPDIR/aliases.local"
     mkdir -p "$HOME" "$FAKE_BIN"
     : > "$FAKE_DPKG"; : > "$FAKE_LOG"
     export PATH="$FAKE_BIN:$PATH"
