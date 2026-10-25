@@ -164,6 +164,38 @@ fi
 # ── 4. Cascadia Code NF as the default for every family ──────────────────────
 # prepend_first + strong, never <alias><prefer>; not_eq qual="all" is the exception list.
 FC_CONF="$HOME/.config/fontconfig/conf.d/60-cascadia-default.conf"
+# The PDF viewers get one more exception: the PDF standard fonts. PDFs often don't
+# embed them, and the viewer then places each glyph at Helvetica's width — in
+# monospaced Cascadia the letters overlap. Let through, 30-metric-aliases.conf
+# resolves them onto URW Nimbus / Liberation, which have the same widths. Only in
+# the viewers (matched on prgname, the program's name): everywhere else, a web page
+# asking for Arial still gets Cascadia.
+PDF_VIEWERS=(okular xournalpp evince atril xreader zathura)
+PDF_FAMILIES=(Helvetica Arial Times "Times New Roman" Courier "Courier New"
+              Symbol ZapfDingbats Dingbats)
+fc_test() { printf '    <test name="%s" compare="%s" qual="all"><string>%s</string></test>\n' "$@"; }
+# The three families every program lets through. Each rule below starts with them.
+base_tests="$(fc_test family not_eq "$FONT_FAMILY")
+$(fc_test family not_eq "Noto Color Emoji")
+$(fc_test family not_eq "Noto Sans Symbols2")"
+fc_prepend="    <edit name=\"family\" mode=\"prepend_first\" binding=\"strong\">
+      <string>$FONT_FAMILY</string>
+    </edit>"
+# Everything but the viewers: tests are ANDed, so one rule with every not_eq.
+desktop_rule="  <match target=\"pattern\">
+$base_tests"
+for app in "${PDF_VIEWERS[@]}"; do desktop_rule+=$'\n'"$(fc_test prgname not_eq "$app")"; done
+desktop_rule+=$'\n'"$fc_prepend"$'\n'"  </match>"
+# The viewers: no OR in fontconfig, so one rule per viewer.
+pdf_family_tests=""
+for fam in "${PDF_FAMILIES[@]}"; do pdf_family_tests+=$'\n'"$(fc_test family not_eq "$fam")"; done
+viewer_rules=""
+for app in "${PDF_VIEWERS[@]}"; do
+    viewer_rules+="  <match target=\"pattern\">"$'\n'
+    viewer_rules+="$(fc_test prgname eq "$app")"$'\n'
+    viewer_rules+="$base_tests$pdf_family_tests"$'\n'
+    viewer_rules+="$fc_prepend"$'\n'"  </match>"$'\n'
+done
 config_write "$FC_CONF" <<XML
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
@@ -174,15 +206,11 @@ config_write "$FC_CONF" <<XML
   <!-- Every request, generic or by name, except the families listed here, which
        must reach their own font. Cascadia is monospaced, so serif, sans-serif
        and monospace all land on the same face — one rule covers the lot. -->
-  <match target="pattern">
-    <test name="family" compare="not_eq" qual="all"><string>$FONT_FAMILY</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>Noto Color Emoji</string></test>
-    <test name="family" compare="not_eq" qual="all"><string>Noto Sans Symbols2</string></test>
-    <edit name="family" mode="prepend_first" binding="strong">
-      <string>$FONT_FAMILY</string>
-    </edit>
-  </match>
+$desktop_rule
 
+  <!-- PDF viewers: the same, but the PDF standard fonts also reach their own
+       font, or PDFs that don't embed them come out with overlapping letters. -->
+$viewer_rules
 </fontconfig>
 XML
 if [[ "$CONFIG_WRITTEN" == true ]]; then
