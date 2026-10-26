@@ -55,7 +55,7 @@ for k in "${BLE_COLOR_KEYS[@]}"; do HAD[$k]="${!k}"; done
 
 # The two pairs — never equal, never the same hue. The cursor stands alone.
 roll_color_pair BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
-is_desktop && roll_color_pair BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
+roll_color_pair BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 roll_color BLE_CURSOR_COLOR
 
 ROLLED=()
@@ -83,8 +83,8 @@ else
     # rewrite a file that is yours.
     {
         printf '\n# Rolled by best-linux-environment on %s, once. Delete a line below to get a\n' "$(date '+%F')"
-        printf '# new colour for that one surface; edit it to keep the colour for good (0-255;\n'
-        printf '# the two prompt colours must differ, and so must the two i3 ones).\n'
+        printf '# new colour for that one surface; edit it to keep the colour for good (0-255\n'
+        printf '# or #rrggbb; the two prompt colours must differ, and so must the two i3 ones).\n'
         for k in "${ROLLED[@]}"; do
             printf '%s=%s   # %s — %s\n' "$k" "${!k}" "$(color_name "${!k}")" "${BLE_COLOR_WHAT[$k]}"
         done
@@ -95,7 +95,12 @@ else
     ok "Kept in ${BLE_SETTINGS_LOCAL/#$HOME/\~} — they will not change again."
 fi
 
-U256="$BLE_PROMPT_COLOR_USER"; P256="$BLE_PROMPT_COLOR_PATH"
+# Three spellings of each prompt colour, one per kind of terminal: exact
+# (truecolor, which a #rrggbb needs), xterm-256, and the eight ANSI colours.
+# For a number the exact one is the 256 one.
+UT="$(color_sgr "$BLE_PROMPT_COLOR_USER")"; PT="$(color_sgr "$BLE_PROMPT_COLOR_PATH")"
+UTZ="$BLE_PROMPT_COLOR_USER";              PTZ="$BLE_PROMPT_COLOR_PATH"
+U256="$(color_to256 "$BLE_PROMPT_COLOR_USER")"; P256="$(color_to256 "$BLE_PROMPT_COLOR_PATH")"
 # Computed once, unconditionally: section 4 wants it only when Alacritty is
 # cloned, but the shell blocks below want it on every machine, headless ones
 # included — that's what lets a machine's own colour ride an SSH session.
@@ -132,7 +137,11 @@ prompt_block_bash() {
 # lines early.
 if [[ $- == *i* ]]; then
     _ble_colors=$(tput colors 2>/dev/null || echo 0)
-    if [ "$_ble_colors" -ge 256 ]; then
+    # COLORTERM is how a terminal says it takes 24-bit colour; ssh does not pass
+    # it on, so over ssh a #rrggbb falls back to its nearest 256 colour.
+    if [[ "$COLORTERM" == truecolor || "$COLORTERM" == 24bit ]]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[1;@UT@m\]\u@\h\[\033[00m\]:\[\033[1;@PT@m\]\w\[\033[00m\]\$ '
+    elif [ "$_ble_colors" -ge 256 ]; then
         PS1='${debian_chroot:+($debian_chroot)}\[\033[1;38;5;@U256@m\]\u@\h\[\033[00m\]:\[\033[1;38;5;@P256@m\]\w\[\033[00m\]\$ '
     elif [ "$_ble_colors" -ge 8 ]; then
         # No 256-colour palette here: the nearest of the eight ANSI colours.
@@ -167,6 +176,7 @@ if [[ $- == *i* ]]; then
 fi
 BASH_BLOCK
 )"
+    b="${b//@UT@/$UT}";     b="${b//@PT@/$PT}"
     b="${b//@U256@/$U256}"; b="${b//@P256@/$P256}"
     b="${b//@U8@/$U8}";     b="${b//@P8@/$P8}"
     b="${b//@CURSOR_HEX@/$CURSOR_HEX}"
@@ -185,7 +195,10 @@ if [[ -o interactive ]]; then
   zmodload -i zsh/terminfo 2>/dev/null
   () {
     local pr_user pr_op pr_host uc pc
-    if (( ${terminfo[colors]:-0} >= 256 )); then
+    # COLORTERM: the terminal takes 24-bit colour, so a #rrggbb is exact.
+    if [[ $COLORTERM == (truecolor|24bit) ]]; then
+      uc='@UTZ@'; pc='@PTZ@'
+    elif (( ${terminfo[colors]:-0} >= 256 )); then
       uc='@U256@'; pc='@P256@'
     else
       uc='@UZ@'; pc='@PZ@'
@@ -240,6 +253,7 @@ if [[ -o interactive ]]; then
 fi
 ZSH_BLOCK
 )"
+    b="${b//@UTZ@/$UTZ}";   b="${b//@PTZ@/$PTZ}"
     b="${b//@U256@/$U256}"; b="${b//@P256@/$P256}"
     b="${b//@UZ@/$UZ}";     b="${b//@PZ@/$PZ}"
     b="${b//@CURSOR_HEX@/$CURSOR_HEX}"
@@ -468,9 +482,9 @@ elif hooked "$ALA/alacritty.toml" "colors.local.toml"; then
 # swapping dark and light without taking this colour with it.
 [colors.cursor]
 cursor = '0x$CURSOR_HEX'
-# The character the block sits on. Kept dark rather than left to Alacritty's
-# default: every colour in the palette is a bright one, so dark always reads.
-text = '0x1d2021'
+# The character the block sits on: dark on a light cursor (every colour in the
+# palette), white on a dark one you set yourself, so it always reads.
+text = '0x$(color_text_on "$BLE_CURSOR_COLOR")'
 EOF
     # Alacritty watches its own imports and re-reads them, so there is nothing
     # to reload here — the cursor changes colour in the windows already open.

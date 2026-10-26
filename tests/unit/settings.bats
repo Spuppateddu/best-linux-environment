@@ -36,13 +36,63 @@ run_settings() {
     grep -qF '#{?client_prefix,#[bg=#005f00]#[fg=#ffffff],}' "$HOME/.tmuxrc/colors.local.conf"
 }
 
-@test "95-settings: a server rolls no i3 colours and lists none" {
+@test "95-settings: a server rolls the i3 colours too, so tmux is coloured" {
+    mkdir -p "$HOME/.tmuxrc"
+    echo 'source-file -q "$HOME/.tmuxrc/colors.local.conf"' > "$HOME/.tmuxrc/config"
     BLE_PROFILE=server run_settings BLE_PROMPT_COLOR_USER=39
     [ "$status" -eq 0 ]
-    grep -q '^BLE_CURSOR_COLOR=' "$BATS_TEST_TMPDIR/settings.local"
-    [[ "$output" != *"in i3"* ]]
-    run grep -c 'BLE_I3_' "$BATS_TEST_TMPDIR/settings.local"
-    [ "$output" = 0 ]
+    grep -q '^BLE_I3_BORDER_COLOR=' "$BATS_TEST_TMPDIR/settings.local"
+    grep -q '^BLE_I3_UNFOCUSED_COLOR=' "$BATS_TEST_TMPDIR/settings.local"
+    grep -q '^set -g mode-style "bg=#' "$HOME/.tmuxrc/colors.local.conf"
+    grep -qF '#{?client_prefix,#[bg=#' "$HOME/.tmuxrc/colors.local.conf"
+}
+
+@test "95-settings: a #rrggbb colour lands as is in i3 and tmux" {
+    mkdir -p "$HOME/.tmuxrc"
+    echo 'source-file -q "$HOME/.tmuxrc/colors.local.conf"' > "$HOME/.tmuxrc/config"
+    run_settings BLE_I3_BORDER_COLOR=#0F3D7C BLE_I3_UNFOCUSED_COLOR=178
+    [ "$status" -eq 0 ]
+    grep -qx 'client.focused          #0f3d7c #0f3d7c #ffffff #0f3d7c #0f3d7c' "$HOME/.i3rc/06-colors.local"
+    grep -qx 'set -g mode-style "bg=#0f3d7c,fg=#ffffff"' "$HOME/.tmuxrc/colors.local.conf"
+    # Set by hand, so nothing is rolled over it.
+    [ "$(grep -c '^BLE_I3_BORDER_COLOR=' "$BATS_TEST_TMPDIR/settings.local")" -eq 1 ]
+}
+
+@test "95-settings: a #rrggbb cursor lands as is, with readable text on it" {
+    mkdir -p "$HOME/.alacritty"
+    printf 'import = ["~/.alacritty/colors.local.toml"]\n' > "$HOME/.alacritty/alacritty.toml"
+    run_settings BLE_CURSOR_COLOR=#0f3d7c
+    [ "$status" -eq 0 ]
+    grep -qx "cursor = '0x0f3d7c'" "$HOME/.alacritty/colors.local.toml"
+    grep -qx "text = '0xffffff'" "$HOME/.alacritty/colors.local.toml"
+}
+
+@test "95-settings: a #rrggbb prompt is exact on truecolor, the nearest 256 elsewhere" {
+    mkdir -p "$HOME/.bash" "$HOME/.zsh"; touch "$HOME/.bash/bashrc" "$HOME/.zsh/zshrc"
+    run_settings BLE_PROMPT_COLOR_USER=#0f3d7c BLE_PROMPT_COLOR_PATH=178
+    [ "$status" -eq 0 ]
+    b="$HOME/.bash/bash-ble.local"; z="$HOME/.zsh/zsh-ble.local"
+    grep -qF '\033[1;38;2;15;61;124m\]\u@\h' "$b"
+    grep -qF '\033[1;38;5;24m\]\u@\h' "$b"     # #0f3d7c's nearest of the 256
+    grep -qF '\033[1;38;5;178m\]\w' "$b"        # a number is the same either way
+    grep -qF "uc='#0f3d7c'; pc='178'" "$z"
+    grep -qF "uc='24'; pc='178'" "$z"
+    bash -n "$b"
+}
+
+@test "95-settings: a colour that is neither 0-255 nor #rrggbb is warned about and rolled" {
+    run_settings BLE_CURSOR_COLOR=#12345
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"not a number 0-255 or a #rrggbb colour"* ]]
+    grep -q '^BLE_CURSOR_COLOR=[0-9]' "$BATS_TEST_TMPDIR/settings.local"
+}
+
+@test "95-settings: a number and the hex it paints count as the same colour" {
+    # 24 paints #005f87: the two prompt colours would be one.
+    run_settings BLE_PROMPT_COLOR_USER=24 BLE_PROMPT_COLOR_PATH=#005f87
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"they must differ"* ]]
+    [ "$(grep '^BLE_PROMPT_COLOR_PATH=' "$BATS_TEST_TMPDIR/settings.local" | tail -1)" != 'BLE_PROMPT_COLOR_PATH=#005f87' ]
 }
 
 # fake_desktop_mode [BODY]  — a desktop_mode.sh whose flag is the 90- file, as

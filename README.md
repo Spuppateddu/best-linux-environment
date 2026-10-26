@@ -343,11 +343,11 @@ never the run.
 | --- | --- | --- |
 | `BLE_AGENT` | the coding agent `$mod+c` opens, as a new window of a tmux session named after it — `claude`, `opencode`, `codex`… arguments allowed. Seeded with whichever of those is actually installed | `~/.i3rc/05-agent.local` → `set $agent` |
 | `BLE_AGENT_DESK` | the folder it opens in, created if missing. Its own folder, never `$HOME`: an agent asks you to trust the directory it starts in | `~/.i3rc/05-agent.local` → `set $agent_desk`, and `$BLE_AGENT_DESK` in both shells |
-| `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
-| `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255) | the same two files |
-| `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
-| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255) | `~/.i3rc/06-colors.local` → `client.focused`; also tmux's list highlight (prefix+s/w, copy-mode) and session name, `~/.tmuxrc/colors.local.conf` → `mode-style`, `status-left` |
-| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also tmux's session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `status-left` |
+| `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255 or `#rrggbb`) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
+| `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255 or `#rrggbb`) | the same two files |
+| `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255 or `#rrggbb`) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
+| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255 or `#rrggbb`) | `~/.i3rc/06-colors.local` → `client.focused`; also tmux's list highlight (prefix+s/w, copy-mode) and session name, `~/.tmuxrc/colors.local.conf` → `mode-style`, `status-left` |
+| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255 or `#rrggbb`), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also tmux's session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `status-left` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
@@ -388,12 +388,12 @@ it:
 
 ```
 # Rolled by best-linux-environment on 2026-08-25, once. Delete a line below to get a
-# new colour for that one surface; edit it to keep the colour for good (0-255;
-# the two prompt colours must differ, and so must the two i3 ones).
+# new colour for that one surface; edit it to keep the colour for good (0-255
+# or #rrggbb; the two prompt colours must differ, and so must the two i3 ones).
 BLE_PROMPT_COLOR_USER=141   # violet — user@host in the prompt
 BLE_PROMPT_COLOR_PATH=48    # spring green — the current folder in the prompt
-BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3
-BLE_I3_UNFOCUSED_COLOR=172  # orange — the unfocused windows in i3
+BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3, tmux's session name
+BLE_I3_UNFOCUSED_COLOR=172  # orange — the unfocused windows in i3, tmux's prefix
 BLE_CURSOR_COLOR=214        # amber — the terminal cursor
 ```
 
@@ -410,7 +410,7 @@ Five surfaces, one palette of twenty xterm-256 colours across six families:
 | `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
 | `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
 | `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator; tmux's list highlight and session name | the **focused** class; the picked row of prefix+s/w, the bottom-left label |
-| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
+| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator; tmux's session name while prefix is held | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
 
 The two prompt colours can never come out the same. They cannot even come out
 the same *hue*: the roll refuses a second colour whose nearest ANSI colour
@@ -418,6 +418,19 @@ matches the first, so you never get two greens two shades apart. The two i3
 colours follow the same rule, for the same reason. The cursor has no such rule —
 it lands on a surface of its own, with nothing to be different from. Delete a
 line to roll that one again; set it by hand to keep it.
+
+A server rolls all five too. It has no i3, but the two i3 colours also paint
+tmux, and tmux runs on every machine.
+
+**Any colour, not only the 256.** A colour you set by hand can be an xterm
+number (0-255) or an exact `#rrggbb`, such as `BLE_I3_BORDER_COLOR=#0f3d7c`.
+i3, tmux, the Alacritty cursor and the cursor sent over SSH take the hex as it
+is. The prompt takes it exactly where the terminal says it can show 24-bit
+colour (`COLORTERM=truecolor`, which Alacritty sets); anywhere else — ssh does
+not pass `COLORTERM` on — it shows the nearest of the 256 colours, and on an
+8-colour terminal the nearest of those. A roll still picks from the twenty
+numbers, and the two pairs still must differ in hue: a hex is compared by its
+nearest ANSI colour, the same way a number is.
 
 **Rolling them all again.** `./setup.sh` asks, once it has something to keep:
 *keep them* (the default) or *roll them all again*. The second answer deletes
@@ -1722,9 +1735,10 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | `settings_fill` | append to an existing `settings.local` each live key of the example it lacks, with its comments; a commented-out key counts as there |
 | `roll_prompt_colors` | pick the two prompt colours, once — never equal, never the same hue family |
 | `roll_color` | pick one colour for a surface of its own (the terminal cursor, the i3 window) — no pairing rule |
-| `BLE_COLOR_KEYS` | every key holding an xterm-256 colour: validated, rolled and written back together |
+| `BLE_COLOR_KEYS` | every key holding a colour (xterm-256 number or `#rrggbb`): validated, rolled and written back together |
 | `color_name` / `color_fallback8` / `color_zsh_name` | a colour's word, its nearest ANSI colour for an 8-colour terminal, and zsh's spelling of that |
-| `color_hex` | the `rrggbb` an xterm-256 number paints, prefix-less — `#` for i3, `0x` for Alacritty |
+| `color_hex` | the `rrggbb` an xterm-256 number paints (a `#rrggbb` comes back as is), prefix-less — `#` for i3, `0x` for Alacritty |
+| `color_to256` / `color_sgr` | a colour as its nearest xterm-256 number, and as the SGR parameters that paint it (`38;5;N` or `38;2;R;G;B`) |
 
 | `lib/registry.sh` | What it does |
 | --- | --- |

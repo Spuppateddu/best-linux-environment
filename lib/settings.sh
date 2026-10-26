@@ -30,15 +30,15 @@ BLE_SETTING_KEYS=(
 # read, so a module tests one spelling and you may write any of the usual ones.
 BLE_BOOL_KEYS=(BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_IDLE_POWEROFF)
 
-# Every key above that holds an xterm-256 colour. Validated together, rolled
+# Every key above that holds a colour: an xterm-256 number, or a #rrggbb you set. Validated together, rolled
 # together, and written back into settings.local together — so adding a colour
 # to a new surface is one line here and one write in basic/95-settings.sh.
 BLE_COLOR_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
 )
-# A server has no i3: its two colours are never rolled, written back or shown.
-is_server && BLE_COLOR_KEYS=(BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH BLE_CURSOR_COLOR)
+# The two i3 colours are rolled on a server too: tmux paints its session name
+# and list highlight with them, and tmux runs everywhere.
 
 # What each colour paints, for the comment written beside it in settings.local
 # and for the list printed at the end of a run. One line per key above.
@@ -46,8 +46,8 @@ declare -A BLE_COLOR_WHAT=(
     [BLE_PROMPT_COLOR_USER]="user@host in the prompt"
     [BLE_PROMPT_COLOR_PATH]="the current folder in the prompt"
     [BLE_CURSOR_COLOR]="the terminal cursor"
-    [BLE_I3_BORDER_COLOR]="the focused window in i3"
-    [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3"
+    [BLE_I3_BORDER_COLOR]="the focused window in i3, tmux's session name"
+    [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3, tmux's prefix"
 )
 
 BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
@@ -119,8 +119,10 @@ settings_validate() {
     for k in "${BLE_COLOR_KEYS[@]}"; do
         v="${!k}"
         [[ -z "$v" ]] && continue
-        if [[ ! "$v" =~ ^[0-9]+$ ]] || (( v > 255 )); then
-            warn "settings.local: '$k=$v' is not a number 0-255 — ignoring it."
+        if [[ "$v" =~ ^#[0-9a-fA-F]{6}$ ]]; then
+            printf -v "$k" '%s' "${v,,}"
+        elif [[ ! "$v" =~ ^[0-9]+$ ]] || (( 10#$v > 255 )); then
+            warn "settings.local: '$k=$v' is not a number 0-255 or a #rrggbb colour — ignoring it."
             printf -v "$k" '%s' ""
         fi
     done
@@ -182,8 +184,10 @@ settings_validate() {
     fi
 
     # Equal colours are the one thing the prompt must never have: user@host and
-    # the path would run together into one unreadable line.
-    if [[ -n "$BLE_PROMPT_COLOR_USER" && "$BLE_PROMPT_COLOR_USER" == "$BLE_PROMPT_COLOR_PATH" ]]; then
+    # the path would run together into one unreadable line. Compared as hex, so
+    # 24 and #005f87 count as the same colour.
+    if [[ -n "$BLE_PROMPT_COLOR_USER" && -n "$BLE_PROMPT_COLOR_PATH" &&
+          "$(color_hex "$BLE_PROMPT_COLOR_USER")" == "$(color_hex "$BLE_PROMPT_COLOR_PATH")" ]]; then
         warn "settings.local: both prompt colours are $BLE_PROMPT_COLOR_USER — they must differ."
         warn "Dropping BLE_PROMPT_COLOR_PATH; a new one is rolled for you."
         BLE_PROMPT_COLOR_PATH=""
@@ -191,7 +195,8 @@ settings_validate() {
 
     # Same rule for the two i3 classes: painted alike, no window would tell you
     # which one has the keyboard, and that is the only reason they are coloured.
-    if [[ -n "$BLE_I3_BORDER_COLOR" && "$BLE_I3_BORDER_COLOR" == "$BLE_I3_UNFOCUSED_COLOR" ]]; then
+    if [[ -n "$BLE_I3_BORDER_COLOR" && -n "$BLE_I3_UNFOCUSED_COLOR" &&
+          "$(color_hex "$BLE_I3_BORDER_COLOR")" == "$(color_hex "$BLE_I3_UNFOCUSED_COLOR")" ]]; then
         warn "settings.local: both i3 window colours are $BLE_I3_BORDER_COLOR — they must differ."
         warn "Dropping BLE_I3_UNFOCUSED_COLOR; a new one is rolled for you."
         BLE_I3_UNFOCUSED_COLOR=""
@@ -232,14 +237,47 @@ BLE_PROMPT_PALETTE_NAME=(
     orange rose gold tan "bright orange" amber salmon "steel blue" teal orchid yellow
 )
 
-# color_name N  — the palette's word for a colour, or its number when you chose
-# one yourself. Only ever used in a comment, so an unknown number is no error.
+# color_name N  — the palette's word for a colour, its number when you chose
+# one yourself, or the #rrggbb as written. Only ever used in a comment, so an
+# unknown number is no error.
 color_name() {
     local i
+    [[ "$1" == \#* ]] && { printf '%s' "$1"; return 0; }
     for i in "${!BLE_PROMPT_PALETTE[@]}"; do
         [[ "${BLE_PROMPT_PALETTE[$i]}" == "$1" ]] && { printf '%s' "${BLE_PROMPT_PALETTE_NAME[$i]}"; return 0; }
     done
     printf 'colour %s' "$1"
+}
+
+# color_to256 C  — C as an xterm-256 number: a number stays itself, a #rrggbb
+# becomes the nearest colour of the 6x6x6 cube or the grey ramp, whichever is
+# closer. For a terminal with 256 colours but no truecolor, and for the 8-colour
+# fallback below, which only knows numbers.
+color_to256() {
+    local c="$1" r g b ri gi bi cr cg cb grey gi_ d_cube d_grey i
+    [[ "$c" == \#* ]] || { printf '%s' "$c"; return 0; }
+    local cube=(0 95 135 175 215 255)
+    r=$(( 16#${c:1:2} )); g=$(( 16#${c:3:2} )); b=$(( 16#${c:5:2} ))
+    # Nearest cube step per channel: the steps are 0, then 95 + 40k.
+    for i in r g b; do
+        local v="${!i}" k
+        if (( v < 48 )); then k=0; elif (( v < 115 )); then k=1; else k=$(( (v - 35) / 40 )); fi
+        (( k > 5 )) && k=5
+        printf -v "${i}i" '%s' "$k"
+    done
+    cr="${cube[$ri]}"; cg="${cube[$gi]}"; cb="${cube[$bi]}"
+    d_cube=$(( (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2 ))
+    # Nearest grey of the ramp: 8 + 10n, n 0-23.
+    gi_=$(( ((r + g + b) / 3 - 3) / 10 ))
+    (( gi_ < 0 )) && gi_=0
+    (( gi_ > 23 )) && gi_=23
+    grey=$(( 8 + 10 * gi_ ))
+    d_grey=$(( (r - grey) ** 2 + (g - grey) ** 2 + (b - grey) ** 2 ))
+    if (( d_grey < d_cube )); then
+        printf '%s' "$(( 232 + gi_ ))"
+    else
+        printf '%s' "$(( 16 + 36 * ri + 6 * gi + bi ))"
+    fi
 }
 
 # color_fallback8 N  — the nearest of the eight ANSI colours (31-37), for a
@@ -247,7 +285,8 @@ color_name() {
 # arithmetic rather than a table: split the index into r,g,b 0-5 and keep the
 # channels at half brightness or more.
 color_fallback8() {
-    local n="$1" c r g b bits
+    local n c r g b bits
+    n="$(color_to256 "$1")"
     if (( n < 16 )); then
         # The sixteen basic colours are already ANSI ones; 8-15 are the bright
         # halves of the same eight.
@@ -286,6 +325,7 @@ color_zsh_name() {
 
 # color_hex N  — the rrggbb an xterm-256 number actually paints, with no prefix:
 # i3 wants '#d787af' and Alacritty wants '0xd787af', so the caller adds its own.
+# A #rrggbb you set is already that, and comes back without its '#'.
 # The 16-231 cube is regular, so that range is arithmetic; the sixteen basic
 # colours are a table nothing can derive, and 232-255 is an even grey ramp.
 color_hex() {
@@ -295,6 +335,7 @@ color_hex() {
         808080 ff0000 00ff00 ffff00 0000ff ff00ff 00ffff ffffff
     )
     local cube=(0 95 135 175 215 255)
+    [[ "$n" == \#* ]] && { printf '%s' "${n#\#}"; return 0; }
     if (( n < 16 )); then printf '%s' "${basic[$n]}"; return 0; fi
     if (( n >= 232 )); then
         r=$(( 8 + 10 * (n - 232) ))
@@ -320,7 +361,18 @@ color_text_on() {
 # nothing on one that has not, so a log file does not fill with escapes.
 color_swatch() {
     [[ -n "$C_OFF" ]] || return 0
-    printf '\033[48;5;%sm    \033[0m' "$1"
+    printf '\033[%sm    \033[0m' "$(color_sgr "$1" 48)"
+}
+
+# color_sgr C [38|48]  — the SGR parameters that paint C, foreground (38, the
+# default) or background (48): '38;5;N' for a number, '38;2;R;G;B' for a #rrggbb.
+color_sgr() {
+    local c="$1" layer="${2:-38}"
+    if [[ "$c" == \#* ]]; then
+        printf '%s;2;%d;%d;%d' "$layer" "$(( 16#${c:1:2} ))" "$(( 16#${c:3:2} ))" "$(( 16#${c:5:2} ))"
+    else
+        printf '%s;5;%s' "$layer" "$c"
+    fi
 }
 
 # settings_show_colors  — every colour, one per line, with its swatch, number,

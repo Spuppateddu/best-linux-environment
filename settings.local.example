@@ -34,7 +34,8 @@ BLE_AGENT_DESK=~/agent-desk
 
 
 # ── The colours ──────────────────────────────────────────────────────────────
-# Five xterm-256 colours (0-255), one per surface. Every one of them is left out
+# Five colours, one per surface: an xterm-256 number (0-255) or an exact
+# #rrggbb (e.g. #0f3d7c). Every one of them is left out
 # on purpose: the first run ROLLS them for you and writes them in at the bottom
 # of this file, so nothing changes under you afterwards and every PC ends up
 # looking like itself. DELETE A LINE DOWN THERE AND RE-RUN TO ROLL THAT ONE
@@ -46,9 +47,14 @@ BLE_AGENT_DESK=~/agent-desk
 #                           SSH via OSC 12, so the cursor shows whichever
 #                           machine's colour you are logged into (falls back
 #                           to your local colour on a box without this repo)
-#   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3
+#   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3;
+#                           in tmux, the session name (bottom left) and the
+#                           picked row of prefix+s/w and copy mode
 #   BLE_I3_UNFOCUSED_COLOR  every other window's border and title bar in i3,
-#                           in the floating desktop — tiled, they stay grey
+#                           in the floating desktop — tiled, they stay grey;
+#                           in tmux, the session name while prefix is held
+#
+# A server rolls all five too: it has no i3, but it has tmux.
 #
 # The two prompt colours must differ, and are rolled so they differ in HUE and
 # not merely in number — telling the machine from the path is the point of
