@@ -1228,7 +1228,7 @@ And it will not power off **at all** while:
   systems that still keep `utmp`;
 - a systemd `block` inhibitor is holding shutdown, which is the clean way to
   protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
-- `b-idle off` is in force, or `ENABLED=false` is set in the config.
+- a `b-idle off` hold is in force, or `ENABLED=false` is set in the config.
 
 To turn it off for good on one machine, set `BLE_IDLE_POWEROFF=false` in
 `settings.local` and run `./setup.sh`: the timer is stopped and disabled, and
@@ -1267,14 +1267,31 @@ Day to day you only ever type `b-idle`. It is a **script** in `~/.local/bin`,
 not a shell function, so zsh and bash both get it from the same single file:
 
 ```sh
-b-idle          # what it sees right now, and how close it is to powering off
-b-idle off      # hold it off until the next reboot
-b-idle on       # release that hold
-b-idle log      # what it has actually done, from the journal
+b-idle               # what it sees right now, and how close it is to powering off
+b-idle off NAME      # hold it off until `b-idle on NAME` or the next reboot
+b-idle on NAME       # release that hold; it powers off on its own once idle again
+b-idle on            # release every hold
+b-idle holds         # list the holds in force, who made them and when
+b-idle log           # what it has actually done, from the journal
 ```
 
-`off` writes into `/run`, a tmpfs, so it cannot outlive a reboot and leave a
-machine that silently never powers off again.
+A hold is for work the checks above cannot see: a job with little CPU, no
+terminal and no ssh session open, such as an agent on another machine that
+drives this one over short ssh calls. `off` and `on` need **no sudo**, so that
+agent can run them over ssh with no password prompt:
+
+```sh
+ssh odissea b-idle off music-scan    # at the start of the job
+ssh odissea b-idle on music-scan     # at the end
+```
+
+Give each job its own name (letters, digits, `.`, `_`, `-`; `manual` if you
+leave it out). The machine stays up while **any** hold is left, so ending one
+job never cuts off another one still running. Each hold is a file in
+`/run/idle-poweroff/holds/`, a sticky directory everybody can write to, like
+`/tmp`: you can only remove your own holds, and `b-idle on` with no name falls
+back to sudo for anybody else's. `/run` is a tmpfs, so a forgotten hold cannot
+outlive a reboot and leave a machine that silently never powers off again.
 
 ### Only one thing may power the machine off
 

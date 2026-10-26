@@ -7,19 +7,26 @@ usage() {
     cat <<'EOF'
 b-idle — the timer that powers this machine off once nobody is using it.
 
-Usage: b-idle [status|off|on|log]
-  status   what it sees right now, and how close it is to powering off
-  off      hold it off until the next reboot
-  on       release that hold
-  log      what it has actually done, from the journal
+Usage: b-idle [status|off [NAME]|on [NAME]|holds|log]
+  status     what it sees right now, and how close it is to powering off
+  off NAME   hold it off until `b-idle on NAME` or the next reboot (no sudo)
+  on NAME    release that hold; the machine then powers off on its own once idle
+  on         release every hold, yours and anybody else's
+  holds      list the holds in force
+  log        what it has actually done, from the journal
 
-`off` lives in /run, a tmpfs, so it cannot outlive a reboot.
+NAME is letters, digits, `.`, `_` and `-`; it defaults to `manual`. Name each
+job, so ending one job never releases the hold of another still running:
+  b-idle off music-scan && ./scan.sh; b-idle on music-scan
+
+Holds live in /run, a tmpfs, so they cannot outlive a reboot.
 EOF
 }
 
-BIN=/usr/local/sbin/idle-poweroff
-STATE=/run/idle-poweroff
+BIN=${IDLE_POWEROFF_BIN:-/usr/local/sbin/idle-poweroff}
+STATE=${IDLE_POWEROFF_STATE_DIR:-/run/idle-poweroff}
 FLAG="$STATE/disabled"
+HOLDS="$STATE/holds"
 
 if [ ! -x "$BIN" ]; then
     printf 'b-idle: idle-poweroff is not installed on this machine.\n' >&2
@@ -40,12 +47,64 @@ status() {
     fi
 }
 
+# The name becomes a file name in a directory everybody can write to.
+hold_name() {
+    case "$1" in
+        ''|.|..|*[!A-Za-z0-9._-]*)
+            printf 'b-idle: bad hold name %s — use letters, digits, ., _ and -\n' "'$1'" >&2
+            return 1 ;;
+    esac
+}
+
+# The timer makes the holds directory on every tick, so sudo is only needed in
+# the first minute after a boot, or where the timer is older than holds.
+hold() {
+    local name=$1
+    if [ ! -d "$HOLDS" ] || [ ! -w "$HOLDS" ]; then
+        as_root mkdir -p "$HOLDS" && as_root chmod 1777 "$HOLDS" || return 1
+    fi
+    printf '%s %s\n' "$(date '+%F %T')" "$(id -un)" > "$HOLDS/$name" || return 1
+    printf 'idle-poweroff: held off by %s until `b-idle on %s` or the next reboot.\n' "$name" "$name"
+}
+
+release() {
+    local name=$1
+    [ -e "$HOLDS/$name" ] || [ -L "$HOLDS/$name" ] || {
+        printf 'idle-poweroff: no hold called %s.\n' "$name"; return 0; }
+    # Another user's file in the sticky directory needs root to remove.
+    rm -f "$HOLDS/$name" 2>/dev/null || as_root rm -f "$HOLDS/$name" || return 1
+    printf 'idle-poweroff: hold %s released.\n' "$name"
+}
+
+release_all() {
+    local f left=false
+    for f in "$HOLDS"/* "$FLAG"; do
+        [ -e "$f" ] || [ -L "$f" ] || continue
+        rm -f "$f" 2>/dev/null || left=true
+    done
+    if [ "$left" = true ]; then
+        as_root sh -c 'rm -f "$1"/* "$2"' sh "$HOLDS" "$FLAG" || return 1
+    fi
+    printf 'idle-poweroff: every hold released, active again.\n'
+}
+
+list_holds() {
+    local f found=false
+    for f in "$HOLDS"/*; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        found=true
+        printf '%-24s since %s\n' "${f##*/}" "$(cat "$f" 2>/dev/null)"
+    done
+    [ -e "$FLAG" ] && { found=true; printf '%-24s (old-style b-idle off)\n' disabled; }
+    [ "$found" = true ] || printf 'no holds\n'
+}
+
 case "${1:-status}" in
     status) status ;;
-    off)    as_root mkdir -p "$STATE" && as_root touch "$FLAG" &&
-            printf 'idle-poweroff: held off until the next reboot.\n' ;;
-    on)     as_root rm -f "$FLAG" && printf 'idle-poweroff: active again.\n' ;;
+    off)    name=${2:-manual}; hold_name "$name" && hold "$name" ;;
+    on)     if [ -n "${2:-}" ]; then hold_name "$2" && release "$2"; else release_all; fi ;;
+    holds)  list_holds ;;
     log)    journalctl -t idle-poweroff -n 30 --no-pager ;;
     -h|--help) usage ;;
-    *)      printf 'usage: b-idle [status|off|on|log]\n' >&2; exit 2 ;;
+    *)      printf 'usage: b-idle [status|off [NAME]|on [NAME]|holds|log]\n' >&2; exit 2 ;;
 esac

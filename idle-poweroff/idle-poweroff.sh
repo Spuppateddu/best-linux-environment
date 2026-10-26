@@ -69,12 +69,16 @@ CONF=/etc/idle-poweroff.conf
 [ -r "$CONF" ] && . "$CONF"
 
 # /run is a tmpfs: the headless counter restarts at boot and `b-idle off` cannot
-# outlive a reboot. Both are deliberate.
-STATE_DIR=/run/idle-poweroff
+# outlive a reboot. Both are deliberate. The override exists for the unit tests.
+STATE_DIR=${IDLE_POWEROFF_STATE_DIR:-/run/idle-poweroff}
 IDLE_SINCE="$STATE_DIR/idle-since"
 SSH_LAST="$STATE_DIR/ssh-last"
 WARNED="$STATE_DIR/warned"
 DISABLED="$STATE_DIR/disabled"
+# One file per hold, `b-idle off NAME`. Sticky and world-writable, like /tmp, so
+# an agent can hold the machine over ssh without sudo — and can only release the
+# holds it made itself.
+HOLDS="$STATE_DIR/holds"
 
 MODE=act
 case "${1:-}" in
@@ -411,6 +415,22 @@ x_idle() {
     printf '%s\n' $(( ms / 1000 ))
 }
 
+# The names of the `b-idle off NAME` holds, space-separated; fails when none.
+# Only plain files count: anyone can write there, so a symlink is never followed.
+held_by() {
+    local f names=""
+    for f in "$HOLDS"/*; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        names="$names${names:+ }${f##*/}"
+    done
+    [ -n "$names" ] && printf '%s\n' "$names"
+}
+
+# Made here, by root, on every tick, so it exists a minute after any boot.
+if [ "$(id -u)" = 0 ]; then
+    mkdir -p "$HOLDS" 2>/dev/null && chmod 1777 "$HOLDS" 2>/dev/null
+fi
+
 # ── Collect the checks ───────────────────────────────────────────────────────
 # "idle:limit:description" — every check must pass its own limit.
 CHECKS=()
@@ -423,6 +443,8 @@ if [ "$ENABLED" != true ]; then
     BLOCKED="disabled in $CONF"
 elif [ -e "$DISABLED" ]; then
     BLOCKED="disabled until reboot (b-idle off)"
+elif holds=$(held_by); then
+    BLOCKED="held until reboot or b-idle on ($holds)"
 elif [ "$UPTIME_SECS" -lt "$MIN_UPTIME_SECS" ]; then
     BLOCKED="up for only $(human "$UPTIME_SECS") — the first $(human "$MIN_UPTIME_SECS") after a boot are always granted"
 elif load_high; then
