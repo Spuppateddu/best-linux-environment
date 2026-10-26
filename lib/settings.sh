@@ -46,8 +46,8 @@ declare -A BLE_COLOR_WHAT=(
     [BLE_PROMPT_COLOR_USER]="user@host in the prompt"
     [BLE_PROMPT_COLOR_PATH]="the current folder in the prompt"
     [BLE_CURSOR_COLOR]="the terminal cursor"
-    [BLE_I3_BORDER_COLOR]="the focused window in i3, tmux's session name"
-    [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3, tmux's prefix"
+    [BLE_I3_BORDER_COLOR]="the focused window in i3, the current workspace and tmux tab"
+    [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3, tmux's session name"
 )
 
 BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""

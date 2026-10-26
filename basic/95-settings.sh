@@ -505,8 +505,9 @@ opacity = $BLE_TERMINAL_OPACITY
 EOF
 fi
 
-# ── 4c. tmux: the list highlight, in i3's focused colour ─────────────────────
+# ── 4c. tmux: every focused thing in i3's focused colour ─────────────────────
 # mode-style paints the picked row of prefix+s/w and the copy-mode selection.
+# The current tab and pane match it; the session name takes the unfocused one.
 TMUXRC="$HOME/.tmuxrc"
 if [[ ! -d "$TMUXRC" ]]; then
     skip "${TMUXRC/#$HOME/\~} not cloned yet — no tmux highlight to set (./setup.sh clones it)."
@@ -514,15 +515,19 @@ elif [[ -z "$BLE_I3_BORDER_COLOR" ]]; then
     drop_gen "$TMUXRC/colors.local.conf" "~/.tmuxrc/config"
     CHANGED_TMUX="$GEN_CHANGED"
 elif hooked "$TMUXRC/config" "colors.local.conf"; then
-    PREFIX_STYLE="#[bg=#D79921]"
+    FOCUS_STYLE="#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]"
+    SESSION_STYLE="#[bg=#D79921]"
     [[ -n "$BLE_I3_UNFOCUSED_COLOR" ]] &&
-        PREFIX_STYLE="#[bg=#$(color_hex "$BLE_I3_UNFOCUSED_COLOR")]#[fg=#$(color_text_on "$BLE_I3_UNFOCUSED_COLOR")]"
+        SESSION_STYLE="#[bg=#$(color_hex "$BLE_I3_UNFOCUSED_COLOR")]#[fg=#$(color_text_on "$BLE_I3_UNFOCUSED_COLOR")]"
     write_gen "$TMUXRC/colors.local.conf" <<EOF
-# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR.
+# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR.
 # Do NOT edit: every run rewrites it. Change it in ${BLE_ROOT/#$HOME/\~}/settings.local.
 set -g mode-style "bg=#$(color_hex "$BLE_I3_BORDER_COLOR"),fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")"
-# The session name, bottom left — its group's, so every terminal shows the hostname, not <host>-2: dracula's own format, our colour. i3's unfocused one while prefix is held.
-set -g status-left "#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")]#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#{?client_prefix,$PREFIX_STYLE,} #{?session_group,#{session_group},#{session_name}} "
+# The current tab and pane: i3's focused colour. The format is dracula's, as tab_format.sh leaves it.
+set -g window-status-current-format "#[fg=#$(color_text_on "$BLE_I3_BORDER_COLOR")]#[bg=#$(color_hex "$BLE_I3_BORDER_COLOR")] #I#{?#{@name_hidden},, #W} "
+set -g pane-active-border-style 'fg=#$(color_hex "$BLE_I3_BORDER_COLOR"),bold'
+# The session name, bottom left — its group's, so every terminal shows the hostname, not <host>-2. i3's unfocused colour, the focused one while prefix is held.
+set -g status-left "$SESSION_STYLE#{?client_prefix,$FOCUS_STYLE,} #{?session_group,#{session_group},#{session_name}} "
 EOF
     CHANGED_TMUX="$GEN_CHANGED"
 fi
@@ -599,6 +604,16 @@ EOF
                 warn "Could not paint the top bar $BLE_BAR_COLOR."
             fi
         fi
+    fi
+
+    # The current workspace on the bar, in the focused window's colour. A running
+    # eww does not see a changed import: section 8 reloads it.
+    if hooked "$I3/eww/eww.scss" "focus.local.scss"; then
+        write_gen "$I3/eww/focus.local.scss" <<EOF
+// Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR. Do NOT edit.
+.ws.focused { background: #$(color_hex "$BLE_I3_BORDER_COLOR"); color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
+EOF
+        CHANGED_BAR_STYLE="$GEN_CHANGED"
     fi
 
     # The desktop mode. desktop_mode.sh owns it, 90-tiling-mode.local is its flag;
@@ -779,6 +794,12 @@ if [[ "${CHANGED_BAR:-false}" == true && -n "${DISPLAY:-}" && -x "$I3/scripts/la
     "$I3/scripts/launch_eww.sh" >/dev/null 2>&1 \
         && ok "Top bar: $([[ "$BLE_I3_BAR" == main ]] && printf 'the primary monitor only.' || printf 'one per monitor.')" \
         || warn "Could not re-open the bar — \$mod+Shift+b twice does it."
+fi
+
+# A new style only reaches a running bar on `eww reload`; no bar, nothing to do.
+if [[ "${CHANGED_BAR_STYLE:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd eww; then
+    eww -c "$I3/eww" reload >/dev/null 2>&1 && ok "Top bar reloaded — new workspace colour." \
+        || skip "No top bar running — it takes the new colour when it opens."
 fi
 
 # Firefox reads its prefs out of the profile, and only its own install.sh puts

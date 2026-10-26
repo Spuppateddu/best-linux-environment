@@ -47,12 +47,14 @@ BLE_AGENT_DESK=~/agent-desk
 #                           SSH via OSC 12, so the cursor shows whichever
 #                           machine's colour you are logged into (falls back
 #                           to your local colour on a box without this repo)
-#   BLE_I3_BORDER_COLOR     the focused window's border and title bar in i3;
-#                           in tmux, the session name (bottom left) and the
-#                           picked row of prefix+s/w and copy mode
+#   BLE_I3_BORDER_COLOR     every focused thing: the focused window's border
+#                           and title bar in i3, the current workspace on the
+#                           top bar; in tmux, the current tab, the active pane
+#                           border, the picked row of prefix+s/w and copy mode,
+#                           and the session name while prefix is held
 #   BLE_I3_UNFOCUSED_COLOR  every other window's border and title bar in i3,
 #                           in the floating desktop — tiled, they stay grey;
-#                           in tmux, the session name while prefix is held
+#                           in tmux, the session name (bottom left)
 #
 # A server rolls all five too: it has no i3, but it has tmux.
 #

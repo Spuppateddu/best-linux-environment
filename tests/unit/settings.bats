@@ -31,9 +31,25 @@ run_settings() {
     run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
     [ "$status" -eq 0 ]
     grep -qx 'set -g mode-style "bg=#8700d7,fg=#ffffff"' "$HOME/.tmuxrc/colors.local.conf"
-    grep -qF 'status-left "#[bg=#8700d7]#[fg=#ffffff]' "$HOME/.tmuxrc/colors.local.conf"
-    # Prefix held: i3's unfocused colour (22, dark green), white text on it.
-    grep -qF '#{?client_prefix,#[bg=#005f00]#[fg=#ffffff],}' "$HOME/.tmuxrc/colors.local.conf"
+}
+
+@test "95-settings: tmux's current window and pane take i3's focused colour" {
+    mkdir -p "$HOME/.tmuxrc"
+    echo 'source-file -q "$HOME/.tmuxrc/colors.local.conf"' > "$HOME/.tmuxrc/config"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    grep -qx 'set -g window-status-current-format "#\[fg=#ffffff\]#\[bg=#8700d7\] #I#{?#{@name_hidden},, #W} "' \
+        "$HOME/.tmuxrc/colors.local.conf"
+    grep -qx "set -g pane-active-border-style 'fg=#8700d7,bold'" "$HOME/.tmuxrc/colors.local.conf"
+}
+
+@test "95-settings: tmux's session name takes i3's unfocused colour, the focused one under prefix" {
+    mkdir -p "$HOME/.tmuxrc"
+    echo 'source-file -q "$HOME/.tmuxrc/colors.local.conf"' > "$HOME/.tmuxrc/config"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    grep -qF 'status-left "#[bg=#005f00]#[fg=#ffffff]#{?client_prefix,#[bg=#8700d7]#[fg=#ffffff],} ' \
+        "$HOME/.tmuxrc/colors.local.conf"
 }
 
 @test "95-settings: a server rolls the i3 colours too, so tmux is coloured" {
@@ -265,10 +281,10 @@ alacritty_repo() {
     [ ! -e "$HOME/.alacritty/opacity.local.toml" ]
 }
 
-# eww_repo  — a ~/.i3rc/eww whose eww.scss imports color.local.scss.
+# eww_repo  — a ~/.i3rc/eww whose eww.scss imports color.local.scss and focus.local.scss.
 eww_repo() {
     mkdir -p "$HOME/.i3rc/eww"
-    printf '@import "color.local.scss";\n' > "$HOME/.i3rc/eww/eww.scss"
+    printf '@import "color.local.scss";\n@import "focus.local.scss";\n' > "$HOME/.i3rc/eww/eww.scss"
 }
 
 @test "95-settings: BLE_BAR_COLOR=#rrggbb paints the top bar" {
@@ -299,6 +315,35 @@ eww_repo() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"is not wallpaper or a #rrggbb colour"* ]]
     ! grep -q 'background' "$HOME/.i3rc/eww/color.local.scss"
+}
+
+@test "95-settings: the bar's current workspace takes i3's focused colour" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' BLE_I3_UNFOCUSED_COLOR=178
+    [ "$status" -eq 0 ]
+    grep -qx '.ws.focused { background: #0f3d7c; color: #ffffff; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
+@test "95-settings: a new focused colour reloads the running bar, the same one does not" {
+    eww_repo
+    export DISPLAY=:0
+    fake_cmd eww 'echo "eww $*" >> "$FAKE_LOG"'
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    grep -qx "eww -c $HOME/.i3rc/eww reload" "$FAKE_LOG"
+    : > "$FAKE_LOG"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    ! grep -q '^eww' "$FAKE_LOG"
+}
+
+@test "95-settings: an i3 repo with no focus.local.scss import gets no file, only a warning" {
+    mkdir -p "$HOME/.i3rc/eww"
+    printf '@import "color.local.scss";\n' > "$HOME/.i3rc/eww/eww.scss"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"does not load focus.local.scss"* ]]
+    [ ! -e "$HOME/.i3rc/eww/focus.local.scss" ]
 }
 
 # fake_xinput  — one touchpad (id 11) and one mouse (id 12); set-prop is logged.

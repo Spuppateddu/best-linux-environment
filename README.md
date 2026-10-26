@@ -346,8 +346,8 @@ never the run.
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255 or `#rrggbb`) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255 or `#rrggbb`) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255 or `#rrggbb`) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
-| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255 or `#rrggbb`) | `~/.i3rc/06-colors.local` → `client.focused`; also tmux's list highlight (prefix+s/w, copy-mode) and session name, `~/.tmuxrc/colors.local.conf` → `mode-style`, `status-left` |
-| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255 or `#rrggbb`), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also tmux's session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `status-left` |
+| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255 or `#rrggbb`) | `~/.i3rc/06-colors.local` → `client.focused`; also the current workspace on the top bar, `~/.i3rc/eww/focus.local.scss` → `.ws.focused`; and tmux's current tab, active pane border, list highlight (prefix+s/w, copy-mode) and session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `window-status-current-format`, `pane-active-border-style`, `mode-style`, `status-left` |
+| `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255 or `#rrggbb`), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also tmux's session name, `~/.tmuxrc/colors.local.conf` → `status-left` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
 | `BLE_I3_BAR` | which monitors get the top bar: `all` — one each — or `main`, the primary only with the other monitors' workspaces on it as cards | `~/.i3rc/eww/bar.local.conf` → `BAR_SCREENS` |
@@ -392,8 +392,8 @@ it:
 # or #rrggbb; the two prompt colours must differ, and so must the two i3 ones).
 BLE_PROMPT_COLOR_USER=141   # violet — user@host in the prompt
 BLE_PROMPT_COLOR_PATH=48    # spring green — the current folder in the prompt
-BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3, tmux's session name
-BLE_I3_UNFOCUSED_COLOR=172  # orange — the unfocused windows in i3, tmux's prefix
+BLE_I3_BORDER_COLOR=79      # teal — the focused window in i3, the current workspace and tmux tab
+BLE_I3_UNFOCUSED_COLOR=172  # orange — the unfocused windows in i3, tmux's session name
 BLE_CURSOR_COLOR=214        # amber — the terminal cursor
 ```
 
@@ -409,8 +409,8 @@ Five surfaces, one palette of twenty xterm-256 colours across six families:
 | `BLE_PROMPT_COLOR_USER` | `user@host` in the prompt | zsh and bash alike |
 | `BLE_PROMPT_COLOR_PATH` | the current folder in the prompt | the same two |
 | `BLE_CURSOR_COLOR` | the block cursor in Alacritty | it survives `$mod+Shift+t` — see below |
-| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator; tmux's list highlight and session name | the **focused** class; the picked row of prefix+s/w, the bottom-left label |
-| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator; tmux's session name while prefix is held | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
+| `BLE_I3_BORDER_COLOR` | i3's focused window: border, title bar, split indicator; the current workspace on the top bar; tmux's current tab, active pane and list highlight | the **focused** class; the focused workspace tile; the current tab, the active pane border, the picked row of prefix+s/w, the bottom-left label while prefix is held |
+| `BLE_I3_UNFOCUSED_COLOR` | every other i3 window: border, title bar, split indicator; tmux's session name | the **unfocused** and **focused_inactive** classes, in a different hue from the focused one, so "which window has the keyboard" reads at a glance. Floating desktop only: in tiling mode `90-tiling-mode.local` greys them back, so only the focused window is coloured |
 
 The two prompt colours can never come out the same. They cannot even come out
 the same *hue*: the roll refuses a second colour whose nearest ANSI colour
