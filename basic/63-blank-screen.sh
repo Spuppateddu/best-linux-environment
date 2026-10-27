@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # b-blank — $mod+x turns the focused workspace off: visiting it shows only the wallpaper and
-# the PC's name in red binary; $mod+z hides only the focused window. Links it into ~/.local/bin.
+# the PC's name in red binary; $mod+z hides only the focused window, its name in its corner.
+# Links it into ~/.local/bin.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 

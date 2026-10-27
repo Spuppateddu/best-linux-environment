@@ -169,6 +169,35 @@ fake_alacritty() {
     [ ! -e "$BATS_TEST_TMPDIR/b-blank-cover-55.ready" ]
 }
 
+@test "cover: the cover shows the PC's name in red binary, bottom-right" {
+    fake_cmd i3-msg 'echo "i3-msg $*" >> "$FAKE_LOG"'
+    fake_cmd hostname 'echo ab'
+    fake_cmd stty '[[ "$1" == size ]] && echo "5 40"; exit 0'
+    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR"
+    : > "$BATS_TEST_TMPDIR/b-blank-cover-55.ready"
+    run timeout 1 "$REPO/blank-screen/b-blank" cover-wait 55 vim
+    # 17 letters on a 40-column line end in the last column: column 24.
+    [[ "$output" == *$'\e[5;24H01100001 01100010'* ]]
+}
+
+@test "cover: the cover has the label's margin, so the name keeps off the border" {
+    workspaces "3"
+    cover_tree
+    fake_alacritty
+    "$REPO/blank-screen/b-blank" window
+    grep -q -- "-o window.padding.x=12 -o window.padding.y=12 " "$FAKE_LOG.alacritty"
+}
+
+@test "label: the name sits on the last row, flush right" {
+    run "$REPO/blank-screen/b-blank" label-draw 10 30 "01100001 01100010"
+    [ "$output" = $'\e[2J\e[1;31m\e[10;14H01100001 01100010' ]
+}
+
+@test "label: too wide for the window, it wraps between letters and ends on the last row" {
+    run "$REPO/blank-screen/b-blank" label-draw 10 12 "01100001 01100010 01100011"
+    [ "$output" = $'\e[2J\e[1;31m\e[8;5H01100001\e[9;5H01100010\e[10;5H01100011' ]
+}
+
 @test "cover: the scratchpad rule matches only a new cover, so an i3 reload never hides one on screen" {
     mkdir -p "$HOME/.i3rc"
     local copy="$BATS_TEST_TMPDIR/repo"
