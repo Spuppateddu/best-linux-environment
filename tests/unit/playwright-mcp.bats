@@ -21,3 +21,24 @@ fake_claude() {
     grep -q '^claude mcp add -s user playwright -- npx .* --isolated' "$FAKE_LOG"
     ! grep -q -- '--user-data-dir' "$FAKE_LOG"
 }
+
+@test "playwright-mcp: server gets a headless Firefox and its libraries, next to playwright-remote" {
+    export BLE_PROFILE=server
+    pkg_status nodejs installed; pkg_status npm installed
+    fake_cmd npx 'echo "npx $*" >> "$FAKE_LOG"'
+    fake_claude
+    run bash "$REPO/advanced/playwright-mcp.sh" </dev/null
+    [ "$status" -eq 0 ]
+    grep -q '^npx -y @playwright/mcp@latest install-browser firefox' "$FAKE_LOG"
+    grep -q '^claude mcp add -s user playwright -- npx .* --browser firefox --headless .* --isolated' "$FAKE_LOG"
+    grep -q '^claude mcp add -s user playwright-remote -- npx .* --endpoint ws://127.0.0.1:9323/firefox' "$FAKE_LOG"
+    grep -q '^apt-get install -y libgtk-3-0t64 libasound2t64 libxdamage1 fonts-liberation$' "$FAKE_LOG"
+    grep -q '^## Browser on this machine: the `playwright` and `playwright-remote` MCPs' "$HOME/.claude/CLAUDE.md"
+}
+
+@test "playwright-mcp: a server set up before the headless browser still counts as installed" {
+    export BLE_PROFILE=server
+    echo '{"mcpServers":{"playwright-remote":{"args":[]}}}' > "$HOME/.claude.json"
+    run bash "$REPO/advanced/playwright-mcp.sh" --check
+    [ "$status" -eq 0 ]
+}

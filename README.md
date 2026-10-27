@@ -1419,7 +1419,7 @@ secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate 
 | `claude-code` | [claude.ai/install.sh](https://code.claude.com/docs/en/setup) → `~/.local/bin/claude` (versions in `~/.local/share/claude`) — CLI, no desktop needed. It updates itself, so a re-run leaves it alone. Unticking removes the binary and keeps your login and settings in `~/.claude` |
 | `skills` | [Spuppateddu/skills](https://github.com/Spuppateddu/skills) cloned into `~/code/skills` — **left exactly as it is** when a checkout is already there, never pulled. `~/.claude/skills` becomes a link to it (a real folder there is backed up first), so Claude Code loads every skill. `~/.claude/CLAUDE.md` gets one line, `@~/code/skills/global-rules.md`: an import, not a copy, so the rules follow the clone. Unticking removes the link and that line, and keeps the clone |
 | `fastnote` | Nothing to download: appends `alias fn=…` to `aliases.local`, which `95-settings` then copies into both shells; it creates/opens `~/fastnote.txt` in vim. Unticking removes only the lines it wrote |
-| `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: no browser — a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
+| `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: a headless Firefox only the agent sees, [below](#a-headless-firefox-on-a-server), plus a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
 | `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
 | `sshd` | Ubuntu repos (`openssh-server`) — opens port 22 for logins *into* this host |
@@ -1664,6 +1664,27 @@ log in again in each new session.
 Playwright moves no mouse pointer you can see: it sends events straight to the
 page, so you watch fields fill and pages change, not a cursor.
 
+### A headless Firefox on a server
+
+On a server (no monitor, no desktop) the agent still gets its own browser: the
+module installs the same Playwright Firefox build and registers it as
+`playwright`, with `--headless` instead of a window. The agent sees the page
+through snapshots and screenshots; nobody else sees anything. It is the one to
+use when the agent only has to check a page by itself.
+
+- **Libraries.** Playwright's Firefox loads GTK 3, ALSA and libXdamage from the
+  system, and a bare server has none of them. The module installs
+  `libgtk-3-0t64`, `libasound2t64`, `libxdamage1` and `fonts-liberation` (the
+  list comes from `ldd` on a fresh Ubuntu 26.04). `./boot.sh` has no sudo, so
+  there it only names what is missing; `./setup.sh` installs it. Uninstalling the
+  module leaves them, like `nodejs`.
+- **Next to `playwright-remote`.** Both MCPs are registered. The note in
+  `~/.claude/CLAUDE.md` tells the agent to use `playwright` by default and
+  `playwright-remote` when you want to watch it work.
+- **Older servers.** A server that had only `playwright-remote` still counts as
+  installed; the next `./boot.sh` or `./setup.sh` adds the browser and the
+  `playwright` entry.
+
 ### A Firefox here, driven by an agent on another host: playwright-remote
 
 For a coding agent that runs on a headless box you ssh into, while the Firefox
@@ -1675,11 +1696,12 @@ the right half on each side, by profile:
   Playwright Firefox server on `127.0.0.1:9323/firefox`, then ssh's in with
   `-R 9323:127.0.0.1:9323`, so the host sees that port as its own. Leave the ssh
   session and the server stops. `b-pw-display --status` says if it is up.
-- **the host** (server profile): installs no browser. It registers an MCP named
+- **the host** (server profile): next to its own headless Firefox
+  ([above](#a-headless-firefox-on-a-server)), it registers an MCP named
   `playwright-remote` that runs `@playwright/mcp@latest --endpoint ws://127.0.0.1:9323/firefox`
   in every agent that is installed (Claude Code, opencode, Codex), and adds a
   marked block to `~/.claude/CLAUDE.md`. That block tells every session on the
-  host how the browser is reached and, when the tunnel is down, to ask you to
+  host which browser to use and, when the tunnel is down, to ask you to
   reconnect with `b-pw-display` — or to install `playwright-mcp` on your PC.
 
 The tunnel opens only when you use `b-pw-display`: whoever is logged in on the
