@@ -49,11 +49,14 @@ BLE_AGENT_DESK=~/agent-desk
 #                           to your local colour on a box without this repo)
 #   BLE_I3_BORDER_COLOR     every focused thing: the focused window's border
 #                           and title bar in i3, the current workspace on the
-#                           top bar; in tmux, the current tab, the active pane
-#                           border, the picked row of prefix+s/w and copy mode,
-#                           and the session name while prefix is held
+#                           top bar, the border and picked row of rofi ($mod+d,
+#                           power menu), GTK menu hover, the notification frame;
+#                           in tmux, the current tab, the active pane border,
+#                           the picked row of prefix+s/w and copy mode, and the
+#                           session name while prefix is held
 #   BLE_I3_UNFOCUSED_COLOR  every other window's border and title bar in i3,
 #                           in the floating desktop — tiled, they stay grey;
+#                           rofi's prompt, the frame of low notifications;
 #                           in tmux, the session name (bottom left)
 #
 # A server rolls all five too: it has no i3, but it has tmux.

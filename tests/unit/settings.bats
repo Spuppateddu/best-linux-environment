@@ -346,6 +346,42 @@ eww_repo() {
     [ ! -e "$HOME/.i3rc/eww/focus.local.scss" ]
 }
 
+@test "95-settings: rofi takes the focused colour for the picked row and the unfocused one for the prompt" {
+    mkdir -p "$HOME/.i3rc/rofi"
+    echo '@import "~/.i3rc/rofi/focus.local.rasi"' > "$HOME/.i3rc/rofi/launcher.rasi"
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' BLE_I3_UNFOCUSED_COLOR=178
+    [ "$status" -eq 0 ]
+    grep -qx '\* { accent: #0f3d7c; on-accent: #ffffff; second: #d7af00; on-second: #1d2021; }' \
+        "$HOME/.i3rc/rofi/focus.local.rasi"
+}
+
+@test "95-settings: GTK menus hover in the focused colour, where gtk.css imports it" {
+    mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+    echo '@import url("focus.local.css");' > "$HOME/.config/gtk-3.0/gtk.css"
+    echo '@import url("size.local.css");' > "$HOME/.config/gtk-4.0/gtk.css"
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' BLE_I3_UNFOCUSED_COLOR=178
+    [ "$status" -eq 0 ]
+    grep -qx '@define-color cat_accent    #0f3d7c;' "$HOME/.config/gtk-3.0/focus.local.css"
+    [[ "$output" == *"gtk-4.0/gtk.css does not load focus.local.css"* ]]
+    [ ! -e "$HOME/.config/gtk-4.0/focus.local.css" ]
+}
+
+@test "95-settings: dunst frames take the i3 colours, and a running dunst reloads only on a change" {
+    mkdir -p "$HOME/.config/dunst"; : > "$HOME/.config/dunst/dunstrc"
+    fake_cmd pgrep 'exit 0'
+    fake_cmd dunstctl 'echo "dunstctl $*" >> "$FAKE_LOG"'
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    f="$HOME/.config/dunst/dunstrc.d/50-focus.local.conf"
+    [ "$(grep -c 'frame_color = "#8700d7"' "$f")" -eq 2 ]
+    grep -q 'frame_color = "#005f00"' "$f"
+    grep -qx 'dunstctl reload' "$FAKE_LOG"
+    : > "$FAKE_LOG"
+    run_settings BLE_I3_BORDER_COLOR=92 BLE_I3_UNFOCUSED_COLOR=22
+    [ "$status" -eq 0 ]
+    ! grep -q '^dunstctl' "$FAKE_LOG"
+}
+
 # fake_xinput  — one touchpad (id 11) and one mouse (id 12); set-prop is logged.
 fake_xinput() {
     export BLE_XORG_CONF_DIR="$BATS_TEST_TMPDIR/xorg.conf.d" DISPLAY=:0 BLE_PROFILE=desktop

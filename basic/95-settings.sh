@@ -616,6 +616,42 @@ EOF
         CHANGED_BAR_STYLE="$GEN_CHANGED"
     fi
 
+    # The launcher and the power menu: border and picked row focused, the prompt
+    # unfocused. rofi reads its theme at every start, so there is nothing to reload.
+    focus_hex="#$(color_hex "$BLE_I3_BORDER_COLOR")";   focus_text="#$(color_text_on "$BLE_I3_BORDER_COLOR")"
+    second_hex="#$(color_hex "$BLE_I3_UNFOCUSED_COLOR")"; second_text="#$(color_text_on "$BLE_I3_UNFOCUSED_COLOR")"
+    if hooked "$I3/rofi/launcher.rasi" "focus.local.rasi"; then
+        write_gen "$I3/rofi/focus.local.rasi" <<EOF
+/* Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR. Do NOT edit. */
+* { accent: $focus_hex; on-accent: $focus_text; second: $second_hex; on-second: $second_text; }
+EOF
+    fi
+
+    # GTK menus hover in the focused colour. A running app keeps its old CSS.
+    for gtk_dir in "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"; do
+        hooked "$gtk_dir/gtk.css" "focus.local.css" || continue
+        write_gen "$gtk_dir/focus.local.css" <<EOF
+/* Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR. Do NOT edit. */
+@define-color cat_accent    $focus_hex;
+@define-color cat_on_accent $focus_text;
+EOF
+    done
+
+    # Notifications: a drop-in dunst reads after its dunstrc. Normal ones framed
+    # focused, low ones unfocused; critical stays red.
+    if [[ -f "$HOME/.config/dunst/dunstrc" ]]; then
+        write_gen "$HOME/.config/dunst/dunstrc.d/50-focus.local.conf" <<EOF
+# Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR. Do NOT edit.
+[global]
+    frame_color = "$focus_hex"
+[urgency_low]
+    frame_color = "$second_hex"
+[urgency_normal]
+    frame_color = "$focus_hex"
+EOF
+        CHANGED_DUNST="$GEN_CHANGED"
+    fi
+
     # The desktop mode. desktop_mode.sh owns it, 90-tiling-mode.local is its flag;
     # unset leaves $mod+Control+space alone in charge.
     DESKTOP_MODE="$I3/scripts/desktop_mode.sh"
@@ -800,6 +836,12 @@ fi
 if [[ "${CHANGED_BAR_STYLE:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd eww; then
     eww -c "$I3/eww" reload >/dev/null 2>&1 && ok "Top bar reloaded — new workspace colour." \
         || skip "No top bar running — it takes the new colour when it opens."
+fi
+
+# dunst reads its drop-ins only on start or on `dunstctl reload`.
+if [[ "${CHANGED_DUNST:-false}" == true ]] && has_cmd dunstctl && pgrep -x dunst >/dev/null 2>&1; then
+    dunstctl reload >/dev/null 2>&1 && ok "Notifications reloaded — new frame colour." \
+        || warn "dunst reload failed."
 fi
 
 # Firefox reads its prefs out of the profile, and only its own install.sh puts
