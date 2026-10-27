@@ -14,7 +14,7 @@ It does five things and refuses to do a sixth:
 
   1. git pull this repo, and re-exec itself if that changed anything.
   2. git pull every config repo you have (zsh, vim, tmux, temps, alacritty,
-     i3) and re-run the install.sh each one ships. That last part is the
+     i3, and your skills repo if it is ticked) and re-run the install.sh each one ships. That last part is the
      "source": it is what re-links ~/.zshrc, rewrites ~/.tmux.conf, reinstalls
      a plugin the repo has gained, and puts back a symlink something broke.
   3. Re-apply this machine's settings from settings.local and aliases.local
@@ -90,6 +90,10 @@ self_update "$@"
 # ── 2. the config repos ──────────────────────────────────────────────────────
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.
 bash "$HERE/basic/10-tools.sh" || FAILED+=("config repos")
+# Only while hooked into Claude Code: an unticked one keeps its clone as it is.
+if bash "$HERE/advanced/skills.sh" --check; then
+    bash "$HERE/advanced/skills.sh" || FAILED+=("skills")
+fi
 
 # ── 3. the idle timer ────────────────────────────────────────────────────────
 # Re-deployed here because a copy drifting behind the repo once powered this

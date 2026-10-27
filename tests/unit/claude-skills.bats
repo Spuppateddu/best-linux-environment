@@ -23,14 +23,15 @@ fake_git() {
     [ "$status" -eq 0 ]
 }
 
-@test "skills: a clone already there is not pulled or cloned again" {
+@test "skills: a clone already there is pulled, not cloned again" {
     pkg_status git installed
     fake_git
     mkdir -p "$HOME/code/skills/.git"
     echo mine > "$HOME/code/skills/local-change"
     run bash "$REPO/advanced/skills.sh" </dev/null
     [ "$status" -eq 0 ]
-    ! grep -q '^git ' "$FAKE_LOG"
+    grep -q "^git -C $HOME/code/skills pull --ff-only" "$FAKE_LOG"
+    ! grep -q '^git clone' "$FAKE_LOG"
     [ "$(cat "$HOME/code/skills/local-change")" = mine ]
 }
 

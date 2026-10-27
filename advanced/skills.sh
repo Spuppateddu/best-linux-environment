@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Your skills repo for Claude Code: cloned into ~/code/skills (left alone when
-# it is already there), ~/.claude/skills linked to it so every skill loads, and
+# Your skills repo for Claude Code: cloned into ~/code/skills (pulled when it
+# is already there), ~/.claude/skills linked to it so every skill loads, and
 # ~/.claude/CLAUDE.md importing its global-rules.md. An import, not a copy: the
 # rules Claude reads are always the ones in the clone, so a git pull updates them.
 set -euo pipefail
@@ -42,19 +42,15 @@ fi
 title "skills (~/code/skills → Claude Code)"
 
 # ── 1. the clone ─────────────────────────────────────────────────────────────
-if [[ -d "$SKILLS_DIR/.git" ]]; then
-    skip "~/code/skills is already there — left as it is."
-elif [[ -e "$SKILLS_DIR" ]]; then
+# Pulled like the config repos: fast-forward only, your uncommitted edits kept.
+if [[ -e "$SKILLS_DIR" && ! -d "$SKILLS_DIR/.git" ]]; then
     warn "~/code/skills exists but is not a git checkout — not touching it."
     warn "Move it away and re-run ./setup.sh to clone $SKILLS_URL there."
     exit 1
-else
-    apt_ensure git
-    run mkdir -p "$HOME/code"
-    step "Cloning $SKILLS_URL → ~/code/skills"
-    run git clone --quiet "$SKILLS_URL" "$SKILLS_DIR"
-    [[ "$DRY_RUN" == true ]] || ok "Cloned skills."
 fi
+apt_ensure git
+run mkdir -p "$HOME/code"
+clone_or_pull "$SKILLS_URL" "$SKILLS_DIR"
 
 # ── 2. every skill → ~/.claude/skills ────────────────────────────────────────
 # A real folder there is backed up first (link does that), never deleted.
