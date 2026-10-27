@@ -116,7 +116,7 @@ something, move its line** — there is no code to edit.
 
 `necessary` is not "things I happen to want" — it is the set whose absence
 **breaks** something else. The i3 config binds keys to alacritty, firefox and
-flameshot; both shell configs call yazi and lazygit; alacritty and i3 both render Nerd
+flameshot; both shell configs call yazi, lazygit and qalc (as `calc`); alacritty and i3 both render Nerd
 Font glyphs. Those aren't preferences, so they aren't questions.
 
 See the current contents with:

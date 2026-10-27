@@ -127,3 +127,7 @@ EOF
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
+
+@test "modules.conf: qalc is necessary, both shell configs alias calc to it" {
+    grep -q '^necessary|qalc|all|cmd:qalc|apt:qalc|' "$REPO/modules.conf"
+}
