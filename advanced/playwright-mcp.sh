@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Playwright MCP — lets a coding agent drive a real, visible Firefox window.
-# Desktop: Playwright's Firefox here + b-pw-display. Server: the Firefox of the PC
-# that ssh'd in with b-pw-display. Either way, registered in every agent here.
+# Playwright MCP — lets a coding agent drive a real Firefox.
+# Desktop: a visible Firefox window here + b-pw-display. Server: a headless Firefox
+# here that only the agent sees, plus the visible Firefox of the PC that ssh'd in
+# with b-pw-display. Either way, registered in every agent here.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
@@ -22,17 +23,20 @@ CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 NOTE_START='<!-- playwright-remote (best-linux-environment) -->'
 NOTE_END='<!-- /playwright-remote -->'
 
-# Desktop: the Firefox on this screen. Server: the one at the end of b-pw-display's
-# ssh -R tunnel — no browser is installed here.
+# Desktop: the Firefox on this screen. Server: `playwright` is a headless Firefox
+# here, with no screen needed; `playwright-remote` is the one at the end of
+# b-pw-display's ssh -R tunnel, for when you want to watch.
 # --isolated: each session keeps its profile in memory. A shared profile on disk
 # is locked by the first Firefox, so a second agent's browser failed to start.
 if is_desktop; then
-    MCP_NAME=playwright
     PW_ARGS=(-y "$PW_PKG" --browser firefox --executable-path "$FIREFOX_DST" --output-dir "$PW_OUT" --isolated)
 else
-    MCP_NAME=playwright-remote
-    PW_ARGS=(-y "$PW_PKG" --endpoint "ws://127.0.0.1:$PW_PORT/firefox" --output-dir "$PW_OUT")
+    PW_ARGS=(-y "$PW_PKG" --browser firefox --headless --output-dir "$PW_OUT" --isolated)
+    REMOTE_ARGS=(-y "$PW_PKG" --endpoint "ws://127.0.0.1:$PW_PORT/firefox" --output-dir "$PW_OUT")
 fi
+# What Playwright's Firefox loads from the system on a server with no desktop
+# (checked with ldd in a fresh Ubuntu 26.04), plus a font so pages have text.
+SERVER_LIBS=(libgtk-3-0t64 libasound2t64 libxdamage1 fonts-liberation)
 
 claude_bin=""
 if   have_local_bin claude; then claude_bin="$HOME/.local/bin/claude"
@@ -55,9 +59,11 @@ is_registered() {
     done
     grep -qE "$(codex_re "$n")" "$codex_cfg" 2>/dev/null
 }
+# A server set up before the headless browser had only playwright-remote: it still
+# counts, and the next run adds the browser and the playwright entry.
 is_installed() {
     if is_desktop; then compgen -G "$PW_CACHE/firefox-*/firefox/firefox" >/dev/null
-    else is_registered "$MCP_NAME"
+    else is_registered playwright || is_registered playwright-remote
     fi
 }
 
@@ -126,21 +132,20 @@ fi
 if is_desktop; then
     title "Playwright MCP (Firefox, for coding agents here and on hosts you ssh into)"
 else
-    title "Playwright MCP (Firefox of the PC that ssh'd in with b-pw-display)"
+    title "Playwright MCP (headless Firefox here + the Firefox of the PC that ssh'd in)"
 fi
 
-# npx comes with npm on Ubuntu; node is its dependency. A server needs it too:
-# its MCP server is the Playwright client that reaches the tunnel.
+# npx comes with npm on Ubuntu; node is its dependency.
 apt_ensure nodejs npm
+is_server && apt_ensure "${SERVER_LIBS[@]}"
 
-# ── 1. the browser (desktop only) ────────────────────────────────────────────
+# ── 1. the browser ───────────────────────────────────────────────────────────
 # Playwright cannot drive the system Firefox: it needs its own patched build, and
 # the exact revision the current @latest expects. So this runs at every boot too —
 # without it, a newer server looks for a build that isn't there and fails.
-# b-pw-display serves this same build to the hosts you ssh into.
-if is_server; then
-    skip "Server profile — no browser here; b-pw-display on your PC brings one."
-elif [[ "$DRY_RUN" == true ]]; then
+# b-pw-display serves this same build to the hosts you ssh into; on a server it
+# runs headless.
+if [[ "$DRY_RUN" == true ]]; then
     printf '%s  would run:%s npx %s install-browser firefox\n' "$C_DIM" "$C_OFF" "$PW_PKG"
 else
     step "Making sure Playwright's Firefox build matches $PW_PKG"
@@ -165,84 +170,92 @@ ensure_line "$git_ignore" '^/?\.playwright-mcp/?$' '.playwright-mcp/'
 # ── 2. register it in each agent that is installed ───────────────────────────
 # Missing entry → added. Entry that differs → ./setup.sh resets it, ./boot.sh
 # leaves it. An agent that isn't here is skipped, never installed.
+# register NAME ARGS...  — the MCP server NAME, run as `npx ARGS...`.
+register() {
+    local MCP_NAME="$1"; shift
+    local PW_ARGS=("$@") want have oc_dir oc_cfg entry new toml_args block rest
 
-# Claude Code — user scope in ~/.claude.json, so every project sees it.
-if [[ -z "$claude_bin" ]]; then
-    skip "Claude Code not installed — nothing to register."
-else
-    want="$(jq -cn --args '$ARGS.positional' -- "${PW_ARGS[@]}")"
-    have="$(jq -c --arg n "$MCP_NAME" '.mcpServers[$n].args // empty' "$HOME/.claude.json" 2>/dev/null || true)"
-    if [[ "$have" == "$want" ]]; then
-        skip "Claude Code: $MCP_NAME already registered."
-    elif [[ -n "$have" && "$BLE_FORCE" != true ]]; then
-        skip "Claude Code: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
-    elif [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would run:%s claude mcp add -s user %s -- npx %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${PW_ARGS[*]}"
+    # Claude Code — user scope in ~/.claude.json, so every project sees it.
+    if [[ -z "$claude_bin" ]]; then
+        skip "Claude Code not installed — nothing to register."
     else
-        [[ -n "$have" ]] && "$claude_bin" mcp remove -s user "$MCP_NAME" >/dev/null 2>&1 || true
-        "$claude_bin" mcp add -s user "$MCP_NAME" -- npx "${PW_ARGS[@]}" >/dev/null \
-            && ok "Claude Code: $MCP_NAME registered (user scope)." \
-            || warn "Claude Code: could not register $MCP_NAME."
-    fi
-fi
-
-# opencode — the "mcp" key of its global config. jq can't read JSONC comments,
-# so a commented file is left alone with the block to paste.
-oc_dir="$HOME/.config/opencode"
-if ! { have_local_bin opencode || have_opencode_bin || has_cmd opencode; }; then
-    skip "opencode not installed — nothing to register."
-else
-    oc_cfg="$oc_dir/opencode.jsonc"
-    [[ -f "$oc_cfg" ]] || oc_cfg="$oc_dir/opencode.json"
-    entry="$(jq -cn --args '{type: "local", command: (["npx"] + $ARGS.positional), enabled: true}' -- "${PW_ARGS[@]}")"
-    [[ -f "$oc_cfg" ]] || { [[ "$DRY_RUN" == true ]] || printf '{\n  "$schema": "https://opencode.ai/config.json"\n}\n' > "$oc_cfg"; }
-    if [[ -f "$oc_cfg" ]] && ! jq empty "$oc_cfg" 2>/dev/null; then
-        warn "opencode: ${oc_cfg/#$HOME/\~} has comments jq can't read — add this under \"mcp\" by hand:"
-        warn "  \"$MCP_NAME\": $entry"
-    else
-        have="$(jq -c --arg n "$MCP_NAME" '.mcp[$n] // empty' "$oc_cfg" 2>/dev/null || true)"
-        if [[ "$have" == "$entry" ]]; then
-            skip "opencode: $MCP_NAME already registered."
+        want="$(jq -cn --args '$ARGS.positional' -- "${PW_ARGS[@]}")"
+        have="$(jq -c --arg n "$MCP_NAME" '.mcpServers[$n].args // empty' "$HOME/.claude.json" 2>/dev/null || true)"
+        if [[ "$have" == "$want" ]]; then
+            skip "Claude Code: $MCP_NAME already registered."
         elif [[ -n "$have" && "$BLE_FORCE" != true ]]; then
-            skip "opencode: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
+            skip "Claude Code: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
         elif [[ "$DRY_RUN" == true ]]; then
-            printf '%s  would add:%s mcp.%s → %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${oc_cfg/#$HOME/\~}"
+            printf '%s  would run:%s claude mcp add -s user %s -- npx %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${PW_ARGS[*]}"
         else
-            new="$(jq --arg n "$MCP_NAME" --argjson e "$entry" '.mcp[$n] = $e' "$oc_cfg")"
-            cp -a "$oc_cfg" "$oc_cfg.backup.$$"
-            # `cat >` and not `mv`, to keep the inode.
-            printf '%s\n' "$new" > "$oc_cfg"
-            ok "opencode: $MCP_NAME registered in ${oc_cfg/#$HOME/\~} (old copy: $(basename "$oc_cfg").backup.$$)."
+            [[ -n "$have" ]] && "$claude_bin" mcp remove -s user "$MCP_NAME" >/dev/null 2>&1 || true
+            "$claude_bin" mcp add -s user "$MCP_NAME" -- npx "${PW_ARGS[@]}" >/dev/null \
+                && ok "Claude Code: $MCP_NAME registered (user scope)." \
+                || warn "Claude Code: could not register $MCP_NAME."
         fi
     fi
-fi
 
-# Codex — a [mcp_servers.<name>] table in ~/.codex/config.toml.
-if ! { has_cmd codex || [[ -d "$HOME/.codex" ]]; }; then
-    skip "Codex not installed — nothing to register."
-else
-    toml_args="$(printf '"%s", ' "${PW_ARGS[@]}")"
-    block="[mcp_servers.$MCP_NAME]
-command = \"npx\"
-args = [${toml_args%, }]"
-    # The table as it stands: its header up to the next header that isn't one of its own.
-    have="$(re="$(codex_re "$MCP_NAME")" awk '/^\[/{on = ($0 ~ ENVIRON["re"])} on' "$codex_cfg" 2>/dev/null \
-        | sed -e '/^[[:space:]]*$/d' || true)"
-    if [[ "$have" == "$block" ]]; then
-        skip "Codex: $MCP_NAME already registered."
-    elif [[ -n "$have" && "$BLE_FORCE" != true ]]; then
-        skip "Codex: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
-    elif [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would write:%s [mcp_servers.%s] → %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${codex_cfg/#$HOME/\~}"
+    # opencode — the "mcp" key of its global config. jq can't read JSONC comments,
+    # so a commented file is left alone with the block to paste.
+    oc_dir="$HOME/.config/opencode"
+    if ! { have_local_bin opencode || have_opencode_bin || has_cmd opencode; }; then
+        skip "opencode not installed — nothing to register."
     else
-        mkdir -p "$(dirname "$codex_cfg")"
-        touch "$codex_cfg"
-        rest="$(re="$(codex_re "$MCP_NAME")" awk '/^\[/{on = ($0 ~ ENVIRON["re"])} !on' "$codex_cfg")"
-        [[ -n "$have" ]] && cp -a "$codex_cfg" "$codex_cfg.backup.$$"
-        { [[ -n "$rest" ]] && printf '%s\n\n' "$rest"; printf '%s\n' "$block"; } > "$codex_cfg"
-        ok "Codex: $MCP_NAME registered in ${codex_cfg/#$HOME/\~}."
+        oc_cfg="$oc_dir/opencode.jsonc"
+        [[ -f "$oc_cfg" ]] || oc_cfg="$oc_dir/opencode.json"
+        entry="$(jq -cn --args '{type: "local", command: (["npx"] + $ARGS.positional), enabled: true}' -- "${PW_ARGS[@]}")"
+        [[ -f "$oc_cfg" ]] || { [[ "$DRY_RUN" == true ]] || printf '{\n  "$schema": "https://opencode.ai/config.json"\n}\n' > "$oc_cfg"; }
+        if [[ -f "$oc_cfg" ]] && ! jq empty "$oc_cfg" 2>/dev/null; then
+            warn "opencode: ${oc_cfg/#$HOME/\~} has comments jq can't read — add this under \"mcp\" by hand:"
+            warn "  \"$MCP_NAME\": $entry"
+        else
+            have="$(jq -c --arg n "$MCP_NAME" '.mcp[$n] // empty' "$oc_cfg" 2>/dev/null || true)"
+            if [[ "$have" == "$entry" ]]; then
+                skip "opencode: $MCP_NAME already registered."
+            elif [[ -n "$have" && "$BLE_FORCE" != true ]]; then
+                skip "opencode: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
+            elif [[ "$DRY_RUN" == true ]]; then
+                printf '%s  would add:%s mcp.%s → %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${oc_cfg/#$HOME/\~}"
+            else
+                new="$(jq --arg n "$MCP_NAME" --argjson e "$entry" '.mcp[$n] = $e' "$oc_cfg")"
+                cp -a "$oc_cfg" "$oc_cfg.backup.$$"
+                # `cat >` and not `mv`, to keep the inode.
+                printf '%s\n' "$new" > "$oc_cfg"
+                ok "opencode: $MCP_NAME registered in ${oc_cfg/#$HOME/\~} (old copy: $(basename "$oc_cfg").backup.$$)."
+            fi
+        fi
     fi
-fi
+
+    # Codex — a [mcp_servers.<name>] table in ~/.codex/config.toml.
+    if ! { has_cmd codex || [[ -d "$HOME/.codex" ]]; }; then
+        skip "Codex not installed — nothing to register."
+    else
+        toml_args="$(printf '"%s", ' "${PW_ARGS[@]}")"
+        block="[mcp_servers.$MCP_NAME]
+    command = \"npx\"
+    args = [${toml_args%, }]"
+        # The table as it stands: its header up to the next header that isn't one of its own.
+        have="$(re="$(codex_re "$MCP_NAME")" awk '/^\[/{on = ($0 ~ ENVIRON["re"])} on' "$codex_cfg" 2>/dev/null \
+            | sed -e '/^[[:space:]]*$/d' || true)"
+        if [[ "$have" == "$block" ]]; then
+            skip "Codex: $MCP_NAME already registered."
+        elif [[ -n "$have" && "$BLE_FORCE" != true ]]; then
+            skip "Codex: your $MCP_NAME entry differs — left as it is (./setup.sh resets it)."
+        elif [[ "$DRY_RUN" == true ]]; then
+            printf '%s  would write:%s [mcp_servers.%s] → %s\n' "$C_DIM" "$C_OFF" "$MCP_NAME" "${codex_cfg/#$HOME/\~}"
+        else
+            mkdir -p "$(dirname "$codex_cfg")"
+            touch "$codex_cfg"
+            rest="$(re="$(codex_re "$MCP_NAME")" awk '/^\[/{on = ($0 ~ ENVIRON["re"])} !on' "$codex_cfg")"
+            [[ -n "$have" ]] && cp -a "$codex_cfg" "$codex_cfg.backup.$$"
+            { [[ -n "$rest" ]] && printf '%s\n\n' "$rest"; printf '%s\n' "$block"; } > "$codex_cfg"
+            ok "Codex: $MCP_NAME registered in ${codex_cfg/#$HOME/\~}."
+        fi
+    fi
+}
+
+register playwright "${PW_ARGS[@]}"
+is_server && register playwright-remote "${REMOTE_ARGS[@]}"
 
 # ── 3a. desktop: b-pw-firefox, and b-pw-display to lend this screen to a host ─
 if is_desktop; then
@@ -262,7 +275,7 @@ if is_desktop; then
 fi
 
 # ── 3b. server: the note in ~/.claude/CLAUDE.md ──────────────────────────────
-# Tells every session here how the browser is reached, and what to say when the tunnel is down.
+# Tells every session here which browser to use, and what to say when the tunnel is down.
 note="$(cat "$NOTE_SRC")"
 if [[ -f "$CLAUDE_MD" ]] && grep -qxF "$NOTE_START" "$CLAUDE_MD"; then
     current="$(awk -v s="$NOTE_START" -v e="$NOTE_END" '$0==s{on=1} on; $0==e{on=0}' "$CLAUDE_MD")"
@@ -283,4 +296,5 @@ else
     ok "Added the playwright-remote note to ${CLAUDE_MD/#$HOME/\~}."
 fi
 
-ok "Ready. From your desktop: b-pw-display <user>@$(hostname), then start the agent there."
+ok "Ready. Restart the agent: 'playwright' is a headless Firefox here."
+ok "To watch it work: b-pw-display <user>@$(hostname) from your desktop, and ask for playwright-remote."

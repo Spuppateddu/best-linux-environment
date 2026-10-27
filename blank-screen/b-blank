@@ -47,6 +47,22 @@ label_text() {
     printf '%s\n' "${out[*]}"
 }
 
+# One frame of the label in a ROWS x COLS terminal: TEXT in red, bottom-right. Too wide for
+# one line, it wraps between the letters, so a small window still shows the whole name.
+label_draw() {
+    local rows="$1" cols="$2" w line="" lines=() i row
+    for w in $3; do
+        if [[ -n "$line" ]] && ((${#line} + 1 + ${#w} > cols)); then lines+=("$line"); line="$w"
+        else line="${line:+$line }$w"; fi
+    done
+    [[ -n "$line" ]] && lines+=("$line")
+    printf '\e[2J\e[1;31m'
+    for ((i = 0; i < ${#lines[@]}; i++)); do
+        row=$((rows - ${#lines[@]} + 1 + i)); ((row >= 1)) || continue
+        printf '\e[%d;%dH%s' "$row" "$((cols - ${#lines[i]} + 1 > 1 ? cols - ${#lines[i]} + 1 : 1))" "${lines[i]}"
+    done
+}
+
 # Con ids of the windows on workspace $1: the labels with "label", every other one without.
 windows_on() {
     i3-msg -t get_tree | jq -r --arg n "$1" --arg c "$LABEL_CLASS" --arg want "${2:-}" '.. | objects
@@ -129,16 +145,22 @@ on() {
 
 cover_ready() { printf '%s\n' "${XDG_RUNTIME_DIR:-/tmp}/$COVER_CLASS-$1.ready"; }
 
-# Inside a cover: no cursor, no echo. Closed by hand, it brings its window back first.
+# Inside a cover: no cursor, no echo, the PC's name in red binary bottom-right, redrawn on
+# resize. Closed by hand, it brings its window back first.
 # Takes title $2 once hidden, so a rule re-run by an i3 reload never hides it again.
 cover_wait() {
-    local mark="$COVER_MARK$1" ready
+    local mark="$COVER_MARK$1" ready text s
     ready="$(cover_ready "$1")"
     printf '\e[?25l'; stty -echo 2>/dev/null || true
     trap 'i3 "[con_mark=\"^$mark\$\"] scratchpad show, floating disable, unmark $mark"; exit 0' HUP TERM
     for _ in $(seq 500); do [[ -e "$ready" ]] && break; sleep 0.01; done
     rm -f "$ready"; printf '\e]2;%s\a' "$2"
-    sleep infinity & wait
+    text="$(label_text)"
+    draw() { local r c; read -r r c < <(stty size 2>/dev/null) && label_draw "$r" "$c" "$text"; return 0; }
+    trap draw WINCH; draw
+    # A resize ends the wait early (the trap redraws); the sleep itself never wakes the cover.
+    sleep infinity & s=$!
+    while kill -0 "$s" 2>/dev/null; do wait "$s" || true; done
 }
 
 # Window $1 trades places with a see-through cover, border and all, that opened in the scratchpad.
@@ -149,6 +171,7 @@ cover_off() {
     # The title as config, not --title: --title locks it, and the wait below then takes 1 s.
     term --class "$COVER_CLASS,$COVER_CLASS-$key" -o "window.title=\"$COVER_NEW_TITLE\"" \
         -o 'window.opacity=0' -o 'window.dynamic_title=true' \
+        -o "window.padding.x=$MARGIN" -o "window.padding.y=$MARGIN" -o 'scrolling.history=0' \
         -e "$(readlink -f "$0")" cover-wait "$key" "$title"
     cover="$(wait_window "$COVER_CLASS-$key")"
     [[ -n "$cover" ]] || { : > "$ready"; return 1; }
@@ -202,6 +225,7 @@ cover_toggle() {
 
 case "${1:-}" in
     label-text) label_text; exit 0 ;;
+    label-draw) label_draw "${2:?}" "${3:?}" "${4:-}"; exit 0 ;;
     window) cover_toggle; exit ;;
     cover-wait) cover_wait "${2:?}" "${3:-}"; exit 0 ;;
 esac
