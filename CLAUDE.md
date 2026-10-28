@@ -8,8 +8,9 @@ check them all, not only this one:
 - every git repo under `~/linux-configuration/` (i3, bash, vim, tmux, …)
 - `~/code/skills`
 
-Run `git status` in each. Commit (and push, if I asked) the ones with changes, each with
-its own message, following the global commit rules. Tell me which repos you touched.
+Run `git status` in each. Commit the ones with changes, each with its own message,
+following the global commit rules. Push only if my latest message says "push" (see the
+global rules). Tell me which repos you touched.
 
 ## `./setup.sh` is the command that must always work
 
