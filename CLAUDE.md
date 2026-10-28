@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## "Commit" covers the sibling repos too
+
+This repo works hand in hand with the repos it clones, so when I say "commit" (or "push"),
+check them all, not only this one:
+
+- every git repo under `~/linux-configuration/` (i3, bash, vim, tmux, …)
+- `~/code/skills`
+
+Run `git status` in each. Commit (and push, if I asked) the ones with changes, each with
+its own message, following the global commit rules. Tell me which repos you touched.
+
 ## `./setup.sh` is the command that must always work
 
 When I update or change this machine by hand (install, remove, reconfigure), I always run
