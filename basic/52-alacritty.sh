@@ -9,6 +9,11 @@ require_desktop "Alacritty"
 
 apt_ensure alacritty
 
+# One scale on every monitor: else alacritty resizes itself for each one's DPI,
+# and a window dragged to the other screen grows past its edges.
+xsessionrc_export WINIT_X11_SCALE_FACTOR 1
+[[ "$XSESSIONRC_CHANGED" != true ]] || warn "Takes effect at the next login."
+
 # Report the wiring rather than doing it, so a run that installed the package
 # but never reached the config repo doesn't look complete.
 repo="$HOME/.alacritty"
