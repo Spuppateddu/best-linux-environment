@@ -9,12 +9,12 @@
 [[ -n "${_BLE_SETTINGS_LOADED:-}" ]] && return 0
 _BLE_SETTINGS_LOADED=1
 
-# The two files you edit, and the two committed templates they are seeded from.
-# Git-ignored, so no machine's answers reach another through a push.
+# The two files you edit (git-ignored, so per machine) and the tracked ones beside
+# them: settings.local's template, and `aliases`, the aliases every machine gets.
 BLE_SETTINGS_LOCAL="${BLE_SETTINGS_LOCAL:-$BLE_ROOT/settings.local}"
 BLE_SETTINGS_EXAMPLE="${BLE_SETTINGS_EXAMPLE:-$BLE_ROOT/settings.local.example}"
 BLE_ALIASES_LOCAL="${BLE_ALIASES_LOCAL:-$BLE_ROOT/aliases.local}"
-BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
+BLE_ALIASES_SHARED="${BLE_ALIASES_SHARED:-$BLE_ROOT/aliases}"
 
 # Every key settings.local may set. A key not set there stays empty, and the
 # surface it drives keeps whatever its own config repo ships.
@@ -432,28 +432,25 @@ roll_color_pair() {
 settings_load
 export "${BLE_SETTING_KEYS[@]}" BLE_SETTINGS_LOCAL BLE_ALIASES_LOCAL
 
-# settings_seed  — put the two files there when they are not, straight from the
-# committed examples. Their values are LIVE, not commented-out examples: a fresh
-# machine is supposed to start from a working base, not from a blank file you
-# have to fill in before anything happens. Never overwrites an existing file.
+# settings_seed  — settings.local from its example (LIVE values, a working base),
+# and aliases.local as an empty file: the shared aliases are in `aliases`.
+# Never overwrites an existing file.
 settings_seed() {
-    local pair dst src
-
-    for pair in "$BLE_SETTINGS_LOCAL|$BLE_SETTINGS_EXAMPLE" \
-                "$BLE_ALIASES_LOCAL|$BLE_ALIASES_EXAMPLE"; do
-        dst="${pair%%|*}"; src="${pair##*|}"
-        if [[ ! -f "$src" ]]; then
-            warn "$src missing — cannot seed ${dst/#$HOME/\~}."
-            continue
+    if [[ ! -f "$BLE_SETTINGS_EXAMPLE" ]]; then
+        warn "$BLE_SETTINGS_EXAMPLE missing — cannot seed ${BLE_SETTINGS_LOCAL/#$HOME/\~}."
+    else
+        config_write "$BLE_SETTINGS_LOCAL" --if-missing < "$BLE_SETTINGS_EXAMPLE"
+        if [[ "$CONFIG_WRITTEN" == true ]]; then
+            ok "Edit ${BLE_SETTINGS_LOCAL/#$HOME/\~}, then re-run — every boot re-applies it."
+        else
+            settings_drop_retired; settings_fill
         fi
-        config_write "$dst" --if-missing < "$src"
-        if [[ "$CONFIG_WRITTEN" != true ]]; then
-            [[ "$dst" == "$BLE_SETTINGS_LOCAL" ]] && { settings_drop_retired; settings_fill; }
-            continue
-        fi
+    fi
 
-        ok "Edit ${dst/#$HOME/\~}, then re-run — every boot re-applies it."
-    done
+    if [[ ! -f "$BLE_ALIASES_LOCAL" ]]; then
+        run touch "$BLE_ALIASES_LOCAL"
+        ok "Created an empty ${BLE_ALIASES_LOCAL/#$HOME/\~} — this machine's own aliases go there."
+    fi
 
     # Re-read: the file that was just written carries live values, and every
     # step after this one is entitled to see them on the very first run.
@@ -536,51 +533,39 @@ settings_reload() {
     settings_load
 }
 
-# ── aliases.local: the one place this repo puts an alias ─────────────────────
-# A module that adds an alias (b-temp, fn) appends it to aliases.local, and
-# basic/95-settings.sh, which runs after every module, copies it into both shells.
-# The <shell>-alias.local files are never written: older runs put b-temp and fn
-# there, and aliases_drop takes those copies back out.
+# ── the aliases: `aliases` (tracked, every machine) + aliases.local (this one) ─
+# Older runs appended b-temp and fn to aliases.local and the <shell>-alias.local
+# files; they live in `aliases` now, and aliases_retire takes those copies out.
 
-# _alias_files  — every file an alias may already live in, one per line: this
-# repo's aliases.local, then the config repos' own files and their .local ones.
-_alias_files() {
-    local s
-    printf '%s\n' "$BLE_ALIASES_LOCAL"
-    for s in zsh bash; do
-        printf '%s\n' "$HOME/.$s/$s-alias" "$HOME/.$s/$s-alias.local"
+# The exact blocks older runs appended: a comment pair, then the alias.
+BLE_RETIRED_ALIASES=(
+    '# CPU/GPU temperature logger (temperature-logger). Added by'
+    '# best-linux-environment because this machine has temps installed.'
+    'alias b-temp="temps"'
+    '|'
+    '# Quick scratch note: create/open ~/fastnote.txt in vim. Added by'
+    '# best-linux-environment.'
+    "alias fn='touch ~/fastnote.txt && vim ~/fastnote.txt'"
+)
+
+# aliases_retire  — drop those blocks from aliases.local and the <shell>-alias.local
+# files. Lines of yours stay. Says what it removed.
+aliases_retire() {
+    local f block=() l
+    for f in "$BLE_ALIASES_LOCAL" "$HOME/.zsh/zsh-alias.local" "$HOME/.bash/bash-alias.local"; do
+        block=()
+        for l in "${BLE_RETIRED_ALIASES[@]}" '|'; do
+            if [[ "$l" != '|' ]]; then block+=("$l"); continue; fi
+            aliases_drop "$f" "${block[@]}" && \
+                ok "Removed ${block[-1]} from ${f/#$HOME/\~} — it is in ${BLE_ALIASES_SHARED/#$HOME/\~} now."
+            block=()
+        done
     done
-}
-
-# aliases_has REGEX  — true when any of those files has a line matching REGEX.
-# grep without -q: a SIGPIPE'd grep reads as "no match" under pipefail.
-aliases_has() {
-    local files=() f
-    while IFS= read -r f; do [[ -f "$f" ]] && files+=("$f"); done < <(_alias_files)
-    [[ ${#files[@]} -gt 0 ]] || return 1
-    grep -hE "$1" "${files[@]}" >/dev/null 2>&1
-}
-
-# aliases_add LINE...  — append these lines to aliases.local, after a blank one.
-# Seeds the file from the example first, so the alias is not all it holds.
-aliases_add() {
-    local label="${BLE_ALIASES_LOCAL/#$HOME/\~}"
-    if [[ "$DRY_RUN" == true ]]; then
-        printf '%s  would append:%s %s → %s\n' "$C_DIM" "$C_OFF" "${!#}" "$label"
-        return 0
-    fi
-    [[ -f "$BLE_ALIASES_LOCAL" || ! -f "$BLE_ALIASES_EXAMPLE" ]] || \
-        config_write "$BLE_ALIASES_LOCAL" --if-missing < "$BLE_ALIASES_EXAMPLE"
-    # A hand-edited file with no trailing newline would otherwise get the block
-    # glued onto its last line.
-    if [[ -s "$BLE_ALIASES_LOCAL" ]] && [[ -n "$(tail -c 1 "$BLE_ALIASES_LOCAL")" ]]; then
-        printf '\n' >> "$BLE_ALIASES_LOCAL"
-    fi
-    { printf '\n'; printf '%s\n' "$@"; } >> "$BLE_ALIASES_LOCAL"
+    return 0
 }
 
 # aliases_drop FILE LINE...  — remove exactly these lines from FILE, and the
-# blank line aliases_add put before the first one. Lines of yours stay. True
+# blank line before the first one. Lines of yours stay. True
 # when something was removed; --dry-run only prints what would go, and is false.
 aliases_drop() {
     local f="$1"; shift

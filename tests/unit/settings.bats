@@ -456,3 +456,46 @@ fake_xinput() {
     [ ! -e "$BLE_XORG_CONF_DIR/60-ble-trackpad-speed.conf" ]
     ! grep -q 'xinput' "$FAKE_LOG"
 }
+
+@test "95-settings: bash loads the tracked aliases file, then aliases.local" {
+    mkdir -p "$HOME/.bash"; touch "$HOME/.bash/bashrc"
+    echo "alias ll='ls -l'" > "$BATS_TEST_TMPDIR/aliases.local"
+    run_settings BLE_EDITOR=vim
+    [ "$status" -eq 0 ]
+    gen="$HOME/.bash/bash-ble.local"
+    shared="$(grep -n "\. $REPO/aliases\$" "$gen" | cut -d: -f1)"
+    mine="$(grep -nx "alias ll='ls -l'" "$gen" | cut -d: -f1)"
+    [ -n "$shared" ] && [ -n "$mine" ] && [ "$shared" -lt "$mine" ]
+}
+
+@test "aliases: b-temp, fn and home are in the tracked file, and it parses" {
+    for a in b-temp fn home calc v ta lz ld gs gp; do grep -q "^alias $a=" "$REPO/aliases"; done
+    bash -n "$REPO/aliases"
+}
+
+@test "95-settings: the b-temp and fn blocks older runs appended leave aliases.local" {
+    printf "alias ll='ls -l'\n\n%s\n%s\n%s\n\n%s\n%s\n%s\n" \
+        '# CPU/GPU temperature logger (temperature-logger). Added by' \
+        '# best-linux-environment because this machine has temps installed.' \
+        'alias b-temp="temps"' \
+        '# Quick scratch note: create/open ~/fastnote.txt in vim. Added by' \
+        '# best-linux-environment.' \
+        "alias fn='touch ~/fastnote.txt && vim ~/fastnote.txt'" > "$BATS_TEST_TMPDIR/aliases.local"
+    run_settings BLE_EDITOR=vim
+    [ "$status" -eq 0 ]
+    [ "$(cat "$BATS_TEST_TMPDIR/aliases.local")" = "alias ll='ls -l'" ]
+}
+
+@test "95-settings: ~/.bashrc says where aliases go, once" {
+    mkdir -p "$HOME/.bash"; touch "$HOME/.bash/bashrc" "$HOME/.bashrc"
+    run_settings BLE_EDITOR=vim
+    run_settings BLE_EDITOR=vim
+    [ "$(grep -c 'best-linux-environment: aliases go in' "$HOME/.bashrc")" -eq 1 ]
+}
+
+@test "95-settings: a missing aliases.local is created empty" {
+    rm -f "$BATS_TEST_TMPDIR/aliases.local"
+    run_settings BLE_EDITOR=vim
+    [ "$status" -eq 0 ]
+    [ -f "$BATS_TEST_TMPDIR/aliases.local" ] && [ ! -s "$BATS_TEST_TMPDIR/aliases.local" ]
+}

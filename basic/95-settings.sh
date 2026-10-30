@@ -111,18 +111,21 @@ UZ="$(color_zsh_name "$U8")";    PZ="$(color_zsh_name "$P8")"
 # ── 2. the shared aliases ────────────────────────────────────────────────────
 # Checked before it is copied anywhere: this file ends up sourced by every new
 # shell, and a syntax error in it means no shell on this machine has a prompt.
+aliases_retire
 ALIAS_BODY=""
-if [[ -s "$BLE_ALIASES_LOCAL" ]]; then
-    if ! bash -n "$BLE_ALIASES_LOCAL" 2>/dev/null; then
-        fail "${BLE_ALIASES_LOCAL/#$HOME/\~} has a syntax error — not installing it."
+for f in "$BLE_ALIASES_SHARED" "$BLE_ALIASES_LOCAL"; do
+    [[ -s "$f" ]] || continue
+    if ! bash -n "$f" 2>/dev/null; then
+        fail "${f/#$HOME/\~} has a syntax error — not installing it."
         fail "Every new shell would break. What bash makes of it:"
-        bash -n "$BLE_ALIASES_LOCAL" 2>&1 | sed 's/^/    /' >&2 || true
+        bash -n "$f" 2>&1 | sed 's/^/    /' >&2 || true
         FAILED_ALIASES=true
-    else
-        ALIAS_BODY="$(cat "$BLE_ALIASES_LOCAL")"
-        step "Shared aliases: $(grep -cE '^[[:space:]]*(alias|[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(\))' "$BLE_ALIASES_LOCAL" || true) definition(s) from ${BLE_ALIASES_LOCAL/#$HOME/\~}"
+        continue
     fi
-fi
+    step "Aliases: $(grep -cE '^[[:space:]]*(alias|[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(\))' "$f" || true) definition(s) from ${f/#$HOME/\~}"
+done
+[[ "${FAILED_ALIASES:-false}" == true || ! -s "$BLE_ALIASES_LOCAL" ]] || \
+    ALIAS_BODY="$(cat "$BLE_ALIASES_LOCAL")"
 
 # ── 3. one override file per shell ───────────────────────────────────────────
 # Loaded from ~/.<shell>rc, after the line the config repo put there — so this
@@ -264,7 +267,7 @@ ZSH_BLOCK
 shell_file() {
     local shell_name="$1"
     printf '# Written by best-linux-environment — do NOT edit, every run rewrites it.\n'
-    printf '# Change it in %s/settings.local and %s/aliases.local instead,\n' \
+    printf '# Change it in %s/settings.local and %s/aliases(.local) instead,\n' \
         "${BLE_ROOT/#$HOME/\~}" "${BLE_ROOT/#$HOME/\~}"
     printf '# then run ./setup.sh (or ./boot.sh, or just reboot).\n'
     printf '#\n'
@@ -286,7 +289,7 @@ shell_file() {
         printf '# Nothing set in settings.local — nothing exported.\n'
     printf '\n'
 
-    printf '# ── your aliases (aliases.local) ──────────────────────────────────────────────\n'
+    printf '# ── your aliases (aliases, then aliases.local) ────────────────────────────────\n'
     # Before the body, so an aliases.local of yours can still redefine it.
     printf '# Re-apply settings.local, aliases.local and fonts.local, then load the\n'
     printf '# result into THIS shell. No pull, no new terminal: ./boot.sh does the pull.\n'
@@ -298,11 +301,14 @@ shell_file() {
     printf '    . "$HOME/.%s/%s-ble.local"\n' "$shell_name" "$shell_name"
     printf '    return $s\n'
     printf '}\n\n'
+    # Sourced, not copied: an edit to the tracked file shows in the next shell.
+    printf '# Every machine'"'"'s aliases, from the repo.\n'
+    printf '[ -f %q ] && . %q\n\n' "$BLE_ALIASES_SHARED" "$BLE_ALIASES_SHARED"
+    printf '# This machine'"'"'s own (aliases.local), last so they win.\n'
     if [[ -n "$ALIAS_BODY" ]]; then
         printf '%s\n' "$ALIAS_BODY"
     else
-        printf '# aliases.local is empty. Uncomment something in it, or in\n'
-        printf '# %s/aliases.local.example, and re-run.\n' "${BLE_ROOT/#$HOME/\~}"
+        printf '# aliases.local is empty.\n'
     fi
     printf '\n'
 
@@ -392,6 +398,12 @@ rc_line() {
         "$1" "$1" "$1" "$1"
 }
 
+# alias_pointer  — the comment line that tells an rc file's editor where aliases go.
+alias_pointer() {
+    printf '# best-linux-environment: aliases go in %s (every machine) or %s (this one), not here.\n' \
+        "${BLE_ALIASES_SHARED/#$HOME/\~}" "${BLE_ALIASES_LOCAL/#$HOME/\~}"
+}
+
 # zsh reads $ZDOTDIR/.zshrc when ZDOTDIR is set, and $HOME/.zshrc otherwise —
 # wiring the wrong one wires a file nothing loads.
 rc_path() {
@@ -441,6 +453,8 @@ for shell_name in zsh bash; do
         ensure_line "$rc" "$shell_name-ble\.local" "$(rc_line "$shell_name")"
         [[ "$LINE_ADDED" == true ]] && \
             step "${rc/#$HOME/\~} now loads it last — open a new $shell_name to see the prompt."
+        # For whoever edits the rc file next, an agent new to this repo included.
+        ensure_line "$rc" "best-linux-environment: aliases go in" "$(alias_pointer)"
     else
         skip "${rc/#$HOME/\~} does not exist — ./setup.sh's $shell_name config writes it."
     fi

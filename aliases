@@ -1,0 +1,68 @@
+# The aliases every machine gets. Tracked in git, so edit here to change them all.
+# Per-machine ones (ssh hosts, local paths) go in aliases.local, which wins over these.
+#
+# Both shells load this file from ~/.<shell>/<shell>-ble.local (basic/95-settings.sh
+# writes that line), so it must be shell that bash AND zsh understand.
+
+# CPU/GPU temperature logger (temperature-logger).
+alias b-temp="temps"
+
+# Quick scratch note: create/open ~/fastnote.txt in vim.
+alias fn='touch ~/fastnote.txt && vim ~/fastnote.txt'
+
+# Go to this user's home.
+alias home='cd "$HOME"'
+
+# Calculator (Qalculate): interactive, or one-shot `calc '43 + 5 * 20'`.
+alias calc=qalc
+
+# Vim on the current folder.
+alias v="vim ."
+
+# yazi, then cd into the folder it quit in (it writes its last cwd to --cwd-file).
+# A function, not an alias, for that cd.
+r() {
+    local tmp cwd
+    tmp="$(mktemp -t yazi-cwd.XXXXXX)" || return 1
+    yazi "$@" --cwd-file="$tmp"
+    # `$(cat)` strips the trailing newline yazi writes, which would break the cd.
+    cwd="$(command cat -- "$tmp" 2>/dev/null)"
+    command rm -f -- "$tmp"
+    if [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+        builtin cd -- "$cwd"
+    fi
+}
+
+# tmux: attach, or a new session (named when you give a name).
+alias ta="tmux attach"
+tn() {
+    if [ -z "$1" ]; then
+        tmux
+    else
+        tmux new -s "$1"
+    fi
+}
+
+# Reload every config: boot.sh pulls each repo, re-runs its install.sh and reloads
+# i3, tmux, fonts. Then `exec` swaps this shell for a fresh one, so no nesting builds up.
+b-reload() {
+    local boot="${BLE_HOME:-$HOME/best-linux-environment}/boot.sh"
+    if [ ! -x "$boot" ]; then
+        printf 'b-reload: no best-linux-environment at %s — nothing to reload.\n' \
+            "$boot" >&2
+        return 1
+    fi
+    "$boot" "$@" || return $?
+    case " $* " in
+        *" --dry-run "*) return 0 ;;
+    esac
+    if [ -n "$ZSH_VERSION" ]; then exec zsh; else exec bash; fi
+}
+
+# Lazygit, lazydocker.
+alias lz="lazygit"
+alias ld="lazydocker"
+
+# Git.
+alias gs="git status"
+alias gp="git pull"

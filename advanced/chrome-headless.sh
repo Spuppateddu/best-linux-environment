@@ -96,7 +96,7 @@ else
 fi
 
 # ── 4. the two variables node tooling reads ──────────────────────────────────
-# Into <shell>-alias.local, where 15-temps-alias.sh puts b-temp. Never over a
+# Into <shell>-alias.local, the per-machine file of each shell. Never over a
 # value you set: a project pinned to its own Chrome build stays pinned.
 if [[ -x "$CHROME_BIN" || "$(command -v google-chrome-stable 2>/dev/null)" ]]; then
     chrome_path="$(command -v google-chrome-stable 2>/dev/null || printf '%s' "$CHROME_BIN")"

@@ -316,17 +316,17 @@ needs it.
 
 ```bash
 cp settings.local.example settings.local
-cp aliases.local.example  aliases.local
+touch aliases.local
 $EDITOR settings.local
 ./setup.sh          # or ./boot.sh — and every boot re-applies it
 ```
 
-You do not have to copy them by hand: `basic/05-defaults.sh` puts both there on
-the first run, straight from the `.example` next to them — and their values are
+You do not have to make them by hand: `basic/05-defaults.sh` puts both there on
+the first run — `aliases.local` empty, `settings.local` from its `.example` — and its values are
 **live, not commented out**. A fresh machine starts from a working base rather
 than from a blank file it has to fill in before anything happens: an agent (the
 one actually installed on that machine, picked at seed time), an agent folder,
-an editor, a rolled set of colours, and a dozen aliases. Change what you
+an editor, and a rolled set of colours. Change what you
 disagree with, comment out what you don't want.
 
 A key added to `settings.local.example` later reaches your existing file too:
@@ -358,9 +358,17 @@ never the run. A key that no longer does anything (`BLE_AGENT`,
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
-**`aliases.local`** is not `KEY=VALUE` — aliases are shell code, so they get a
-file of their own. It is copied **verbatim** into both shells, which means it has
-to be shell they both understand: plain `alias name="…"` and POSIX functions.
+**Aliases** are shell code, not `KEY=VALUE`, so they get two files of their own:
+
+- **`aliases`** — tracked in git: the aliases **every** machine gets (`b-temp`,
+  `fn`, `home`). Edit it here and push; the next shell on each machine has it.
+- **`aliases.local`** — git-ignored, empty on a new machine, no comments: this
+  machine's own aliases (ssh hosts, local paths). Loaded after `aliases`, so it wins.
+
+This repo is the one place for an alias: `~/.bashrc` gets a line that says so, for
+whoever (or whichever agent) opens it next. Both shells source `aliases` and copy
+`aliases.local` **verbatim**, so both must be shell they both understand: plain
+`alias name="…"` and POSIX functions.
 Anything zsh-only or bash-only belongs in `~/.zsh/zsh-alias.local` or
 `~/.bash/bash-alias.local`, which stay per-machine. Before it is copied anywhere
 it is checked with `bash -n`: this file ends up sourced by every new shell, and a
@@ -530,7 +538,7 @@ file it belongs beside. The clones in `~/linux-configuration/` stay clean, so
 The shells are wired through `~/.zshrc` / `~/.bashrc` rather than through the
 config repo's alias file, because **last** is the only place a prompt can be set
 from: bash sets `PS1` at the very end of its own rc, and Oh My Zsh's theme sets
-`PROMPT` at the end of zsh's. Being last is also why an alias in `aliases.local`
+`PROMPT` at the end of zsh's. Being last is also why an alias in `aliases` or `aliases.local`
 beats one with the same name in `~/.bash/bash-alias.local` — deliberate: this is
 the file you edit when you want *every* machine to change.
 
@@ -1046,7 +1054,7 @@ in the `necessary` tier and creates each of them **only when it isn't there**.
 | File | What it gets, and why |
 | --- | --- |
 | `fonts.local` | a copy of `fonts.local.example`, every line commented out. Changes nothing until you uncomment one — but the file to edit exists instead of a hint telling you to make it (see [font sizes](#font-sizes-per-machine-fontslocal)) |
-| `settings.local` + `aliases.local` | copies of their `.example` files, **values live** — a working base (agent, agent folder, editor, colours, a dozen aliases), not a blank file. The two files you edit to change every machine at once (see [one file for every machine](#one-file-for-every-machine-settingslocal)) |
+| `settings.local` + `aliases.local` | `settings.local` is a copy of its `.example`, **values live** — a working base (editor, colours), not a blank file; `aliases.local` starts empty (the shared aliases are in the tracked `aliases`). The two files you edit to change every machine at once (see [one file for every machine](#one-file-for-every-machine-settingslocal)) |
 | `~/.local/bin` + `~/.profile` | the directory `lazygit`, `yazi`, `fzf` and `temps` install into, plus the line that puts it on `PATH`. Ubuntu's own `~/.profile` adds it *only if the directory already exists*, so on a fresh machine it never does. The line is **appended** to the `~/.profile` you have; a machine with no `~/.profile` at all gets a minimal one |
 | `~/.ssh/config` | `AddKeysToAgent`, `ServerAliveInterval 60` — so a long remote session doesn't drop silently. Mode `600`, or `ssh` refuses to read it. The key itself belongs to [`20-ssh`](#what-the-necessary-tier-installs) |
 | git | `init.defaultBranch=main`, `pull.rebase=false`, `push.default=simple`, `core.editor=vim` — **per key, not per file**, so a `~/.gitconfig` holding only your name still gets them and a key you set yourself is never touched |
@@ -1361,7 +1369,7 @@ to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
 the list entirely on a server. `docker`, `lazydocker`, `opencode`, `claude-code`, `skills`, `sshd`,
-`auto-updates`, `megacmd`, `fastnote`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` (`full` for the two Chrome ones, which the [minimal profile](#the-minimal-profile) drops) — so they
+`auto-updates`, `megacmd`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` (`full` for the two Chrome ones, which the [minimal profile](#the-minimal-profile) drops) — so they
 still appear on a headless box, and can be installed there directly (Chrome is on
 that list because `chrome-headless` needs it, and **headless** use needs no display):
 
@@ -1415,7 +1423,6 @@ secondary|xournalpp|gui|script|run:advanced/xournalpp.sh|Xournal++ — annotate 
 | `opencode` | [opencode.ai](https://opencode.ai) install script → `~/.local/bin` — CLI, no desktop needed |
 | `claude-code` | [claude.ai/install.sh](https://code.claude.com/docs/en/setup) → `~/.local/bin/claude` (versions in `~/.local/share/claude`) — CLI, no desktop needed. It updates itself, so a re-run leaves it alone. Unticking removes the binary and keeps your login and settings in `~/.claude` |
 | `skills` | [Spuppateddu/skills](https://github.com/Spuppateddu/skills) cloned into `~/code/skills` — **left exactly as it is** when a checkout is already there, never pulled. `~/.claude/skills` becomes a link to it (a real folder there is backed up first), so Claude Code loads every skill. `~/.claude/CLAUDE.md` gets one line, `@~/code/skills/global-rules.md`: an import, not a copy, so the rules follow the clone. Unticking removes the link and that line, and keeps the clone |
-| `fastnote` | Nothing to download: appends `alias fn=…` to `aliases.local`, which `95-settings` then copies into both shells; it creates/opens `~/fastnote.txt` in vim. Unticking removes only the lines it wrote |
 | `playwright-mcp` | [@playwright/mcp](https://github.com/microsoft/playwright-mcp) through `npx` (brings `nodejs` + `npm`). Desktop: Playwright's own Firefox build + `b-pw-display` → `~/.local/bin` — a visible Firefox window `claude`, `opencode` and `codex` can drive, [below](#a-visible-firefox-for-a-coding-agent-playwright-mcp). Server: a headless Firefox only the agent sees, [below](#a-headless-firefox-on-a-server), plus a `playwright-remote` MCP that drives the Firefox of the PC that ssh'd in, [below](#a-firefox-here-driven-by-an-agent-on-another-host-playwright-remote) |
 | `google-chrome` | [Google's apt repo](https://www.google.com/linux/) — the browser only. Firefox stays the default |
 | `chrome-headless` | Google Chrome (ticked for you if it isn't) plus the AppArmor profile its sandbox needs and the `b-chrome` helper, [below](#headless-chrome-for-a-coding-agent-b-chrome). No desktop needed |
@@ -1751,7 +1758,7 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 | --- | --- |
 | `settings_load` | parse `settings.local` into `BLE_EDITOR`, the colours… — read as data, never sourced, same as `fonts.sh` |
 | `settings_validate` | drop a value that would break the file it is written into (a colour that isn't a number, a relative agent folder) — one bad line, not the run |
-| `settings_seed` | put `settings.local` and `aliases.local` there when they aren't, from the committed `.example` copies |
+| `settings_seed` | put `settings.local` there when it isn't, from its committed `.example`, and an empty `aliases.local` |
 | `settings_fill` | append to an existing `settings.local` each live key of the example it lacks, with its comments; a commented-out key counts as there |
 | `roll_prompt_colors` | pick the two prompt colours, once — never equal, never the same hue family |
 | `roll_color` | pick one colour for a surface of its own (the terminal cursor, the i3 window) — no pairing rule |
