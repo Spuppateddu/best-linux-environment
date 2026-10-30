@@ -18,21 +18,6 @@
 # and removes every other user font, so the whole desktop can only render one.
 
 
-# ── The coding agent ($mod+c) ────────────────────────────────────────────────
-# i3 binds $mod+c to a terminal running your agent, in a folder of its own.
-# Written to ~/.i3rc/05-agent.local, which i3 reads as `set $agent`.
-
-# What to run. Anything on PATH: claude, opencode, codex… Arguments are allowed
-# ("claude --continue"); a pipe or an && is not — wrap those in a script.
-# The first run swaps this for whichever agent is actually on the machine.
-BLE_AGENT=claude
-
-# Where it opens. Its own folder, never $HOME: an agent asks you to trust the
-# directory it starts in, and $HOME is every file you own. Created if missing.
-# Must be absolute; ~ and $HOME are expanded here.
-BLE_AGENT_DESK=~/agent-desk
-
-
 # ── The colours ──────────────────────────────────────────────────────────────
 # Five colours, one per surface: an xterm-256 number (0-255) or an exact
 # #rrggbb (e.g. #0f3d7c). Every one of them is left out

@@ -337,12 +337,11 @@ say no to one. Keys commented out in the example (your git name) are never added
 
 **`settings.local`** is `KEY=VALUE`, one per line. Quotes are optional — use
 them for a value with a `#` in it. A bad value costs you that line and a warning,
-never the run.
+never the run. A key that no longer does anything (`BLE_AGENT`,
+`BLE_AGENT_DESK`) is taken out of the file by the next run.
 
 | Key | What it sets | Where it lands |
 | --- | --- | --- |
-| `BLE_AGENT` | the coding agent `$mod+c` opens, as a new window of a tmux session named after it — `claude`, `opencode`, `codex`… arguments allowed. Seeded with whichever of those is actually installed | `~/.i3rc/05-agent.local` → `set $agent` |
-| `BLE_AGENT_DESK` | the folder it opens in, created if missing. Its own folder, never `$HOME`: an agent asks you to trust the directory it starts in | `~/.i3rc/05-agent.local` → `set $agent_desk`, and `$BLE_AGENT_DESK` in both shells |
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255 or `#rrggbb`) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255 or `#rrggbb`) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255 or `#rrggbb`) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
@@ -524,7 +523,7 @@ file it belongs beside. The clones in `~/linux-configuration/` stay clean, so
 | --- | --- | --- |
 | zsh | `~/.zsh/zsh-ble.local` | one line appended to `~/.zshrc`, after the config repo's own |
 | bash | `~/.bash/bash-ble.local` | one line appended to `~/.bashrc`, after the config repo's own |
-| i3 | `~/.i3rc/05-agent.local`, `06-colors.local`, `00-no-titlebar.local` | the existing `include ~/.i3rc/*.local` |
+| i3 | `~/.i3rc/06-colors.local`, `00-no-titlebar.local` | the existing `include ~/.i3rc/*.local` |
 | eww (the top bar) | `~/.i3rc/eww/bar.local.conf` | read by that repo's `scripts/eww_lib.sh` when it opens the bars |
 | Firefox | `~/.firefox/user.settings.local.js` | appended to `user.js` by that repo's `install.sh` |
 
@@ -535,14 +534,13 @@ from: bash sets `PS1` at the very end of its own rc, and Oh My Zsh's theme sets
 beats one with the same name in `~/.bash/bash-alias.local` — deliberate: this is
 the file you edit when you want *every* machine to change.
 
-The i3 file is called `05-agent.local` so it sorts **before** `config.local`,
-which i3's `include ~/.i3rc/*.local` reads after it. A `set $agent` you put in
-`config.local` by hand therefore still wins — and because that silently ignores
-`settings.local`, the run warns you and names the line to delete.
+The i3 files sort **before** `config.local`, which i3's `include ~/.i3rc/*.local`
+reads after them. A colour you put in `config.local` by hand therefore still wins
+— and because that silently ignores `settings.local`, the run warns you and names
+the line to delete.
 
 Every generated `.local` this repo drops into `~/.i3rc/` follows the same rule,
 and the numbers are the whole ordering contract: `00-no-titlebar.local`,
-`05-agent.local`,
 `06-colors.local`, `07-image-viewer.local` and `08-video-player.local` are read after `config`, so a
 `for_window` in one of them overrides the catch-all that floats and borders
 every window; `config.local` is read after all four, so a hand-written line
@@ -623,8 +621,7 @@ boot runs `./boot.sh`, which:
 1. `git pull`s **this repo** (and re-execs itself if it changed);
 2. `git pull`s each **cloned** config repo and re-runs the `install.sh` it ships,
    so a config you pushed from another machine is applied here;
-3. re-applies **`settings.local`** and **`aliases.local`** (the agent `$mod+c`
-   opens, your colours, your shared aliases) and then **`fonts.local`**,
+3. re-applies **`settings.local`** and **`aliases.local`** (your colours, your shared aliases) and then **`fonts.local`**,
    reloading i3, the bar and dunst if anything moved;
 4. **reloads what is running** — `i3-msg reload`, `tmux source-file` on every
    running server, `fc-cache`, `xrdb -merge`;
@@ -1752,7 +1749,7 @@ be thin wrappers over the same modules instead of two copies of the same loop.
 
 | `lib/settings.sh` | What it does |
 | --- | --- |
-| `settings_load` | parse `settings.local` into `BLE_AGENT`, `BLE_EDITOR`, the colours… — read as data, never sourced, same as `fonts.sh` |
+| `settings_load` | parse `settings.local` into `BLE_EDITOR`, the colours… — read as data, never sourced, same as `fonts.sh` |
 | `settings_validate` | drop a value that would break the file it is written into (a colour that isn't a number, a relative agent folder) — one bad line, not the run |
 | `settings_seed` | put `settings.local` and `aliases.local` there when they aren't, from the committed `.example` copies |
 | `settings_fill` | append to an existing `settings.local` each live key of the example it lacks, with its comments; a commented-out key counts as there |

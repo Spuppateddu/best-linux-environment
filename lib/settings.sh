@@ -19,7 +19,7 @@ BLE_ALIASES_EXAMPLE="$BLE_ROOT/aliases.local.example"
 # Every key settings.local may set. A key not set there stays empty, and the
 # surface it drives keeps whatever its own config repo ships.
 BLE_SETTING_KEYS=(
-    BLE_AGENT BLE_AGENT_DESK BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
+    BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
@@ -50,12 +50,16 @@ declare -A BLE_COLOR_WHAT=(
     [BLE_I3_UNFOCUSED_COLOR]="the unfocused windows in i3, tmux's session name"
 )
 
-BLE_AGENT=""; BLE_AGENT_DESK=""; BLE_EDITOR=""
+BLE_EDITOR=""
 BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
 BLE_TERMINAL_OPACITY=""; BLE_BAR_COLOR=""; BLE_TRACKPAD_SPEED=""
+
+# Keys that were settings once and no longer drive anything. Read silently, and
+# settings_drop_retired takes their lines out of settings.local.
+BLE_RETIRED_KEYS=(BLE_AGENT BLE_AGENT_DESK)
 
 # _settings_known KEY  — true when KEY is one of the keys above.
 _settings_known() {
@@ -97,6 +101,7 @@ settings_load() {
                     ;;
         esac
 
+        [[ " ${BLE_RETIRED_KEYS[*]} " == *" $key "* ]] && continue
         if ! _settings_known "$key"; then
             warn "settings.local line $n: unknown key '$key' — ignoring it."
             continue
@@ -202,23 +207,9 @@ settings_validate() {
         BLE_I3_UNFOCUSED_COLOR=""
     fi
 
-    # i3 starts the agent with no shell, so ~ is ours to expand, and a relative
-    # path is meaningless there: i3's own cwd is whatever it was started from.
-    if [[ -n "$BLE_AGENT_DESK" ]]; then
-        case "$BLE_AGENT_DESK" in
-            '~'|'$HOME')  BLE_AGENT_DESK="$HOME" ;;
-            '~/'*)        BLE_AGENT_DESK="$HOME/${BLE_AGENT_DESK#\~/}" ;;
-            '$HOME/'*)    BLE_AGENT_DESK="$HOME/${BLE_AGENT_DESK#\$HOME/}" ;;
-        esac
-        if [[ "$BLE_AGENT_DESK" != /* ]]; then
-            warn "settings.local: BLE_AGENT_DESK='$BLE_AGENT_DESK' is not an absolute path — ignoring it."
-            BLE_AGENT_DESK=""
-        fi
-    fi
-
-    # A newline would end the `set \$agent` line early and leave i3 parsing the
-    # rest as a directive of its own.
-    for k in BLE_AGENT BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL; do
+    # A newline would end the line it is written into early, and leave the rest
+    # parsed as a line of its own.
+    for k in BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL; do
         v="${!k}"
         if [[ "$v" == *$'\n'* ]]; then
             warn "settings.local: '$k' spans more than one line — ignoring it."
@@ -441,23 +432,6 @@ roll_color_pair() {
 settings_load
 export "${BLE_SETTING_KEYS[@]}" BLE_SETTINGS_LOCAL BLE_ALIASES_LOCAL
 
-# agent_installed CMD  — is this agent actually on the machine? PATH, ~/.local/bin
-# (the boot cron's PATH has neither) or opencode's own ~/.opencode/bin.
-agent_installed() {
-    has_cmd "$1" || have_local_bin "$1" || { [[ "$1" == opencode ]] && have_opencode_bin; }
-}
-
-# pick_agent  — the first agent that is actually here, in preference order.
-# Prints nothing when none of them is, and the seeded default then stands so the
-# file still shows you the shape of the answer.
-pick_agent() {
-    local a
-    for a in claude opencode codex; do
-        agent_installed "$a" && { printf '%s' "$a"; return 0; }
-    done
-    return 1
-}
-
 # settings_seed  — put the two files there when they are not, straight from the
 # committed examples. Their values are LIVE, not commented-out examples: a fresh
 # machine is supposed to start from a working base, not from a blank file you
@@ -474,24 +448,8 @@ settings_seed() {
         fi
         config_write "$dst" --if-missing < "$src"
         if [[ "$CONFIG_WRITTEN" != true ]]; then
-            [[ "$dst" == "$BLE_SETTINGS_LOCAL" ]] && settings_fill
+            [[ "$dst" == "$BLE_SETTINGS_LOCAL" ]] && { settings_drop_retired; settings_fill; }
             continue
-        fi
-
-        # Only for the file that names an agent, and only on the run that
-        # created it: after that the value is yours, and a later run must not
-        # move it because you happened to install something else.
-        if [[ "$dst" == "$BLE_SETTINGS_LOCAL" && "$DRY_RUN" != true ]]; then
-            local found
-            if found="$(pick_agent)"; then
-                if [[ "$found" != claude ]]; then
-                    sed -i "s|^BLE_AGENT=claude\$|BLE_AGENT=$found|" "$dst"
-                    ok "Agent on this machine: $found — set as BLE_AGENT for you."
-                fi
-            else
-                warn "No coding agent found (claude, opencode, codex) — BLE_AGENT stays 'claude'."
-                warn "Install one, or change BLE_AGENT in ${dst/#$HOME/\~}."
-            fi
         fi
 
         ok "Edit ${dst/#$HOME/\~}, then re-run — every boot re-applies it."
@@ -501,6 +459,26 @@ settings_seed() {
     # step after this one is entitled to see them on the very first run.
     settings_reload
     return 0
+}
+
+# settings_drop_retired  — delete the lines of BLE_RETIRED_KEYS from settings.local,
+# commented-out ones too: nothing reads them any more.
+settings_drop_retired() {
+    local key found=()
+    [[ -f "$BLE_SETTINGS_LOCAL" ]] || return 0
+    for key in "${BLE_RETIRED_KEYS[@]}"; do
+        grep -Eq "^[[:space:]]*#?[[:space:]]*${key}[[:space:]]*=" "$BLE_SETTINGS_LOCAL" && found+=("$key")
+    done
+    [[ ${#found[@]} -eq 0 ]] && return 0
+
+    if [[ "$DRY_RUN" == true ]]; then
+        printf '%s  would remove:%s %s → %s\n' "$C_DIM" "$C_OFF" "${found[*]}" "${BLE_SETTINGS_LOCAL/#$HOME/\~}"
+        return 0
+    fi
+    for key in "${found[@]}"; do
+        sed -i -E "/^[[:space:]]*#?[[:space:]]*${key}[[:space:]]*=/d" "$BLE_SETTINGS_LOCAL"
+    done
+    ok "Removed from ${BLE_SETTINGS_LOCAL/#$HOME/\~}, no longer used: ${found[*]}."
 }
 
 # settings_fill  — append each live KEY= of the example that settings.local lacks,

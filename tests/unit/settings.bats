@@ -206,6 +206,18 @@ example() { printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/settings.local.example"; }
     [ "$(grep -c '^BLE_I3_TITLEBAR=' "$f")" -eq 1 ]
 }
 
+@test "95-settings: the old agent keys leave settings.local, and 05-agent.local goes" {
+    mkdir -p "$HOME/.i3rc"
+    echo 'set $agent claude' > "$HOME/.i3rc/05-agent.local"
+    run_settings BLE_EDITOR=vim BLE_AGENT=claude '#BLE_AGENT_DESK=~/desk'
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"unknown key"* ]]
+    f="$BATS_TEST_TMPDIR/settings.local"
+    ! grep -q 'BLE_AGENT' "$f"
+    grep -qx 'BLE_EDITOR=vim' "$f"
+    [ ! -e "$HOME/.i3rc/05-agent.local" ]
+}
+
 @test "95-settings: a key you commented out is not added back" {
     example 'BLE_I3_DESKTOP=floating'
     run_settings '#BLE_I3_DESKTOP=tiling'

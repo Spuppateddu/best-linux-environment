@@ -17,6 +17,3 @@
 # Names already taken by the shell config repos, so not re-used here: v, r, ta,
 # tn, calc, lz, ld, b-temp, b-idle, b-reload, b-apply, fn.
 
-
-# The agent folder, from settings.local's BLE_AGENT_DESK.
-alias desk='cd "$BLE_AGENT_DESK"'

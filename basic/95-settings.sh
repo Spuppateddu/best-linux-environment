@@ -282,11 +282,7 @@ shell_file() {
         printf 'export EDITOR=%q\n' "$BLE_EDITOR"
         printf 'export VISUAL=%q\n' "$BLE_EDITOR"
     fi
-    if [[ -n "$BLE_AGENT_DESK" ]]; then
-        printf '# Where $mod+c opens the agent, so you can `cd "$BLE_AGENT_DESK"` too.\n'
-        printf 'export BLE_AGENT_DESK=%q\n' "$BLE_AGENT_DESK"
-    fi
-    [[ -z "$BLE_EDITOR" && -z "$BLE_AGENT_DESK" ]] && \
+    [[ -z "$BLE_EDITOR" ]] && \
         printf '# Nothing set in settings.local — nothing exported.\n'
     printf '\n'
 
@@ -311,16 +307,6 @@ shell_file() {
     printf '\n'
 
     "prompt_block_$shell_name"
-}
-
-# What ~/.i3rc/05-agent.local holds, on stdout.
-i3_agent_file() {
-    printf '# Written by best-linux-environment — settings.local, BLE_AGENT / BLE_AGENT_DESK.\n'
-    printf '# Read by ~/.i3rc/scripts/agent.sh, which $mod+c runs. Named 05- so a value\n'
-    printf '# you put in config.local by hand is still read after this and still wins.\n'
-    [[ -n "$BLE_AGENT" ]]      && printf 'set $agent %s\n' "$BLE_AGENT"
-    [[ -n "$BLE_AGENT_DESK" ]] && printf 'set $agent_desk %s\n' "$BLE_AGENT_DESK"
-    return 0
 }
 
 # What ~/.i3rc/06-colors.local holds, on stdout: focused and unfocused windows
@@ -532,25 +518,16 @@ EOF
     CHANGED_TMUX="$GEN_CHANGED"
 fi
 
-# ── 5. i3: the agent key ($mod+c), the window colours, the title bars ────────
-# 05- so it sorts before config.local, which i3's `include ~/.i3rc/*.local`
-# reads after it: a value you put in config.local by hand still wins.
+# ── 5. i3: the window colours, the title bars ──────────────────────────────
 I3="$HOME/.i3rc"
-I3_GEN="$I3/05-agent.local"
 if [[ ! -d "$I3" ]]; then
-    skip "${I3/#$HOME/\~} not cloned yet — no \$mod+c to configure (./setup.sh clones it)."
+    skip "${I3/#$HOME/\~} not cloned yet — no window colours to set (./setup.sh clones it)."
 elif ! grep -Fq 'include ~/.i3rc/*.local' "$I3/config" 2>/dev/null; then
     warn "${I3/#$HOME/\~}/config does not include ~/.i3rc/*.local — pull that repo, the hook lives there."
 else
-    if [[ -n "$BLE_AGENT" || -n "$BLE_AGENT_DESK" ]]; then
-        write_gen "$I3_GEN" <<< "$(i3_agent_file)"
-        CHANGED_I3="$GEN_CHANGED"
-    else
-        drop_gen "$I3_GEN" "~/.i3rc/config.local"
-        CHANGED_I3="$GEN_CHANGED"
-        skip "No BLE_AGENT in settings.local — \$mod+c has no agent to open yet."
-        skip "Set one there (BLE_AGENT=claude) rather than in ~/.i3rc/config.local."
-    fi
+    # Left by older runs, for the $mod+c agent key that is gone.
+    drop_gen "$I3/05-agent.local" "~/.i3rc/config"
+    CHANGED_I3="$GEN_CHANGED"
 
     # The window colours. Always written: the roll above always leaves both
     # i3 keys with a value, so there is no "unset" case to drop.
@@ -674,41 +651,14 @@ EOF
         fi
     fi
 
-    # The one thing that silently undoes this file. config.local sorts after it,
-    # so a `set $agent` left in there wins and settings.local looks broken.
+    # The one thing that silently undoes this file: config.local sorts after
+    # 06-colors.local, so a colour left in there wins.
     if [[ -f "$I3/config.local" ]]; then
-        for var in agent agent_desk; do
-            grep -Eq "^[[:space:]]*set[[:space:]]+\\\$${var}[[:space:]]" "$I3/config.local" || continue
-            [[ "$var" == agent && -z "$BLE_AGENT" ]] && continue
-            [[ "$var" == agent_desk && -z "$BLE_AGENT_DESK" ]] && continue
-            warn "~/.i3rc/config.local also sets \$$var — that one wins, and settings.local's is ignored."
-            warn "Delete its 'set \$$var …' line to let settings.local decide."
-        done
-
-        # Same trap, for the colours: config.local sorts after 06-colors.local.
         for cls in focused focused_inactive unfocused; do
             grep -Eq "^[[:space:]]*client\.${cls}[[:space:]]" "$I3/config.local" || continue
             warn "~/.i3rc/config.local also sets client.$cls — that one wins, and settings.local's colour is ignored."
             warn "Delete its 'client.$cls …' line to let settings.local decide."
         done
-    fi
-
-    # Made here as well as by the i3 repo's own setup, so the key works on a
-    # machine whose i3 install predates this setting.
-    if [[ -n "$BLE_AGENT_DESK" ]]; then
-        if [[ -d "$BLE_AGENT_DESK" ]]; then
-            skip "${BLE_AGENT_DESK/#$HOME/\~} already exists."
-        else
-            run mkdir -p "$BLE_AGENT_DESK" && ok "created ${BLE_AGENT_DESK/#$HOME/\~} — where \$mod+c opens." \
-                || warn "Could not create $BLE_AGENT_DESK."
-        fi
-    fi
-
-    # Named but not installed is worth saying now rather than at the keypress.
-    if [[ -n "$BLE_AGENT" ]]; then
-        agent_bin="${BLE_AGENT%% *}"
-        has_cmd "$agent_bin" || have_local_bin "$agent_bin" || \
-            warn "BLE_AGENT names '$agent_bin', which is not on PATH — \$mod+c will say so too."
     fi
 fi
 
@@ -804,7 +754,7 @@ fi
 
 if [[ "${CHANGED_I3:-false}" == true && -n "${DISPLAY:-}" ]] && has_cmd i3-msg \
    && i3-msg -t get_version >/dev/null 2>&1; then
-    i3-msg -q reload >/dev/null 2>&1 && ok "i3 reloaded — \$mod+c uses the new settings." \
+    i3-msg -q reload >/dev/null 2>&1 && ok "i3 reloaded — it uses the new settings." \
         || warn "i3 reload failed."
     if [[ "${SWEEP_TITLEBAR:-false}" == true ]]; then
         if [[ "$BLE_I3_TITLEBAR" == false ]]; then
