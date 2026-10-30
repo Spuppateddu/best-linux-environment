@@ -123,6 +123,19 @@ load helpers
     [ "$output" = server ]
 }
 
+@test "session_display: read off i3's environment, empty with no i3" {
+    export BLE_PROC="$BATS_TEST_TMPDIR/proc"
+    mkdir -p "$BLE_PROC/42"
+    printf 'HOME=/h\0DISPLAY=:0\0PATH=/bin\0' > "$BLE_PROC/42/environ"
+    fake_cmd pgrep 'echo 42'
+    ble 'session_display'
+    [ "$output" = ":0" ]
+    fake_cmd pgrep 'exit 1'
+    ble 'session_display'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
 @test "remember_shell: rejects anything but zsh or bash" {
     ble 'remember_shell fish'
     [ "$status" -eq 1 ]

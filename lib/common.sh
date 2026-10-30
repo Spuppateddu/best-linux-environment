@@ -96,6 +96,17 @@ run() {
 
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# session_display — DISPLAY of this user's running i3 (":0"), empty if none. From i3's
+# own environment: under lightdm Xorg is root's, with flags before its ":0".
+session_display() {
+    local pid
+    for pid in $(pgrep -u "$(id -u)" -x i3 2>/dev/null); do
+        tr '\0' '\n' <"${BLE_PROC:-/proc}/$pid/environ" 2>/dev/null \
+            | sed -n 's/^DISPLAY=//p' | head -1
+        return 0
+    done
+}
+
 # sudo works here only with a terminal (password prompt) or cached credentials;
 # boot/cron runs must never hang waiting for a password.
 can_sudo() { [[ -t 0 ]] || sudo -n true 2>/dev/null; }

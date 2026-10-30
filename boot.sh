@@ -22,7 +22,8 @@ It does five things and refuses to do a sixth:
      font sizes from fonts.local, then reload i3, the bar and dunst if any of
      them moved.
   4. Reload what is running right now, so an edit you pushed from another
-     machine is live without a logout: i3 reloads its config, every running
+     machine is live without a logout: i3 reloads its config (restarts, if
+     the pull moved its repo, so its daemons run the new scripts), every running
      tmux server re-sources its, the wallpaper is repainted, mpd rescans the
      music, the font cache is rebuilt, X resources are re-merged.
   5. Move the binaries apt doesn't manage to their latest release — lazygit,
@@ -89,6 +90,7 @@ self_update "$@"
 
 # ── 2. the config repos ──────────────────────────────────────────────────────
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.
+I3_HEAD="$(git -C "$HOME/.i3rc" rev-parse HEAD 2>/dev/null || true)"
 bash "$HERE/basic/10-tools.sh" || FAILED+=("config repos")
 # Only while hooked into Claude Code: an unticked one keeps its clone as it is.
 if bash "$HERE/advanced/skills.sh" --check; then
@@ -111,17 +113,22 @@ bash "$HERE/basic/99-font-sizes.sh" || FAILED+=("font sizes")
 title "Reloading live configuration"
 
 # i3 and X tools need to know which display to talk to. Under cron there is no
-# DISPLAY, so take it from the running X session if there is one.
+# DISPLAY, so take it from the running i3 if there is one.
 if [[ -z "${DISPLAY:-}" ]]; then
-    DISPLAY="$(ps -u "$(id -u)" -o args= 2>/dev/null \
-        | grep -oE '^/usr/lib/xorg/Xorg[[:space:]]+(:[0-9]+)' \
-        | awk '{print $2}' | head -1 || true)"
+    DISPLAY="$(session_display)"
     [[ -n "$DISPLAY" ]] && export DISPLAY
 fi
 
-if [[ -n "${DISPLAY:-}" ]] && has_cmd i3-msg; then
-    run i3-msg -q reload >/dev/null 2>&1 && ok "i3 reloaded." \
-        || skip "No i3 to reload."
+# A restart when the i3 repo moved: only that re-runs exec_always, so a daemon
+# like float.sh watch, started at login, picks up the script just pulled.
+if [[ -n "${DISPLAY:-}" ]] && has_cmd i3-msg && i3-msg -t get_version >/dev/null 2>&1; then
+    if [[ "$(git -C "$HOME/.i3rc" rev-parse HEAD 2>/dev/null)" != "$I3_HEAD" ]]; then
+        run i3-msg -q restart >/dev/null 2>&1 || true
+        ok "i3 restarted: the pull changed its repo."
+    else
+        run i3-msg -q reload >/dev/null 2>&1 && ok "i3 reloaded." \
+            || skip "No i3 to reload."
+    fi
 else
     skip "No graphical session — nothing to reload in i3."
 fi
