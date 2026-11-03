@@ -574,6 +574,14 @@ else
         CHANGED_BAR="$GEN_CHANGED"
     fi
 
+    # Your own text after the workspaces. The bar polls the file, so no reload.
+    if [[ -n "$BLE_BAR_TEXT" ]]; then
+        hooked "$I3/eww/eww.yuck" "bar-text.local" &&
+            write_gen "$I3/eww/bar-text.local" <<< "$BLE_BAR_TEXT"
+    else
+        drop_gen "$I3/eww/bar-text.local" "~/.i3rc/eww/eww.yuck"
+    fi
+
     # The bar's colour. b-wallpaper writes it, so a new wallpaper can repaint it;
     # unset still leaves the file, empty, because eww.scss imports it.
     if hooked "$I3/eww/eww.scss" "color.local.scss"; then
@@ -603,6 +611,7 @@ EOF
         write_gen "$I3/eww/focus.local.scss" <<EOF
 // Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR. Do NOT edit.
 .ws.focused { background: #$(color_hex "$BLE_I3_BORDER_COLOR"); color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
+.bartext { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
 EOF
         CHANGED_BAR_STYLE="$GEN_CHANGED"
     fi

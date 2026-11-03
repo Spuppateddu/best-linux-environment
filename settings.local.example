@@ -33,9 +33,10 @@
 #                           machine's colour you are logged into (falls back
 #                           to your local colour on a box without this repo)
 #   BLE_I3_BORDER_COLOR     every focused thing: the focused window's border
-#                           and title bar in i3, the current workspace on the
-#                           top bar, the border and picked row of rofi ($mod+d,
-#                           power menu), GTK menu hover, the notification frame;
+#                           and title bar in i3, the current workspace and
+#                           BLE_BAR_TEXT on the top bar, the border and
+#                           picked row of rofi ($mod+d, power menu), GTK menu
+#                           hover, the notification frame;
 #                           in tmux, the current tab, the active pane border,
 #                           the picked row of prefix+s/w and copy mode, and the
 #                           session name while prefix is held
@@ -96,6 +97,11 @@ BLE_I3_BAR=all
 # Text turns dark on a light bar. Lands in ~/.i3rc/eww/color.local.scss; the bar
 # changes at once. Comment the line out and eww.scss's own colour applies.
 BLE_BAR_COLOR=wallpaper
+
+# A text of your own, right after the last workspace number. Empty shows nothing.
+# Quote it to keep a '#'. Lands in ~/.i3rc/eww/bar-text.local; the bar picks it
+# up within 5 seconds.
+BLE_BAR_TEXT=
 
 
 # ── The i3 desktop ───────────────────────────────────────────────────────────

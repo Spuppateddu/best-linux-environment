@@ -329,11 +329,42 @@ eww_repo() {
     ! grep -q 'background' "$HOME/.i3rc/eww/color.local.scss"
 }
 
+# bar_text_repo  — a ~/.i3rc/eww whose eww.yuck reads bar-text.local.
+bar_text_repo() {
+    mkdir -p "$HOME/.i3rc/eww"
+    echo '(defpoll bartext "head -n1 ~/.i3rc/eww/bar-text.local")' > "$HOME/.i3rc/eww/eww.yuck"
+}
+
+@test "95-settings: BLE_BAR_TEXT lands in bar-text.local, a quoted '#' kept" {
+    bar_text_repo
+    run_settings 'BLE_BAR_TEXT="ciao #1 mondo"'
+    [ "$status" -eq 0 ]
+    [ "$(cat "$HOME/.i3rc/eww/bar-text.local")" = "ciao #1 mondo" ]
+}
+
+@test "95-settings: an empty BLE_BAR_TEXT drops bar-text.local, so the bar shows nothing" {
+    bar_text_repo
+    echo old > "$HOME/.i3rc/eww/bar-text.local"
+    run_settings BLE_BAR_TEXT=
+    [ "$status" -eq 0 ]
+    [ ! -e "$HOME/.i3rc/eww/bar-text.local" ]
+}
+
+@test "95-settings: an eww.yuck that does not read bar-text.local gets a warning, not a file" {
+    mkdir -p "$HOME/.i3rc/eww"
+    echo '(defwidget bar [])' > "$HOME/.i3rc/eww/eww.yuck"
+    run_settings 'BLE_BAR_TEXT=hello'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"does not load bar-text.local"* ]]
+    [ ! -e "$HOME/.i3rc/eww/bar-text.local" ]
+}
+
 @test "95-settings: the bar's current workspace takes i3's focused colour" {
     eww_repo
     run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' BLE_I3_UNFOCUSED_COLOR=178
     [ "$status" -eq 0 ]
     grep -qx '.ws.focused { background: #0f3d7c; color: #ffffff; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.bartext { color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
 @test "95-settings: a new focused colour reloads the running bar, the same one does not" {

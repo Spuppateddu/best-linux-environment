@@ -23,7 +23,7 @@ BLE_SETTING_KEYS=(
     BLE_PROMPT_COLOR_USER BLE_PROMPT_COLOR_PATH
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
-    BLE_TERMINAL_OPACITY BLE_BAR_COLOR BLE_TRACKPAD_SPEED
+    BLE_TERMINAL_OPACITY BLE_BAR_COLOR BLE_BAR_TEXT BLE_TRACKPAD_SPEED
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -55,7 +55,7 @@ BLE_GIT_NAME=""; BLE_GIT_EMAIL=""
 BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
-BLE_TERMINAL_OPACITY=""; BLE_BAR_COLOR=""; BLE_TRACKPAD_SPEED=""
+BLE_TERMINAL_OPACITY=""; BLE_BAR_COLOR=""; BLE_BAR_TEXT=""; BLE_TRACKPAD_SPEED=""
 
 # Keys that were settings once and no longer drive anything. Read silently, and
 # settings_drop_retired takes their lines out of settings.local.
@@ -209,7 +209,7 @@ settings_validate() {
 
     # A newline would end the line it is written into early, and leave the rest
     # parsed as a line of its own.
-    for k in BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL; do
+    for k in BLE_EDITOR BLE_GIT_NAME BLE_GIT_EMAIL BLE_BAR_TEXT; do
         v="${!k}"
         if [[ "$v" == *$'\n'* ]]; then
             warn "settings.local: '$k' spans more than one line — ignoring it."
