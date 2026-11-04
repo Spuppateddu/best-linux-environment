@@ -345,7 +345,7 @@ never the run. A key that no longer does anything (`BLE_AGENT`,
 | `BLE_PROMPT_COLOR_USER` | the colour of `user@host` in the prompt (0-255 or `#rrggbb`) | `~/.zsh/zsh-ble.local`, `~/.bash/bash-ble.local` |
 | `BLE_PROMPT_COLOR_PATH` | the colour of the current folder (0-255 or `#rrggbb`) | the same two files |
 | `BLE_CURSOR_COLOR` | the colour of the block cursor in the terminal (0-255 or `#rrggbb`) | `~/.alacritty/colors.local.toml` → `[colors.cursor]` |
-| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255 or `#rrggbb`) | `~/.i3rc/06-colors.local` → `client.focused`; also the current workspace and your own text on the top bar, `~/.i3rc/eww/focus.local.scss` → `.ws.focused`, `.bartext`; the border and picked row of rofi (`$mod+d`, power menu), `~/.i3rc/rofi/focus.local.rasi`; GTK menu hover, `~/.config/gtk-{3,4}.0/focus.local.css`; the notification frame, `~/.config/dunst/dunstrc.d/50-focus.local.conf`; and tmux's current tab, active pane border, list highlight (prefix+s/w, copy-mode) and session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `window-status-current-format`, `pane-active-border-style`, `mode-style`, `status-left` |
+| `BLE_I3_BORDER_COLOR` | the colour of the focused window's border and title bar in i3 (0-255 or `#rrggbb`) | `~/.i3rc/06-colors.local` → `client.focused`; also the current workspace and your own text on the top bar, `~/.i3rc/eww/focus.local.scss` → `.ws.focused`, `.bartext`; the border and picked row of rofi (`$mod+space`, power menu), `~/.i3rc/rofi/focus.local.rasi`; GTK menu hover, `~/.config/gtk-{3,4}.0/focus.local.css`; the notification frame, `~/.config/dunst/dunstrc.d/50-focus.local.conf`; and tmux's current tab, active pane border, list highlight (prefix+s/w, copy-mode) and session name while prefix is held, `~/.tmuxrc/colors.local.conf` → `window-status-current-format`, `pane-active-border-style`, `mode-style`, `status-left` |
 | `BLE_I3_UNFOCUSED_COLOR` | the colour of every other window's border and title bar in i3 (0-255 or `#rrggbb`), floating desktop only | `~/.i3rc/06-colors.local` → `client.unfocused`, `client.focused_inactive`; also rofi's prompt, `~/.i3rc/rofi/focus.local.rasi`; the frame of low notifications, `~/.config/dunst/dunstrc.d/50-focus.local.conf`; and tmux's session name, `~/.tmuxrc/colors.local.conf` → `status-left` |
 | `BLE_I3_TITLEBAR` | `false` drops i3's title bar from every window, in both desktops, and keeps the border | `~/.i3rc/00-no-titlebar.local` → `border pixel` |
 | `BLE_FIREFOX_TITLEBAR` | `false` drops the title bar Firefox draws above its own tabs | `~/.firefox/user.settings.local.js` → `browser.tabs.inTitlebar` |
@@ -584,7 +584,7 @@ back. Sizes are points, as the app spells them, bar the three marked px:
 | `BLE_SIZE_TERMINAL` | Alacritty — so bash, zsh, vim, tmux, lazygit, yazi |
 | `BLE_SIZE_I3` | i3 window titles |
 | `BLE_SIZE_BAR` | the eww bar across the top (px; icons follow at +4, +6) |
-| `BLE_SIZE_ROFI` | the launcher (`$mod+d`) and the power menu |
+| `BLE_SIZE_ROFI` | the launcher (`$mod+space`) and the power menu |
 | `BLE_SIZE_DUNST` | notifications |
 | `BLE_SIZE_GTK` | GTK apps, their menus, and the LightDM login screen |
 | `BLE_SIZE_FIREFOX_PAGE` | page text (px; code blocks follow at +1) |

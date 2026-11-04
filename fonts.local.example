@@ -26,7 +26,7 @@
 # The bar's reserved widths assume 11px, so a big jump can clip a segment — the
 # widths are tiers in ~/.i3rc/eww/scripts/screen.sh, not something to tune here.
 
-# The rofi launcher ($mod+d) and the power menu.
+# The rofi launcher ($mod+space) and the power menu.
 #BLE_SIZE_ROFI=11
 
 # Notifications.

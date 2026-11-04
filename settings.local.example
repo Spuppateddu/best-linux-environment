@@ -35,7 +35,7 @@
 #   BLE_I3_BORDER_COLOR     every focused thing: the focused window's border
 #                           and title bar in i3, the current workspace and
 #                           BLE_BAR_TEXT on the top bar, the border and
-#                           picked row of rofi ($mod+d, power menu), GTK menu
+#                           picked row of rofi ($mod+space, power menu), GTK menu
 #                           hover, the notification frame;
 #                           in tmux, the current tab, the active pane border,
 #                           the picked row of prefix+s/w and copy mode, and the
