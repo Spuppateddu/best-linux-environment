@@ -74,8 +74,8 @@ echo "  ✓ the re-run installed nothing new and offered no uninstall"
 
 PROFILE=minimal step 4-minimal "${COMMON[@]}" 'Secondary* | -'
 check "minimal is remembered" 'grep -qx minimal ~/.cache/best-linux-environment/profile'
-if grep -q 'Google Chrome' "$LOGS/4-minimal.log"; then echo "  ✗ minimal listed Chrome"; exit 1; fi
-echo "  ✓ minimal lists no Chrome"
+if ! grep -q 'Google Chrome' "$LOGS/4-minimal.log"; then echo "  ✗ minimal did not list Chrome"; exit 1; fi
+echo "  ✓ minimal lists Chrome"
 PROFILE='' step 5-minimal-rerun "${COMMON[@]}" 'Secondary* | -'
 if ! grep -q 'minimal profile' "$LOGS/5-minimal-rerun.log"; then echo "  ✗ a plain re-run forgot minimal"; exit 1; fi
 echo "  ✓ a plain re-run keeps minimal"

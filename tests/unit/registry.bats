@@ -38,10 +38,14 @@ EOF
     [[ "$output" != *big* ]]
 }
 
-@test "modules.conf: minimal has no Chrome but keeps playwright-mcp" {
-    BLE_PROFILE=minimal ble 'registry_load; echo "ids=${M_ID[*]}"'
-    [[ "$output" != *chrome* ]]
-    [[ "$output" == *playwright-mcp* ]]
+@test "modules.conf: server and minimal both offer Chrome and playwright-mcp" {
+    local profile
+    for profile in server minimal; do
+        BLE_PROFILE=$profile ble 'registry_load; echo "ids=${M_ID[*]}"'
+        [[ "$output" == *" google-chrome "* ]]
+        [[ "$output" == *" chrome-headless "* ]]
+        [[ "$output" == *playwright-mcp* ]]
+    done
 }
 
 @test "mod_actions splits on + only; mod_apt_packages splits the words" {

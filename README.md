@@ -730,8 +730,8 @@ BLE_PROFILE=minimal ./setup.sh   # a server with less on it (below)
 ### The minimal profile
 
 `minimal` is the server profile with fewer apps to choose from. Every line whose
-scope is `full` is dropped too: today that is `google-chrome` and
-`chrome-headless`. `playwright-mcp` stays, and works the same as on a server.
+scope is `full` is dropped too. Today no line has that scope, so `minimal` lists
+the same apps as a server, Chrome included.
 
 Nothing can detect it, so you choose it once with `BLE_PROFILE=minimal
 ./setup.sh`. It is written to `~/.cache/best-linux-environment/profile`, so a
@@ -1370,7 +1370,7 @@ to you. `sshd` refuses to remove itself from inside an ssh session.
 
 Most are graphical and so tagged `gui` in `modules.conf`, which drops them from
 the list entirely on a server. `docker`, `lazydocker`, `opencode`, `claude-code`, `skills`, `sshd`,
-`auto-updates`, `megacmd`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` (`full` for the two Chrome ones, which the [minimal profile](#the-minimal-profile) drops) — so they
+`auto-updates`, `megacmd`, `google-chrome` and `chrome-headless` are the exceptions — CLI, scope `all` — so they
 still appear on a headless box, and can be installed there directly (Chrome is on
 that list because `chrome-headless` needs it, and **headless** use needs no display):
 
