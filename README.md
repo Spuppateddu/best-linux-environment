@@ -1477,6 +1477,22 @@ the upgrade explicitly:
 bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest release
 ```
 
+### ⌨ Keyboard remaps
+
+Every desktop gets **`keyboard`**, a necessary module. It changes one key on one
+keyboard and leaves every other keyboard alone:
+
+- **Epomaker TH66 Pro → Left Ctrl types `` ` ``, Shift+Left Ctrl types `~`.**
+  The board has no key for them. You still have a Ctrl on the left: Caps Lock is
+  Ctrl on every keyboard (`setxkbmap -option ctrl:nocaps`, from the i3 config).
+- It is a udev hwdb file, [`keyboard/90-ble-epomaker-th66.hwdb`](keyboard/),
+  copied to `/etc/udev/hwdb.d/`. It matches the board by its USB ids
+  (`3151:4010`) and by any device name with `TH66` in it, so Bluetooth and the
+  2.4 GHz dongle get it too. The kernel does the remap, so it works in X, in a
+  text console and in every app.
+- It is live at once: the module runs `systemd-hwdb update` and
+  `udevadm trigger`, so there is no reboot and no re-plug.
+
 ### 🖐 Trackpad / touchpad gestures
 
 Every desktop gets **`trackpad`** (a necessary module since pinch-to-zoom in

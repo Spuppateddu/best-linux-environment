@@ -1,0 +1,8 @@
+# Epomaker TH66 Pro: Left Ctrl types ` (and ~ with Shift). The board has no key
+# for them, and Caps Lock is already Ctrl (setxkbmap ctrl:nocaps, from i3).
+# Installed by advanced/keyboard.sh. 700e0 is the HID usage of Left Ctrl.
+# First line: by cable (USB ids 3151:4010). Second: by name, so Bluetooth and
+# the 2.4 GHz dongle get it too.
+evdev:input:b0003v3151p4010*
+evdev:name:*TH66*:*
+ KEYBOARD_KEY_700e0=grave
