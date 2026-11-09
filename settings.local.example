@@ -84,8 +84,8 @@ BLE_FIREFOX_TITLEBAR=false
 #   main  the primary monitor only. The other monitors' workspaces ride on it
 #         as small cards with a monitor glyph, so you still see them.
 #
-# Lands in ~/.i3rc/eww/bar.local.conf. $mod+Shift+b hides and shows every bar at
-# once either way. Comment the line out and the i3 repo decides — one per monitor.
+# Lands in ~/.i3rc/eww/bar.local.conf. Comment the line out and the i3 repo
+# decides — one per monitor.
 BLE_I3_BAR=all
 
 # Its colour:

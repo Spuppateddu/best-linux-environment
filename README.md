@@ -519,7 +519,7 @@ It lands in `~/.i3rc/eww/bar.local.conf`, a git-ignored one-liner
 bar is [eww](https://github.com/elkowar/eww), a program of its own, so no i3
 reload can move it: the file is read by that repo's `scripts/eww_lib.sh`, and
 changing the key re-runs its `scripts/launch_eww.sh` to re-open the bars where
-they now belong. `$mod+Shift+b` still hides and shows every bar at once.
+they now belong.
 
 ### It never edits the config repos
 

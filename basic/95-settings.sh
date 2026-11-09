@@ -802,7 +802,7 @@ if [[ "${CHANGED_BAR:-false}" == true && -n "${DISPLAY:-}" && -x "$I3/scripts/la
     step "Re-opening the top bar: ${BLE_I3_BAR:-whatever the i3 repo says}"
     "$I3/scripts/launch_eww.sh" >/dev/null 2>&1 \
         && ok "Top bar: $([[ "$BLE_I3_BAR" == main ]] && printf 'the primary monitor only.' || printf 'one per monitor.')" \
-        || warn "Could not re-open the bar — \$mod+Shift+b twice does it."
+        || warn "Could not re-open the bar — \$mod+Shift+r restarts i3 and tries again."
 fi
 
 # A new style only reaches a running bar on `eww reload`; no bar, nothing to do.
