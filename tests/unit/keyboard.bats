@@ -26,3 +26,20 @@ load helpers
 @test "keyboard: the module is a necessary desktop entry in modules.conf" {
     grep -q '^necessary|keyboard|gui|script|run:advanced/keyboard.sh|' "$REPO/modules.conf"
 }
+
+@test "keyboard: the hwdb turns off Power, Sleep and Print Screen on the HHKB Hybrid only" {
+    f="$REPO/keyboard/90-ble-hhkb-hybrid.hwdb"
+    grep -qx 'evdev:input:b0003v04FEp0021\*' "$f"
+    grep -qx 'evdev:name:\*HHKB\*:\*' "$f"
+    grep -qx ' KEYBOARD_KEY_70066=reserved' "$f"
+    grep -qx ' KEYBOARD_KEY_700f8=reserved' "$f"
+    grep -qx ' KEYBOARD_KEY_70046=reserved' "$f"
+    [ "$(grep -c '^evdev:' "$f")" -eq 2 ]
+}
+
+@test "keyboard: no hwdb file has a blank line between its match lines and its key lines" {
+    for f in "$REPO"/keyboard/*.hwdb; do
+        run awk '/^evdev:/{m=1} m && /^$/{print "blank"} / KEYBOARD_KEY/{m=0}' "$f"
+        [ -z "$output" ]
+    done
+}

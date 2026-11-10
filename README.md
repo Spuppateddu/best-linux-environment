@@ -1479,16 +1479,20 @@ bash advanced/lazydocker.sh --upgrade    # no-op when already on the newest rele
 
 ### ⌨ Keyboard remaps
 
-Every desktop gets **`keyboard`**, a necessary module. It changes one key on one
-keyboard and leaves every other keyboard alone:
+Every desktop gets **`keyboard`**, a necessary module. It changes a few keys on
+two keyboards and leaves every other keyboard alone:
 
 - **Epomaker TH66 Pro → Left Ctrl types `` ` ``, Shift+Left Ctrl types `~`.**
   The board has no key for them. You still have a Ctrl on the left: Caps Lock is
   Ctrl on every keyboard (`setxkbmap -option ctrl:nocaps`, from the i3 config).
-- It is a udev hwdb file, [`keyboard/90-ble-epomaker-th66.hwdb`](keyboard/),
-  copied to `/etc/udev/hwdb.d/`. It matches the board by its USB ids
-  (`3151:4010`) and by any device name with `TH66` in it, so Bluetooth and the
-  2.4 GHz dongle get it too. The kernel does the remap, so it works in X, in a
+- **HHKB Professional HYBRID Type-S → Power, Sleep and Print Screen do nothing.**
+  Fn+Esc sends Power, and logind powers the PC off at once on it. Sleep
+  suspends at once. Print Screen is SysRq, and Alt+SysRq+B / O reboot or power
+  off with no clean shutdown. i3 binds none of the three, so nothing is lost.
+- Each keyboard has a udev hwdb file in [`keyboard/`](keyboard/), copied to
+  `/etc/udev/hwdb.d/`. A file matches its board by USB ids (TH66 `3151:4010`,
+  HHKB `04fe:0021`) and by device name (`TH66`, `HHKB`), so Bluetooth and the
+  2.4 GHz dongle get it too. Every `*.hwdb` in that folder is installed. The kernel does the remap, so it works in X, in a
   text console and in every app.
 - It is live at once: the module runs `systemd-hwdb update` and
   `udevadm trigger`, so there is no reboot and no re-plug.

@@ -1,0 +1,12 @@
+# HHKB Professional HYBRID Type-S: the Power, Sleep and Print Screen keys do nothing.
+# Its Fn layer sends Power (Fn+Esc), and logind powers the PC off at once on it;
+# Sleep suspends at once; Print Screen is SysRq, and Alt+SysRq+B/O reboot or power
+# off with no clean shutdown. "reserved" turns a key off. HID usages (keyboard page):
+# 70066 = Power, 700f8 = Sleep, 70046 = Print Screen / SysRq.
+# Installed by advanced/keyboard.sh. First line: by cable (USB ids 04fe:0021).
+# Second: by name, so Bluetooth gets it too.
+evdev:input:b0003v04FEp0021*
+evdev:name:*HHKB*:*
+ KEYBOARD_KEY_70066=reserved
+ KEYBOARD_KEY_700f8=reserved
+ KEYBOARD_KEY_70046=reserved

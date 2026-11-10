@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Per-keyboard key remaps, as udev hwdb files from keyboard/. Today: the Epomaker
-# TH66 Pro's Left Ctrl types ` and ~. Only that keyboard changes; any other is untouched.
+# Per-keyboard key remaps, as udev hwdb files from keyboard/ (every *.hwdb there).
+# Today: the Epomaker TH66 Pro's Left Ctrl types ` and ~, and the HHKB Hybrid's
+# Power, Sleep and Print Screen keys do nothing. Only those keyboards change.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
 
-SRC="$BLE_ROOT/keyboard/90-ble-epomaker-th66.hwdb"
-HWDB=/etc/udev/hwdb.d/90-ble-epomaker-th66.hwdb
+HWDB_DIR=/etc/udev/hwdb.d
+SRCS=("$BLE_ROOT"/keyboard/*.hwdb)
 
 # Rebuild the hwdb and re-read every keyboard, so the remap is live now:
 # no reboot, no re-plug.
@@ -14,13 +15,23 @@ reload_hwdb() {
     run sudo udevadm trigger --subsystem-match=input --action=change
 }
 
-[[ "${1:-}" == "--check" ]] && { cmp -s "$SRC" "$HWDB" && exit 0 || exit 1; }
+if [[ "${1:-}" == "--check" ]]; then
+    for src in "${SRCS[@]}"; do
+        cmp -s "$src" "$HWDB_DIR/$(basename "$src")" || exit 1
+    done
+    exit 0
+fi
 if [[ "${1:-}" == --uninstall ]]; then
     title "Keyboard remaps — uninstall"
-    [[ -e "$HWDB" ]] || { skip "No keyboard remap installed."; exit 0; }
-    remove_files --sudo "$HWDB"
+    dests=()
+    for src in "${SRCS[@]}"; do
+        dest="$HWDB_DIR/$(basename "$src")"
+        [[ -e "$dest" ]] && dests+=("$dest")
+    done
+    [[ ${#dests[@]} -gt 0 ]] || { skip "No keyboard remap installed."; exit 0; }
+    remove_files --sudo "${dests[@]}"
     reload_hwdb
-    ok "Keyboard remaps removed: Left Ctrl is Ctrl again."
+    ok "Keyboard remaps removed: every key does what the keyboard sends again."
     exit 0
 fi
 
@@ -34,8 +45,11 @@ if ! can_sudo; then
     exit 0
 fi
 ROOT_FILE_CHANGED=false
-install_root_file 0644 "$SRC" "$HWDB"
+for src in "${SRCS[@]}"; do
+    install_root_file 0644 "$src" "$HWDB_DIR/$(basename "$src")"
+done
 if [[ "$ROOT_FILE_CHANGED" == true ]]; then
     reload_hwdb
     ok "Epomaker TH66 Pro: Left Ctrl now types \` (Shift+Left Ctrl: ~). Caps Lock is your Ctrl."
+    ok "HHKB Hybrid: Power, Sleep and Print Screen keys now do nothing."
 fi
