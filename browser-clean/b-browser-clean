@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# b-browser-clean — empties the browsers you ticked in ./setup.sh every
+# BLE_BROWSER_CLEAN_DAYS days (7). ./boot.sh runs `b-browser-clean run` at every
+# boot; you run it by hand when a boot missed it. Linked into ~/.local/bin by
+# basic/27-browser-clean.sh. The work itself is lib/browser-clean.sh.
+set -euo pipefail
+
+usage() {
+    cat <<'USAGE'
+Usage: b-browser-clean [status | run | now [BROWSER…]] [--dry-run]
+
+  status            (the default) which browsers are ticked, when each was last
+                    cleaned and when the next clean is due
+  run               clean every ticked browser whose days have passed — what
+                    ./boot.sh runs at every boot
+  now [BROWSER…]    clean now, whatever the date: every ticked browser, or the
+                    ones named (firefox, google-chrome, brave)
+  --dry-run         say what would be deleted, delete nothing
+
+Deleted: history, downloads list, cookies (you are logged out of every site),
+cache, site data, form history, site permissions and zoom, open tabs.
+Kept: passwords, credit cards, addresses, bookmarks, extensions and their
+settings, the browser's own settings.
+
+An open browser is never touched: close it and run 'b-browser-clean now'.
+Which browsers: tick them in ./setup.sh. How many days: BLE_BROWSER_CLEAN_DAYS
+in settings.local.
+USAGE
+}
+
+# Linked into ~/.local/bin: the repo is wherever the link points.
+REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+
+CMD=status
+NAMES=()
+for a in "$@"; do
+    case "$a" in
+        --dry-run) export DRY_RUN=true ;;
+        -h|--help|help) usage; exit 0 ;;
+        status|run|now) CMD="$a" ;;
+        *)
+            if [[ "$CMD" == now ]]; then NAMES+=("$a"); continue; fi
+            printf "b-browser-clean: unknown argument '%s' — see b-browser-clean --help\n" "$a" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# shellcheck source=../lib/common.sh
+source "$REPO/lib/common.sh"
+# shellcheck source=../lib/settings.sh
+source "$REPO/lib/settings.sh"
+# shellcheck source=../lib/browser-clean.sh
+source "$REPO/lib/browser-clean.sh"
+
+TICKED=()
+while IFS= read -r id; do
+    bc_known "$id" && TICKED+=("$id")
+done < <(bc_list)
+
+case "$CMD" in
+    status)
+        if [[ ${#TICKED[@]} -eq 0 ]]; then
+            skip "No browser is ticked for cleaning — tick them in ./setup.sh."
+            exit 0
+        fi
+        step "Every $(bc_days) day(s), at boot (BLE_BROWSER_CLEAN_DAYS in settings.local):"
+        for id in "${TICKED[@]}"; do
+            last="$(bc_last "$id")"; left="$(bc_due_in "$id")"
+            since="last cleaned (or ticked) $(bc_ago $(( $(bc_now) - ${last:-$(bc_now)} ))) ago"
+            if (( left <= 0 )); then
+                printf '  %-14s %s — due now\n' "${BC_NAME[$id]}" "$since"
+            else
+                printf '  %-14s %s — next in %s\n' "${BC_NAME[$id]}" "$since" "$(bc_ago "$left")"
+            fi
+        done
+        ;;
+    run)
+        title "Browser clean"
+        if [[ ${#TICKED[@]} -eq 0 ]]; then
+            skip "No browser is ticked for cleaning."
+            exit 0
+        fi
+        rc=0
+        for id in "${TICKED[@]}"; do
+            left="$(bc_due_in "$id")"
+            if (( left > 0 )); then
+                skip "${BC_NAME[$id]}: next clean in $(bc_ago "$left")."
+                continue
+            fi
+            # Skipped (open, gone) is not a failure: it is tried again next boot.
+            r=0; bc_clean "$id" || r=$?
+            (( r == 1 )) && rc=1
+        done
+        exit "$rc"
+        ;;
+    now)
+        title "Browser clean — now"
+        if [[ ${#NAMES[@]} -eq 0 ]]; then
+            NAMES=(${TICKED[@]+"${TICKED[@]}"})
+            if [[ ${#NAMES[@]} -eq 0 ]]; then
+                skip "No browser is ticked for cleaning — name one: b-browser-clean now firefox"
+                exit 0
+            fi
+        fi
+        rc=0
+        for id in "${NAMES[@]}"; do
+            if ! bc_known "$id"; then
+                fail "Unknown browser '$id' — one of: ${BC_IDS[*]}"
+                rc=1
+                continue
+            fi
+            bc_clean "$id" || rc=1
+        done
+        exit "$rc"
+        ;;
+esac

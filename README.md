@@ -64,7 +64,8 @@ of yes/no prompts you have to sit through. A run goes:
    call. Not asked about.
 2. **Every question, together** — starting with the shell (zsh or bash), then a
    checkbox list of extra apps, plus vim's language support and Firefox's add-ons
-   as two more, instead of a prompt each. Then whether to keep your rolled
+   as two more, instead of a prompt each. Then which browsers to empty every few
+   days ([Browser clean](#-browser-clean)), and whether to keep your rolled
    colours or roll them all again. Your config repos are not asked: they always
    go in.
 3. **Install** — from here nothing stops to ask. The answers are already in hand,
@@ -356,6 +357,7 @@ never the run. A key that no longer does anything (`BLE_AGENT`,
 | `BLE_TERMINAL_OPACITY` | how see-through Alacritty is, `0` to `1` (`1` is solid); wins over the theme's opacity | `~/.alacritty/opacity.local.toml` |
 | `BLE_TRACKPAD_SPEED` | how fast the pointer moves on every trackpad and touchpad, `-1` to `1` (`0` is libinput's default); live at once, and kept for the next login | `/etc/X11/xorg.conf.d/60-ble-trackpad-speed.conf` → `AccelSpeed`, plus `xinput` for the touchpads already plugged in |
 | `BLE_IDLE_POWEROFF` | `false` stops and disables the [idle poweroff](#-idle-poweroff) timer; `true` (the default) turns it back on | `idle-poweroff.timer`, via `basic/25-idle-poweroff.sh` |
+| `BLE_BROWSER_CLEAN_DAYS` | every how many days the [browser clean](#-browser-clean) empties the browsers you ticked in `./setup.sh`; a whole number, `7` when not set | `~/.cache/best-linux-environment/browser-clean`, read by `b-browser-clean run` at boot |
 | `BLE_EDITOR` | `$EDITOR` and `$VISUAL` | both shells, and git's `core.editor` |
 | `BLE_GIT_NAME` / `BLE_GIT_EMAIL` | your commit identity, said once for every machine | `git config --global` |
 
@@ -627,7 +629,10 @@ reads `BLE_SIZE_GTK` straight from `lib/fonts.sh` and writes them itself.
 `setup.sh` offers a `@reboot` cron the first time it runs. If you accept, every
 boot runs `./boot.sh`, which:
 
-1. `git pull`s **this repo** (and re-execs itself if it changed);
+1. `git pull`s **this repo** (and re-execs itself if it changed), then
+   **empties the browsers you ticked** if their days have passed
+   (`b-browser-clean run`, see [Browser clean](#-browser-clean)) — first, before
+   the slow pulls, because an open browser is skipped;
 2. `git pull`s each **cloned** config repo and re-runs the `install.sh` it ships,
    so a config you pushed from another machine is applied here;
 3. re-applies **`settings.local`** and **`aliases.local`** (your colours, your shared aliases) and then **`fonts.local`**,
@@ -793,13 +798,19 @@ repos install into it, and fonts before the tools that render them. Items marked
    reboot is needed, and `b-update -y` does not ask. `b-update --count` changes
    nothing: it prints how many updates are waiting, for the bars. See
    [Updates](#updates).
-7. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
+7. **`27-browser-clean`** *(desktop)* — **`b-browser-clean`**, linked into
+   `~/.local/bin`: every `BLE_BROWSER_CLEAN_DAYS` days (7), at boot, it empties
+   the browsers you ticked in `./setup.sh` — history, cookies, cache, site data,
+   permissions, open tabs — and keeps passwords, cards, addresses, bookmarks,
+   extensions and settings. Installs nothing. See
+   [Browser clean](#-browser-clean).
+8. **`30-lightdm`** *(desktop)* — [LightDM](https://github.com/canonical/lightdm)
    + GTK greeter, made the **default** display manager (replacing GDM3). GDM3's
    session picker is a hard-to-find cog that on some builds never surfaces the
    i3 xsession; the LightDM greeter shows a session dropdown on the login form,
    so choosing **i3** is one click. Switch is preseeded via debconf (no
    interactive `dpkg-reconfigure`) and applies at the next reboot.
-8. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
+9. **`40-lazygit`** — [lazygit](https://github.com/jesseduffield/lazygit) git
    TUI. Prefers apt (26.04 ships a recent build); falls back to the latest
    prebuilt binary from GitHub (→ `~/.local/bin`) on releases without a package.
    `./boot.sh` bumps that fallback copy to the newest release — an apt-managed
@@ -807,7 +818,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    out of the system's hands. Installed **because git is**: the module skips
    itself when `git` isn't there (see
    [git → lazygit](#paired-tools-git--lazygit-docker--lazydocker)).
-9. **`45-glow`** — [glow](https://github.com/charmbracelet/glow), markdown in
+10. **`45-glow`** — [glow](https://github.com/charmbracelet/glow), markdown in
    the terminal, from apt, plus **`mdv`** (`glow/mdv` → `~/.local/bin`). glow alone
    sticks the text to the left edge and stops at 120 columns; `mdv file.md` opens
    it full screen in glow's pager, in a 100-column block (`MDV_WIDTH`) that grows
@@ -817,7 +828,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    the default for both `mdv` (`MDV_STYLE` picks another) and plain `glow`, through
    `~/.config/glow/glow.yml`. `./setup.sh` rewrites that file, `./boot.sh` never
    does. Files are copied only when they differ.
-10. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
+11. **`50-fonts-cursor`** *(desktop)* — cross-cutting **fonts + macOS cursor**,
    owned here so the per-tool repos stay light. **One family for the whole
    machine: Cascadia Code NF.** Microsoft's programming face — a 0.586 em
    advance, a tall 0.518 em x-height, and four real faces (Regular, Bold,
@@ -837,13 +848,13 @@ repos install into it, and fonts before the tools that render them. Items marked
    `~/.i3rc`'s own `settings.ini`. The family is fixed; the **sizes** are not —
    the greeter and GTK2 take theirs from `BLE_SIZE_GTK`, see
    [`fonts.local`](#font-sizes-per-machine-fontslocal).
-11. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
+12. **`52-alacritty`** *(desktop)* — the **Alacritty** terminal, apt package only.
    The config repo (`~/.alacritty`) ships its own `install.sh`, run by
    `10-tools`, and that is what links `alacritty.toml` into
    `~/.config/alacritty/` — where Alacritty actually reads it — and the symbol
    fallback rule into `~/.config/fontconfig/conf.d/`. This module keeps the
    package so the terminal exists even when that tool was skipped in the menu.
-12. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
+13. **`55-yazi`** — [Yazi](https://github.com/sxyazi/yazi) TUI file manager
    (prebuilt binary → `~/.local/bin`) with in-terminal image/video/PDF preview.
    Alacritty has no graphics protocol, so preview goes through **ueberzugpp**
    (installed as a `.deb` from its OBS repo) plus `ffmpegthumbnailer`/`poppler`.
@@ -862,7 +873,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    cron fires 45s in) they warn and the module carries on — and it then skips
    the config that would *name* the missing package, since yazi rejects its
    whole config over one bad reference. The next run with a network finishes it.
-13. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
+14. **`57-image-viewer`** *(desktop)* — **nsxiv** plus
    **`libheif-plugin-libde265`**, the **`b-images`** wrapper (`image-viewer/`,
    linked into `~/.local/bin`: one image opens every image in its folder,
    starting at it, so n and p walk the folder; several files open as given),
@@ -907,7 +918,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    PDFs are the same idea, one module along: [`75-pdf-viewer`](#what-the-necessary-tier-installs)
    owns `[opener] pdf` and the `application/pdf` rule, and inserts that rule into
    the `prepend_rules` array this module writes.
-14. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
+15. **`58-video-player`** *(desktop)* — **VLC**, and the same three places that
    have to agree on which program plays a video. It owns yazi's `[opener] video`
    key (Enter on a video → `vlc -- %s`, `orphan = true`, `%s` so a
    multi-selection becomes one playlist) and inserts a `{ mime = "video/*", use =
@@ -922,8 +933,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    `avi`, `mpeg`, `flv`, `wmv`, `3gp`, `ogv`, `m4v`). Audio is left alone.
    A `video` opener or an `[open]` block this repo did not write is left as it
    is, with the line to add printed instead.
-15. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
-16. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
+16. **`60-flameshot`** *(desktop)* — screenshot tool (i3's `$mod+Shift+s`); apt package.
+17. **`62-wallpaper`** *(desktop)* — `b-wallpaper`, linked into `~/.local/bin`:
    it cycles the images in [`wallpapers/`](wallpapers/README.md) with `feh`.
    That folder is gitignored (bar its README, the script and `default.jpg`, the
    wallpaper a fresh clone starts with), so your images stay on the machine. `$mod+Shift+w` shows the next one, through
@@ -931,7 +942,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    `b-wallpaper restore` on login and reload, and keeps the solid colour when
    the folder is empty. `b-wallpaper auto 300`, started by i3 on login, shows the next one every 5
    minutes. `b-wallpaper prev|random|list` for the rest.
-17. **`63-blank-screen`** *(desktop)* — `b-blank`, linked into `~/.local/bin`, on
+18. **`63-blank-screen`** *(desktop)* — `b-blank`, linked into `~/.local/bin`, on
    `$mod+x` through `~/.i3rc/10-blank-screen.local`. It turns the focused workspace
    off: workspace `N` is renamed `off-N`, so its windows and layout stay as they
    are, and a new empty `N` takes its place. Visiting `N` then shows only the
@@ -945,14 +956,14 @@ repos install into it, and fonts before the tools that render them. Items marked
    stays, with the wallpaper inside it and the PC's name in red binary in its
    bottom-right corner (it wraps onto more lines when the window is narrow). `$mod+z` on that cover puts the window
    back. Closing the cover by hand brings the window back too.
-18. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
+19. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
    `wallpapers/default.jpg`, the login screen's picture, on the lock screen, with a
    sunken gruvbox well in the middle of each monitor. It draws that picture with
    Pillow, once per monitor layout (kept in `~/.cache/b-lock`), then runs
    `i3lock -i` on it; i3lock's typing ring shows inside the well, in its own colours.
    The i3 repo's `scripts/lock.sh` calls it for `$mod+Shift+x`, the power menu
    and suspend (`xss-lock`), and falls back to plain `i3lock` without it.
-19. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
+20. **`70-firefox`** *(desktop)* — [Firefox](https://www.mozilla.org/firefox/) from
    **Mozilla's own apt repo**, pinned above the Ubuntu archive — explicitly *not*
    the snap that `apt install firefox` would pull. The snap's `desktop-launch`
    wrapper overwrites `XCURSOR_PATH` with two read-only snap-internal dirs,
@@ -969,7 +980,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    Scope is the **package**, not the configuration: prefs, add-ons, Vimium and
    the browser key bindings are their own repo (`~/.firefox`, the
    `firefox-config` core entry) — see [Firefox config](#firefox-config) below.
-20. **`75-pdf-viewer`** *(desktop)* — **Okular**, and which program opens a PDF
+21. **`75-pdf-viewer`** *(desktop)* — **Okular**, and which program opens a PDF
    in the two places that have to agree on it: yazi's Enter and `xdg-open`. It
    installs the `okular` package itself (its `modules.conf` id is `okular`, in
    the necessary tier), then writes yazi's `[opener] pdf` key (`okular -- %s`,
@@ -998,7 +1009,7 @@ repos install into it, and fonts before the tools that render them. Items marked
    repo's signatures is treated as hand-written and left alone, with the line to
    add printed instead — a duplicate key would make yazi throw out the whole
    config, which costs you far more than the key you already set.
-21. **`76-text-editor`** — **which program opens a text file**, in the same two
+22. **`76-text-editor`** — **which program opens a text file**, in the same two
    places: yazi's Enter and `xdg-open`. It installs nothing. Two separate holes
    it fills. yazi's built-in rules send `text/*` to `$EDITOR` and stop there, but
    a `.yaml` is `application/yaml` and a `.toml` is `application/toml` — neither
@@ -1023,21 +1034,21 @@ repos install into it, and fonts before the tools that render them. Items marked
    leaves a hand-written `[open]` block alone with the line to add printed
    instead. On a **server** the yazi half still runs and the `xdg-mime` half is
    skipped — there is nothing to open a window with.
-22. **`77-spreadsheet`** *(desktop)* — **LibreOffice Calc**, and which program
+23. **`77-spreadsheet`** *(desktop)* — **LibreOffice Calc**, and which program
    opens a spreadsheet. It installs the `libreoffice-calc` package, then points
    `xdg-mime` at `libreoffice-calc.desktop` for `text/csv`,
    `text/tab-separated-values`, xlsx, xls and ods. Without it a `.csv` inherits
    `text/plain`'s default, so a downloaded csv opened in vim. yazi's Enter on a
    `.csv` still opens vim (yazi sends `text/*` to `$EDITOR`); an xlsx or ods
    falls through to xdg-open and lands in Calc.
-23. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
+24. **`80-arandr`** *(desktop)* — GUI for xrandr (monitor layout); apt package.
    ARandR shows no refresh rate, and X starts each monitor at its preferred mode,
    often 60 Hz. So the module also links **`b-max-hz`** (`max-hz/b-max-hz`) into
    `~/.local/bin` and writes `~/.i3rc/11-max-hz.local`, whose `exec_always` sets
    every monitor that is on to the highest rate of its current resolution at each
    i3 login and restart. A monitor that is off stays off. After changing the layout
    in ARandR, run `b-max-hz` by hand.
-24. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
+25. **`90-opencode`** *(secondary)* — [opencode](https://opencode.ai) terminal
    AI coding agent via its official user-local script (installs to
    `~/.local/bin/opencode`). That script is fetched from `opencode.ai` and piped
    into `bash`, which is why opencode sits in **`secondary`**: reaching this
@@ -1340,6 +1351,56 @@ of the shell config as usual.
 If you also run the [i3 config](https://github.com/Spuppateddu/configuration-i3),
 its DPMS timer blanks the panel at 50 minutes, ten minutes before this fires — so
 a dark screen is the visible warning that the machine is about to go.
+
+## 🧹 Browser clean
+
+Every few days, the browsers you choose are emptied of what browsing leaves
+behind, and keep what you saved on purpose. `./boot.sh` does it at boot;
+`b-browser-clean` does it by hand.
+
+**Which browsers:** `./setup.sh` asks, in a checklist of the browsers this
+machine has (Firefox, and Google Chrome and Brave when installed). Nothing is
+ticked at first. **How often:** `BLE_BROWSER_CLEAN_DAYS` in `settings.local`,
+7 when not set.
+
+| Deleted | Kept |
+| --- | --- |
+| history and the downloads list | passwords (and the key that unlocks them) |
+| cookies — you are logged out of every site | credit cards and addresses |
+| cache, and site data: local storage, IndexedDB, service worker caches | bookmarks |
+| form history (what you typed in fields) | extensions and their own data |
+| site permissions (camera, notifications, …), per-site zoom, certificate exceptions | the browser's settings, the ones the config repos write |
+| open tabs (the session it would restore) | search engines |
+
+Bookmarks and history share one database in Firefox (`places.sqlite`), and cards
+and form history share one in Chrome and Brave (`Web Data`), so for those files
+`browser-clean/clean.py` deletes the rows and keeps the file. Permissions in
+Chrome and Brave sit inside `Preferences`, next to the settings: only the
+per-site part is emptied. Every Firefox profile in `profiles.ini` and every
+Chrome/Brave profile (`Default`, `Profile 1`, …) is cleaned.
+
+**The timer.** Each ticked browser has a date in
+`~/.cache/best-linux-environment/browser-clean`: its last clean. Ticking a
+browser writes **today**, so the first clean comes `BLE_BROWSER_CLEAN_DAYS`
+days later, never the same day. Every boot checks the dates; one that is due is
+cleaned, and its date moves to now. Unticking a browser drops its line.
+
+**An open browser is never touched.** Deleting files under a running browser
+breaks its profile, so a browser whose lock is held by a live process (Firefox's
+`lock`, Chrome's `SingletonLock`) is skipped, with a warning, and tried again
+at the next boot. A lock left by a crash does not count. At boot nobody has
+opened a browser yet, which is why `./boot.sh` cleans first, before the pulls.
+
+```
+b-browser-clean                  # which browsers, last clean, next one due
+b-browser-clean run              # clean the ones that are due (what boot runs)
+b-browser-clean now              # clean every ticked browser now, whatever the date
+b-browser-clean now firefox      # just this one (firefox, google-chrome, brave)
+b-browser-clean now --dry-run    # say what would go, delete nothing
+```
+
+Use `b-browser-clean now` when a boot missed it — the PC was not rebooted for a
+while, or the browser was already open. Close the browser first.
 
 ## What the `secondary` tier installs
 

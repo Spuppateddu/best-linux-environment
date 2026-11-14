@@ -24,6 +24,7 @@ BLE_SETTING_KEYS=(
     BLE_CURSOR_COLOR BLE_I3_BORDER_COLOR BLE_I3_UNFOCUSED_COLOR
     BLE_I3_TITLEBAR BLE_FIREFOX_TITLEBAR BLE_I3_BAR BLE_I3_DESKTOP BLE_IDLE_POWEROFF
     BLE_TERMINAL_OPACITY BLE_BAR_COLOR BLE_BAR_TEXT BLE_TRACKPAD_SPEED
+    BLE_BROWSER_CLEAN_DAYS
 )
 
 # Every key above that holds a yes/no. Normalised to true/false when the file is
@@ -56,6 +57,7 @@ BLE_PROMPT_COLOR_USER=""; BLE_PROMPT_COLOR_PATH=""
 BLE_CURSOR_COLOR=""; BLE_I3_BORDER_COLOR=""; BLE_I3_UNFOCUSED_COLOR=""
 BLE_I3_TITLEBAR=""; BLE_FIREFOX_TITLEBAR=""; BLE_I3_BAR=""; BLE_I3_DESKTOP=""; BLE_IDLE_POWEROFF=""
 BLE_TERMINAL_OPACITY=""; BLE_BAR_COLOR=""; BLE_BAR_TEXT=""; BLE_TRACKPAD_SPEED=""
+BLE_BROWSER_CLEAN_DAYS=""
 
 # Keys that were settings once and no longer drive anything. Read silently, and
 # settings_drop_retired takes their lines out of settings.local.
@@ -176,6 +178,17 @@ settings_validate() {
     if [[ -n "$BLE_TRACKPAD_SPEED" && ! "$BLE_TRACKPAD_SPEED" =~ ^-?(0|0?\.[0-9]+|1|1\.0+)$ ]]; then
         warn "settings.local: 'BLE_TRACKPAD_SPEED=$BLE_TRACKPAD_SPEED' is not a number from -1 to 1 — ignoring it."
         BLE_TRACKPAD_SPEED=""
+    fi
+
+    # How many days b-browser-clean waits between two cleans: a whole number of
+    # days, 1 or more. Empty means its default, 7 (see lib/browser-clean.sh).
+    if [[ -n "$BLE_BROWSER_CLEAN_DAYS" ]]; then
+        if [[ "$BLE_BROWSER_CLEAN_DAYS" =~ ^[0-9]{1,4}$ ]] && (( 10#$BLE_BROWSER_CLEAN_DAYS >= 1 )); then
+            BLE_BROWSER_CLEAN_DAYS=$(( 10#$BLE_BROWSER_CLEAN_DAYS ))
+        else
+            warn "settings.local: 'BLE_BROWSER_CLEAN_DAYS=$BLE_BROWSER_CLEAN_DAYS' is not a whole number of days (1 or more) — using 7."
+            BLE_BROWSER_CLEAN_DAYS=""
+        fi
     fi
 
     # The top bar's colour: the wallpaper's own, or a fixed #rrggbb.

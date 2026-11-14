@@ -136,6 +136,15 @@ BLE_TRACKPAD_SPEED=0
 BLE_IDLE_POWEROFF=true
 
 
+# ── Browser clean ────────────────────────────────────────────────────────────
+# Every how many days b-browser-clean empties the browsers you ticked in
+# ./setup.sh: history, cookies, cache, site data, permissions and open tabs go;
+# passwords, cards, addresses, bookmarks, extensions and settings stay. It runs
+# at boot; 'b-browser-clean' says when the next one is due, 'b-browser-clean
+# now' cleans at once. A whole number, 1 or more; commented out = 7.
+BLE_BROWSER_CLEAN_DAYS=7
+
+
 # ── The editor ───────────────────────────────────────────────────────────────
 # $EDITOR and $VISUAL in both shells, and git's core.editor.
 BLE_EDITOR=vim

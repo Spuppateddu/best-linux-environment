@@ -12,7 +12,9 @@ to pull every repo and re-apply every config after editing one.
 
 It does five things and refuses to do a sixth:
 
-  1. git pull this repo, and re-exec itself if that changed anything.
+  1. git pull this repo, and re-exec itself if that changed anything. Then
+     empty the browsers you ticked in ./setup.sh, if their days have passed
+     (b-browser-clean run).
   2. git pull every config repo you have (zsh, vim, tmux, temps, alacritty,
      i3, and your skills repo if it is ticked) and re-run the install.sh each one ships. That last part is the
      "source": it is what re-links ~/.zshrc, rewrites ~/.tmux.conf, reinstalls
@@ -87,6 +89,11 @@ title "Boot ($(date '+%F %T')) — $(profile_label)"
 
 # ── 1. this repo ─────────────────────────────────────────────────────────────
 self_update "$@"
+
+# ── 1b. browser clean ────────────────────────────────────────────────────────
+# Early, before the slow pulls: at boot nobody has opened a browser yet, and an
+# open one is skipped. Only the ticked ones, and only once their days have passed.
+bash "$HERE/browser-clean/b-browser-clean" run || FAILED+=("browser clean")
 
 # ── 2. the config repos ──────────────────────────────────────────────────────
 # No arguments: 10-tools refreshes what is cloned. Cloning a new one is a decision.

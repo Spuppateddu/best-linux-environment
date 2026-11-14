@@ -18,7 +18,8 @@ It goes in this order, and the order is the point:
 
   2. Every question, together, once.  A checkbox list of extra applications,
      plus vim's per-language support as a second list rather than four yes/no
-     prompts, and whether to roll your colours again. Arrow keys to move, space
+     prompts, which browsers to empty every few days, and whether to roll your
+     colours again. Arrow keys to move, space
      to tick. Your config repos are not asked: they always go in. Unticking an
      app that is installed asks once more, then uninstalls it in step 3.
 
@@ -433,6 +434,36 @@ for cfg in chrome-config brave-config; do
     export "BLE_${KEY}_EXTENSIONS=$answer"
 done
 
+# Browser clean: which browsers b-browser-clean empties every few days, at boot.
+# Only the ones that are here after section 3: Firefox on a desktop, Chrome and
+# Brave when ticked above, or installed and not on the uninstall list.
+# shellcheck source=lib/browser-clean.sh
+source "$BLE_ROOT/lib/browser-clean.sh"
+# The days, read in a subshell: sourcing lib/settings.sh here would stop the
+# read at the end of the run from seeing the colours 95-settings.sh rolls.
+BC_DAYS="$( { source "$BLE_ROOT/lib/settings.sh"; } >/dev/null 2>&1; printf '%s' "${BLE_BROWSER_CLEAN_DAYS:-$BC_DEFAULT_DAYS}")"
+BC_ROWS=()
+for id in "${BC_IDS[@]}"; do
+    app_idx="$(mod_index_of "$id" || true)"
+    [[ -n "$app_idx" ]] || continue
+    if [[ "$id" != firefox ]]; then
+        in_list "$app_idx" ${SEC_REMOVE[@]+"${SEC_REMOVE[@]}"} && continue
+        in_list "$app_idx" ${SEC_PICK[@]+"${SEC_PICK[@]}"} || bc_installed "$id" || continue
+    fi
+    BC_ROWS+=("$id")
+done
+BC_ASKED=false; BC_PICK=()
+if [[ ${#BC_ROWS[@]} -gt 0 ]]; then
+    BC_ASKED=true
+    chk_reset
+    for id in "${BC_ROWS[@]}"; do
+        if bc_ticked "$id"; then chk_add "${BC_NAME[$id]}" 1 "ticked before"; else chk_add "${BC_NAME[$id]}" 0 ""; fi
+    done
+    checklist "Browser clean — which browsers to empty every $BC_DAYS days" \
+        "At boot: deletes history, cookies, cache, site data, permissions, open tabs. Keeps passwords, cards, addresses, bookmarks, extensions. Days: BLE_BROWSER_CLEAN_DAYS in settings.local."
+    while read -r n; do BC_PICK+=("${BC_ROWS[$n]}"); done < <(chk_picked)
+fi
+
 # Your colours: keep them or roll them all again. Asked only when there is
 # something to keep; a first run has no file yet and rolls without asking.
 export BLE_ROLL_COLORS=false
@@ -507,6 +538,19 @@ for i in ${BROWSER_PICK[@]+"${BROWSER_PICK[@]}"}; do
     mod_run "$i" || FAILED+=("${M_ID[$i]}")
     remember "${M_ID[$i]}"
 done
+
+# Ticking starts a browser's timer: nothing is deleted today, only in BC_DAYS.
+if [[ "$BC_ASKED" == true ]]; then
+    for id in ${BC_PICK[@]+"${BC_PICK[@]}"}; do
+        bc_ticked "$id" || step "Browser clean: ${BC_NAME[$id]} ticked — its first clean is $BC_DAYS days from today."
+    done
+    bc_set_ticked ${BC_PICK[@]+"${BC_PICK[@]}"}
+    if [[ ${#BC_PICK[@]} -gt 0 ]]; then
+        step "Browser clean → ${BC_PICK[*]}, every $BC_DAYS days at boot ('b-browser-clean' says when)"
+    else
+        skip "Browser clean: no browser ticked."
+    fi
+fi
 
 # Last, and not modules.conf entries: these two write INTO the config repos the
 # tiers above clone, so they only have somewhere to write once those are on disk.
