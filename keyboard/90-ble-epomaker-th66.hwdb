@@ -1,8 +1,22 @@
 # Epomaker TH66 Pro: Left Ctrl types ` (and ~ with Shift). The board has no key
 # for them, and Caps Lock is already Ctrl (setxkbmap ctrl:nocaps, from i3).
+# Fn + number row types F1-F12: the firmware sends media keys there (consumer
+# page, c0xxx), so each one is turned into its F key. Fn+3 and Fn+4 are left
+# out: the board sends Win+Tab and Win+E for them, the same codes as the real
+# Tab and E keys, so remapping them would break Tab and E.
 # Installed by advanced/keyboard.sh. 700e0 is the HID usage of Left Ctrl.
 # First line: by cable (USB ids 3151:4010). Second: by name, so Bluetooth and
 # the 2.4 GHz dongle get it too.
 evdev:input:b0003v3151p4010*
 evdev:name:*TH66*:*
  KEYBOARD_KEY_700e0=grave
+ KEYBOARD_KEY_c0070=f1
+ KEYBOARD_KEY_c006f=f2
+ KEYBOARD_KEY_c018a=f5
+ KEYBOARD_KEY_c0194=f6
+ KEYBOARD_KEY_c00b6=f7
+ KEYBOARD_KEY_c00cd=f8
+ KEYBOARD_KEY_c00b5=f9
+ KEYBOARD_KEY_c00e2=f10
+ KEYBOARD_KEY_c00ea=f11
+ KEYBOARD_KEY_c00e9=f12

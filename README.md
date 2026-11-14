@@ -1485,6 +1485,11 @@ two keyboards and leaves every other keyboard alone:
 - **Epomaker TH66 Pro → Left Ctrl types `` ` ``, Shift+Left Ctrl types `~`.**
   The board has no key for them. You still have a Ctrl on the left: Caps Lock is
   Ctrl on every keyboard (`setxkbmap -option ctrl:nocaps`, from the i3 config).
+- **Epomaker TH66 Pro → Fn + 1 … Fn + = types F1 … F12.** The board's firmware
+  sends media keys there (brightness, mail, play, volume…), so each one becomes
+  its F key, and the board has no media keys any more. **F3 and F4 are missing:**
+  for Fn+3 and Fn+4 the board sends Win+Tab and Win+E, the same codes as the real
+  Tab and E keys, so they can't be remapped without breaking Tab and E.
 - **HHKB Professional HYBRID Type-S → Power, Sleep and Print Screen do nothing.**
   Fn+Esc sends Power, and logind powers the PC off at once on it. Sleep
   suspends at once. Print Screen is SysRq, and Alt+SysRq+B / O reboot or power

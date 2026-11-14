@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Per-keyboard key remaps, as udev hwdb files from keyboard/ (every *.hwdb there).
-# Today: the Epomaker TH66 Pro's Left Ctrl types ` and ~, and the HHKB Hybrid's
+# Today: the Epomaker TH66 Pro's Left Ctrl types ` and ~ and its Fn row types
+# F1-F12, and the HHKB Hybrid's
 # Power, Sleep and Print Screen keys do nothing. Only those keyboards change.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/common.sh"
@@ -51,5 +52,6 @@ done
 if [[ "$ROOT_FILE_CHANGED" == true ]]; then
     reload_hwdb
     ok "Epomaker TH66 Pro: Left Ctrl now types \` (Shift+Left Ctrl: ~). Caps Lock is your Ctrl."
+    ok "Epomaker TH66 Pro: Fn + number row now types F1-F12 (not F3 and F4)."
     ok "HHKB Hybrid: Power, Sleep and Print Screen keys now do nothing."
 fi
