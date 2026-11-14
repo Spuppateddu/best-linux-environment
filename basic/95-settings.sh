@@ -605,13 +605,18 @@ EOF
         fi
     fi
 
-    # The current workspace on the bar, in the focused window's colour. A running
-    # eww does not see a changed import: section 8 reloads it.
+    # The current workspace on the bar, in the focused window's colour. The window
+    # counter: visible ones in the unfocused colour, all of them in the focused
+    # one. The volume bar's fill too (eww.scss stripes it past 100% and muted).
+    # A running eww does not see a changed import: section 8 reloads it.
     if hooked "$I3/eww/eww.scss" "focus.local.scss"; then
         write_gen "$I3/eww/focus.local.scss" <<EOF
-// Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR. Do NOT edit.
+// Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR. Do NOT edit.
 .ws.focused { background: #$(color_hex "$BLE_I3_BORDER_COLOR"); color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
 .bartext { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
+.wincount .vis { color: #$(color_hex "$BLE_I3_UNFOCUSED_COLOR"); }
+.wincount .all { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
+.volbar highlight { background-color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
 EOF
         CHANGED_BAR_STYLE="$GEN_CHANGED"
     fi

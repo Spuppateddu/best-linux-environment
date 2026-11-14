@@ -367,6 +367,21 @@ bar_text_repo() {
     grep -qx '.bartext { color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
+@test "95-settings: the bar's window counter takes the unfocused colour, then the focused one" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' 'BLE_I3_UNFOCUSED_COLOR=#FBB81C'
+    [ "$status" -eq 0 ]
+    grep -qx '.wincount .vis { color: #fbb81c; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.wincount .all { color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
+@test "95-settings: the bar's volume fill takes the focused colour" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C'
+    [ "$status" -eq 0 ]
+    grep -qx '.volbar highlight { background-color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
 @test "95-settings: a new focused colour reloads the running bar, the same one does not" {
     eww_repo
     export DISPLAY=:0
