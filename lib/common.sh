@@ -14,6 +14,20 @@ export BLE_ROOT
 
 DRY_RUN="${DRY_RUN:-false}"
 
+# A run started by cron (the @reboot ./boot.sh) gets a bare environment: no USER,
+# no session bus. Filled in here, and exported, so `systemctl --user` and every
+# `$USER` under `set -u` work — and so a tmux server such a run starts does not
+# hand the same gap to every terminal that joins it later.
+USER="${USER:-$(id -un)}"
+export USER
+BLE_RUN_USER_DIR="${BLE_RUN_USER_DIR:-/run/user/$(id -u)}"
+if [[ -z "${XDG_RUNTIME_DIR:-}" && -d "$BLE_RUN_USER_DIR" ]]; then
+    export XDG_RUNTIME_DIR="$BLE_RUN_USER_DIR"
+fi
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -n "${XDG_RUNTIME_DIR:-}" && -S "$XDG_RUNTIME_DIR/bus" ]]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+fi
+
 # Scratch state: the boot log, and the record of what you have ticked before.
 BLE_STATE_DIR="${BLE_STATE_DIR:-$HOME/.cache/best-linux-environment}"
 

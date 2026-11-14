@@ -207,3 +207,24 @@ commit_up() { printf '%s\n' "$2" > "$UP/$1"; git -C "$UP" add "$1"; git -C "$UP"
     [ "$(git -C "$old" rev-parse HEAD)" = "$(git -C "$UP" rev-parse HEAD)" ]
     grep -qx mine "$old".backup.*/f
 }
+
+@test "common.sh: a cron run gets USER and the session bus filled in" {
+    # The bug: a tmux server born from the @reboot cron had no USER, so every
+    # module with `$USER` under `set -u` died, and systemctl --user found no bus.
+    local rt; rt="$(mktemp -d /tmp/ble-rt.XXXXXX)"
+    python3 -I -c 'import socket,sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$rt/bus"
+    run env -u USER -u XDG_RUNTIME_DIR -u DBUS_SESSION_BUS_ADDRESS BLE_RUN_USER_DIR="$rt" \
+        bash -c "source '$REPO/lib/common.sh'; bash -c 'printf \"%s|%s|%s\" \"\$USER\" \"\$XDG_RUNTIME_DIR\" \"\$DBUS_SESSION_BUS_ADDRESS\"'"
+    rm -rf "$rt"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(id -un)|$rt|unix:path=$rt/bus" ]
+}
+
+@test "common.sh: values already set are kept, and no runtime dir means none is made up" {
+    run env USER=someone XDG_RUNTIME_DIR=/x DBUS_SESSION_BUS_ADDRESS=unix:path=/y \
+        bash -c "source '$REPO/lib/common.sh'; printf '%s|%s|%s' \"\$USER\" \"\$XDG_RUNTIME_DIR\" \"\$DBUS_SESSION_BUS_ADDRESS\""
+    [ "$output" = "someone|/x|unix:path=/y" ]
+    run env -u XDG_RUNTIME_DIR -u DBUS_SESSION_BUS_ADDRESS BLE_RUN_USER_DIR=/nonexistent \
+        bash -c "source '$REPO/lib/common.sh'; printf '%s|%s' \"\${XDG_RUNTIME_DIR-unset}\" \"\${DBUS_SESSION_BUS_ADDRESS-unset}\""
+    [ "$output" = "unset|unset" ]
+}
