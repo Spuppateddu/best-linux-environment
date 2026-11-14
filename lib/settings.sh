@@ -348,6 +348,21 @@ color_text_on() {
     if (( lum < 128 )); then printf 'ffffff'; else printf '1d2021'; fi
 }
 
+# color_chip_on N  — rrggbb for a background under text in colour N: light
+# cream or near-black, whichever is farther from N in perceived brightness.
+# Black, dark red or dark blue text gets the cream; white, yellow or gold the
+# dark one. One colour per call: no single background fits black AND yellow.
+color_chip_on() {
+    local hex r g b lum
+    local light=ebdbb2 dark=1d2021
+    local light_lum=$(( (299 * 16#eb + 587 * 16#db + 114 * 16#b2) / 1000 ))
+    local dark_lum=$(( (299 * 16#1d + 587 * 16#20 + 114 * 16#21) / 1000 ))
+    hex="$(color_hex "$1")"
+    r=$(( 16#${hex:0:2} )); g=$(( 16#${hex:2:2} )); b=$(( 16#${hex:4:2} ))
+    lum=$(( (299 * r + 587 * g + 114 * b) / 1000 ))
+    if (( lum - dark_lum < light_lum - lum )); then printf '%s' "$light"; else printf '%s' "$dark"; fi
+}
+
 # color_swatch N  — a block painted in colour N, for a terminal that has colours;
 # nothing on one that has not, so a log file does not fill with escapes.
 color_swatch() {

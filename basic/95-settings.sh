@@ -608,14 +608,23 @@ EOF
     # The current workspace on the bar, in the focused window's colour. The window
     # counter: visible ones in the unfocused colour, all of them in the focused
     # one. The volume bar's fill too (eww.scss stripes it past 100% and muted).
+    # The counter and your text sit on a chip in two parts: "1/" on a background
+    # that fits the unfocused colour, "2 text" on one that fits the focused one,
+    # each light or dark, so any colour (black, dark blue, white) reads.
     # A running eww does not see a changed import: section 8 reloads it.
     if hooked "$I3/eww/eww.scss" "focus.local.scss"; then
+        chip_first="$(color_chip_on "$BLE_I3_BORDER_COLOR")"
+        chip_second="$(color_chip_on "$BLE_I3_UNFOCUSED_COLOR")"
+        chip_sep=a89984; [[ "$chip_second" == ebdbb2 ]] && chip_sep=665c54
         write_gen "$I3/eww/focus.local.scss" <<EOF
 // Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR. Do NOT edit.
 .ws.focused { background: #$(color_hex "$BLE_I3_BORDER_COLOR"); color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
 .bartext { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
 .wincount .vis { color: #$(color_hex "$BLE_I3_UNFOCUSED_COLOR"); }
 .wincount .all { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
+.chip.first { background: #${chip_first}; }
+.chip.second { background: #${chip_second}; }
+.chip.second .sep { color: #${chip_sep}; }
 .volbar highlight { background-color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
 EOF
         CHANGED_BAR_STYLE="$GEN_CHANGED"

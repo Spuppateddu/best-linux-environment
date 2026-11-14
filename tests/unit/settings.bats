@@ -375,6 +375,34 @@ bar_text_repo() {
     grep -qx '.wincount .all { color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
+@test "95-settings: the bar's text chip turns light under dark colours" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#9A1115' 'BLE_I3_UNFOCUSED_COLOR=#000000'
+    [ "$status" -eq 0 ]
+    grep -qx '.chip.first { background: #ebdbb2; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second { background: #ebdbb2; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second .sep { color: #665c54; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
+# Imperial Fists: yellow and black. No one background fits both, so each part
+# of the chip gets its own.
+@test "95-settings: the bar's text chip splits when one colour is light and one dark" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#FBB81C' 'BLE_I3_UNFOCUSED_COLOR=#000000'
+    [ "$status" -eq 0 ]
+    grep -qx '.chip.first { background: #1d2021; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second { background: #ebdbb2; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
+@test "95-settings: the bar's text chip turns dark under light colours" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#FFFFFF' 'BLE_I3_UNFOCUSED_COLOR=#C39E46'
+    [ "$status" -eq 0 ]
+    grep -qx '.chip.first { background: #1d2021; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second { background: #1d2021; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second .sep { color: #a89984; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
 @test "95-settings: the bar's volume fill takes the focused colour" {
     eww_repo
     run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C'
