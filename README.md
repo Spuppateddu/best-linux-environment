@@ -287,7 +287,7 @@ into `~/.local/bin` instead.
 Those installers are always handed `/dev/null` for stdin, never your terminal.
 Every question they would ask is one `setup.sh` has already asked: vim's
 language support arrives as `--languages=php,javascript,…` from the checkbox
-list, and Firefox's add-ons as `--extensions=ublock-origin,vimium-ff,…` from
+list, and Firefox's add-ons as `--extensions=ublock-origin,vimium-c,…` from
 another, rather than either stopping the run to ask. Chrome's and Brave's
 extensions arrive the same way (`--extensions=vimium,bitwarden,…`), but their
 list is asked only when you tick Google Chrome or Brave in the secondary list —
@@ -1123,10 +1123,11 @@ about Ubuntu rather than about Firefox. Everything else is `~/.firefox`:
 
 | File | What it carries |
 | --- | --- |
-| `user.js` | curated prefs — toolbar layout, Gruvbox theme, blank new tab, no autofill/password manager, no speculative prefetch |
+| `user.js` | curated prefs — toolbar layout, Gruvbox theme, blank new tab, no autofill/password manager, Firefox's speculative connections kept on |
 | `chrome/userChrome.css` | hides the whole browser UI; **Ctrl+Shift+B** toggles it back |
 | `extensions.conf` | the add-on catalogue, as `id\|amo-slug\|label\|default` |
-| `vimium-settings.json` | Vimium's key mappings and its Gruvbox hint/vomnibar CSS |
+| `vimium-c-settings.json` | Vimium C's Gruvbox hint/HUD CSS (Vimium C is the default vim-keys add-on) |
+| `vimium-settings.json` | Vimium's key mappings and its Gruvbox hint/vomnibar CSS, for a machine that picks Vimium |
 | `autoconfig/` | `firefox.cfg` + `autoconfig.js` — the browser-level key bindings, installed into `/usr/lib/firefox` |
 
 That repo's `README.md` documents all of it: the chromeless UI and its
@@ -1142,7 +1143,8 @@ cookies, logins, sessions, containers, search engines — all of it).
    Installed by Firefox's own policy and kept updated from AMO. Unticking one
    never uninstalls it — do that in about:addons.
  ❯ [x] uBlock Origin — content blocker
-   [x] Vimium — vim keys for the web
+   [x] Vimium C — vim keys for the web, much faster link hints than Vimium
+   [ ] Vimium — the original; pick it instead of Vimium C, not with it
    [x] Gruvbox — the browser theme user.js selects
    [ ] Bitwarden — password manager (needs your account)
    [ ] Wappalyzer — what a site is built with
