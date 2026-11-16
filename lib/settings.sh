@@ -361,31 +361,6 @@ color_text_on() {
     if (( lum < 128 )); then printf 'ffffff'; else printf '1d2021'; fi
 }
 
-# color_chip_on N  — rrggbb for a background under text in colour N: light
-# cream or near-black, whichever is farther from N in perceived brightness.
-# Black, dark red or dark blue text gets the cream; white, yellow or gold the
-# dark one. One colour per call: no single background fits black AND yellow.
-color_chip_on() {
-    local hex r g b lum
-    local light=ebdbb2 dark=1d2021
-    local light_lum=$(( (299 * 16#eb + 587 * 16#db + 114 * 16#b2) / 1000 ))
-    local dark_lum=$(( (299 * 16#1d + 587 * 16#20 + 114 * 16#21) / 1000 ))
-    hex="$(color_hex "$1")"
-    r=$(( 16#${hex:0:2} )); g=$(( 16#${hex:2:2} )); b=$(( 16#${hex:4:2} ))
-    lum=$(( (299 * r + 587 * g + 114 * b) / 1000 ))
-    if (( lum - dark_lum < light_lum - lum )); then printf '%s' "$light"; else printf '%s' "$dark"; fi
-}
-
-# color_contrast A B  — the WCAG contrast ratio of two colours, times 10 and
-# rounded down: 45 means 4.5:1, the least that plain text needs to read well.
-color_contrast() {
-    awk -v a="$(color_hex "$1")" -v b="$(color_hex "$2")" '
-        function lin(h,   v) { v = h / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ^ 2.4 }
-        function hx(s,   i, n) { n = 0; for (i = 1; i <= 2; i++) n = n * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1; return n }
-        function lum(c) { c = tolower(c); return 0.2126 * lin(hx(substr(c, 1, 2))) + 0.7152 * lin(hx(substr(c, 3, 2))) + 0.0722 * lin(hx(substr(c, 5, 2))) }
-        BEGIN { x = lum(a); y = lum(b); if (x < y) { t = x; x = y; y = t }; printf "%d", (x + 0.05) / (y + 0.05) * 10 }'
-}
-
 # color_swatch N  — a block painted in colour N, for a terminal that has colours;
 # nothing on one that has not, so a log file does not fill with escapes.
 color_swatch() {
