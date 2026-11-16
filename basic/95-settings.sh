@@ -608,22 +608,34 @@ EOF
     # The current workspace on the bar, in the focused window's colour. The window
     # counter: visible ones in the unfocused colour, all of them in the focused
     # one. The volume bar's fill too (eww.scss stripes it past 100% and muted).
-    # The counter and your text sit on a chip in two parts: "1/" on a background
-    # that fits the unfocused colour, "2 text" on one that fits the focused one,
-    # each light or dark, so any colour (black, dark blue, white) reads.
+    # The counter and your text sit on one chip, all of it one background, so
+    # any colour (black, dark blue, white) reads:
+    # - both colours fit the same neutral (cream under dark, near-black under
+    #   light): that neutral, "1" unfocused, "2 text" focused;
+    # - they don't, but read on each other (Imperial Fists, yellow on dark
+    #   red): the unfocused colour behind, all text in the focused one;
+    # - neither: the neutral for the focused colour, "1" in its grey.
     # A running eww does not see a changed import: section 8 reloads it.
     if hooked "$I3/eww/eww.scss" "focus.local.scss"; then
-        chip_first="$(color_chip_on "$BLE_I3_BORDER_COLOR")"
-        chip_second="$(color_chip_on "$BLE_I3_UNFOCUSED_COLOR")"
-        chip_sep=a89984; [[ "$chip_second" == ebdbb2 ]] && chip_sep=665c54
+        focus_c="$(color_hex "$BLE_I3_BORDER_COLOR")"
+        chip_bg="$(color_chip_on "$BLE_I3_BORDER_COLOR")"
+        chip_sep=a89984; [[ "$chip_bg" == ebdbb2 ]] && chip_sep=665c54
+        chip_vis="$(color_hex "$BLE_I3_UNFOCUSED_COLOR")"
+        if [[ "$(color_chip_on "$BLE_I3_UNFOCUSED_COLOR")" != "$chip_bg" ]]; then
+            if (( $(color_contrast "$BLE_I3_BORDER_COLOR" "$BLE_I3_UNFOCUSED_COLOR") >= 45 )); then
+                chip_bg="$chip_vis"; chip_vis="$focus_c"; chip_sep="$focus_c"
+            else
+                chip_vis="$chip_sep"
+            fi
+        fi
         write_gen "$I3/eww/focus.local.scss" <<EOF
 // Written by best-linux-environment — settings.local, BLE_I3_BORDER_COLOR and BLE_I3_UNFOCUSED_COLOR. Do NOT edit.
-.ws.focused { background: #$(color_hex "$BLE_I3_BORDER_COLOR"); color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
-.bartext { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
-.wincount .vis { color: #$(color_hex "$BLE_I3_UNFOCUSED_COLOR"); }
-.wincount .all { color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
-.chip.first { background: #${chip_first}; }
-.chip.second { background: #${chip_second}; }
+.ws.focused { background: #${focus_c}; color: #$(color_text_on "$BLE_I3_BORDER_COLOR"); }
+.bartext { color: #${focus_c}; }
+.wincount .vis { color: #${chip_vis}; }
+.wincount .all { color: #${focus_c}; }
+.chip.first { background: #${chip_bg}; }
+.chip.second { background: #${chip_bg}; }
 .chip.second .sep { color: #${chip_sep}; }
 .volbar highlight { background-color: #$(color_hex "$BLE_I3_BORDER_COLOR"); }
 EOF

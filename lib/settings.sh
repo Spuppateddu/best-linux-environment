@@ -376,6 +376,16 @@ color_chip_on() {
     if (( lum - dark_lum < light_lum - lum )); then printf '%s' "$light"; else printf '%s' "$dark"; fi
 }
 
+# color_contrast A B  — the WCAG contrast ratio of two colours, times 10 and
+# rounded down: 45 means 4.5:1, the least that plain text needs to read well.
+color_contrast() {
+    awk -v a="$(color_hex "$1")" -v b="$(color_hex "$2")" '
+        function lin(h,   v) { v = h / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ^ 2.4 }
+        function hx(s,   i, n) { n = 0; for (i = 1; i <= 2; i++) n = n * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1; return n }
+        function lum(c) { c = tolower(c); return 0.2126 * lin(hx(substr(c, 1, 2))) + 0.7152 * lin(hx(substr(c, 3, 2))) + 0.0722 * lin(hx(substr(c, 5, 2))) }
+        BEGIN { x = lum(a); y = lum(b); if (x < y) { t = x; x = y; y = t }; printf "%d", (x + 0.05) / (y + 0.05) * 10 }'
+}
+
 # color_swatch N  — a block painted in colour N, for a terminal that has colours;
 # nothing on one that has not, so a log file does not fill with escapes.
 color_swatch() {

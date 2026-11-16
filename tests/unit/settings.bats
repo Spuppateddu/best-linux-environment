@@ -369,9 +369,9 @@ bar_text_repo() {
 
 @test "95-settings: the bar's window counter takes the unfocused colour, then the focused one" {
     eww_repo
-    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' 'BLE_I3_UNFOCUSED_COLOR=#FBB81C'
+    run_settings 'BLE_I3_BORDER_COLOR=#0F3D7C' 'BLE_I3_UNFOCUSED_COLOR=#9A1115'
     [ "$status" -eq 0 ]
-    grep -qx '.wincount .vis { color: #fbb81c; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.wincount .vis { color: #9a1115; }' "$HOME/.i3rc/eww/focus.local.scss"
     grep -qx '.wincount .all { color: #0f3d7c; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
@@ -384,14 +384,27 @@ bar_text_repo() {
     grep -qx '.chip.second .sep { color: #665c54; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
-# Imperial Fists: yellow and black. No one background fits both, so each part
-# of the chip gets its own.
-@test "95-settings: the bar's text chip splits when one colour is light and one dark" {
+# Imperial Fists: yellow and dark red. No neutral fits both, but yellow reads on
+# the red, so the whole chip is red and all its text yellow: one colour, not two.
+@test "95-settings: the bar's text chip takes the unfocused colour when the focused one reads on it" {
     eww_repo
-    run_settings 'BLE_I3_BORDER_COLOR=#FBB81C' 'BLE_I3_UNFOCUSED_COLOR=#000000'
+    run_settings 'BLE_I3_BORDER_COLOR=#FDB825' 'BLE_I3_UNFOCUSED_COLOR=#9A1115'
+    [ "$status" -eq 0 ]
+    grep -qx '.chip.first { background: #9a1115; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second { background: #9a1115; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.wincount .vis { color: #fdb825; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second .sep { color: #fdb825; }' "$HOME/.i3rc/eww/focus.local.scss"
+}
+
+# Yellow and a mid grey: no neutral fits both and they don't read on each
+# other, so one neutral for the focused colour and "1/" in its grey.
+@test "95-settings: the bar's text chip stays one neutral when the colours clash" {
+    eww_repo
+    run_settings 'BLE_I3_BORDER_COLOR=#FDB825' 'BLE_I3_UNFOCUSED_COLOR=#7C6F64'
     [ "$status" -eq 0 ]
     grep -qx '.chip.first { background: #1d2021; }' "$HOME/.i3rc/eww/focus.local.scss"
-    grep -qx '.chip.second { background: #ebdbb2; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.chip.second { background: #1d2021; }' "$HOME/.i3rc/eww/focus.local.scss"
+    grep -qx '.wincount .vis { color: #a89984; }' "$HOME/.i3rc/eww/focus.local.scss"
 }
 
 @test "95-settings: the bar's text chip turns dark under light colours" {
