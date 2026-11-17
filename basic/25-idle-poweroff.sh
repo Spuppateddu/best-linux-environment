@@ -117,4 +117,4 @@ mins=$(awk -F= '/^[[:space:]]*IDLE_MINUTES=/     { v = $2 } END { print (v ? v :
 locked=$(awk -F= '/^[[:space:]]*LOCKED_MINUTES=/ { v = $2 } END { print (v ? v : 20) }' /etc/idle-poweroff.conf 2>/dev/null || true)
 ok "This machine now powers itself off after ${mins:-60} min unused (${locked:-20} min with the screen locked)."
 ok "Never while ssh is connected, media is playing, or an agent or tmux job is printing."
-ok "Check it with 'b-idle'; pause it with 'b-idle off'; settings in /etc/idle-poweroff.conf."
+ok "Check it with 'b-idle'; keep it up 3 h with 'b-idle keep'; settings in /etc/idle-poweroff.conf."

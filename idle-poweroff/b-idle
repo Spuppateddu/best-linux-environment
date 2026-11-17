@@ -7,19 +7,23 @@ usage() {
     cat <<'EOF'
 b-idle — the timer that powers this machine off once nobody is using it.
 
-Usage: b-idle [status|off [NAME]|on [NAME]|holds|log]
+Usage: b-idle [status|keep [NAME]|on [NAME]|holds|log]
   status     what it sees right now, and how close it is to powering off
-  off NAME   hold it off until `b-idle on NAME` or the next reboot (no sudo)
-  on NAME    release that hold; the machine then powers off on its own once idle
+  keep NAME  keep the machine up for the next 3 h, then it may power off (no sudo)
+  on NAME    release that hold now; the machine then powers off on its own once idle
   on         release every hold, yours and anybody else's
-  holds      list the holds in force
+  holds      list the holds in force and how long each has left
   log        what it has actually done, from the journal
+  off NAME   old name of `keep`: the same 3 h hold, no longer "until reboot"
+
+A hold never lasts more than 3 h (HOLD_MINUTES in /etc/idle-poweroff.conf).
+`keep` again sets it back to 3 h from NOW; it never adds up, so a machine is
+never left on all night by a hold somebody forgot. A long job renews it:
+  b-idle keep music-scan; ./scan.sh; b-idle on music-scan
+and a job that runs past 3 h calls `b-idle keep music-scan` again on the way.
 
 NAME is letters, digits, `.`, `_` and `-`; it defaults to `manual`. Name each
-job, so ending one job never releases the hold of another still running:
-  b-idle off music-scan && ./scan.sh; b-idle on music-scan
-
-Holds live in /run, a tmpfs, so they cannot outlive a reboot.
+job, so ending one job never releases the hold of another still running.
 EOF
 }
 
@@ -27,6 +31,11 @@ BIN=${IDLE_POWEROFF_BIN:-/usr/local/sbin/idle-poweroff}
 STATE=${IDLE_POWEROFF_STATE_DIR:-/run/idle-poweroff}
 FLAG="$STATE/disabled"
 HOLDS="$STATE/holds"
+CONF=${IDLE_POWEROFF_CONF:-/etc/idle-poweroff.conf}
+# The timer reads the same setting; it is the one that enforces it.
+HOLD_MINUTES=$(awk -F= '/^[[:space:]]*HOLD_MINUTES=/ { v = $2 } END { print v }' "$CONF" 2>/dev/null)
+case "$HOLD_MINUTES" in ''|*[!0-9]*|0) HOLD_MINUTES=180 ;; esac
+HOLD_SECS=$(( HOLD_MINUTES * 60 ))
 
 if [ ! -x "$BIN" ]; then
     printf 'b-idle: idle-poweroff is not installed on this machine.\n' >&2
@@ -47,6 +56,21 @@ status() {
     fi
 }
 
+human() {
+    local s=$1
+    if [ "$s" -ge 3600 ]; then printf '%dh %02dm' $(( s / 3600 )) $(( s % 3600 / 60 ))
+    else printf '%dm %02ds' $(( s / 60 )) $(( s % 60 ))
+    fi
+}
+
+# Seconds a hold file has left. The timer counts from the file's mtime, so the
+# same sum here tells you exactly what it will do.
+left_of() {
+    local mtime
+    mtime=$(stat -c %Y "$1" 2>/dev/null) || return 1
+    printf '%s\n' $(( mtime + HOLD_SECS - $(date +%s) ))
+}
+
 # The name becomes a file name in a directory everybody can write to.
 hold_name() {
     case "$1" in
@@ -63,8 +87,16 @@ hold() {
     if [ ! -d "$HOLDS" ] || [ ! -w "$HOLDS" ]; then
         as_root mkdir -p "$HOLDS" && as_root chmod 1777 "$HOLDS" || return 1
     fi
-    printf '%s %s\n' "$(date '+%F %T')" "$(id -un)" > "$HOLDS/$name" || return 1
-    printf 'idle-poweroff: held off by %s until `b-idle on %s` or the next reboot.\n' "$name" "$name"
+    # Writing the file again moves its mtime to now: back to the full 3 h,
+    # never more. Another user's hold of the same name needs root to rewrite.
+    local line
+    line="$(date '+%F %T') $(id -un)"
+    { printf '%s\n' "$line" > "$HOLDS/$name"; } 2>/dev/null \
+        || printf '%s\n' "$line" | as_root tee "$HOLDS/$name" >/dev/null || return 1
+    printf 'idle-poweroff: kept up by %s until %s (%s from now).\n' \
+        "$name" "$(date -d "@$(( $(date +%s) + HOLD_SECS ))" '+%H:%M')" "$(human "$HOLD_SECS")"
+    printf 'Run `b-idle keep %s` again to push it back to %s from then; `b-idle on %s` ends it now.\n' \
+        "$name" "$(human "$HOLD_SECS")" "$name"
 }
 
 release() {
@@ -89,22 +121,25 @@ release_all() {
 }
 
 list_holds() {
-    local f found=false
-    for f in "$HOLDS"/*; do
+    local f left name found=false
+    for f in "$HOLDS"/* "$FLAG"; do
         [ -f "$f" ] && [ ! -L "$f" ] || continue
+        left=$(left_of "$f") || continue
+        # Expired or dated in the future: the timer ignores both.
+        [ "$left" -gt 0 ] && [ "$left" -le "$HOLD_SECS" ] || continue
         found=true
-        printf '%-24s since %s\n' "${f##*/}" "$(cat "$f" 2>/dev/null)"
+        name=${f##*/}; [ "$f" = "$FLAG" ] && name="disabled (old b-idle off)"
+        printf '%-24s %s left, made %s\n' "$name" "$(human "$left")" "$(cat "$f" 2>/dev/null)"
     done
-    [ -e "$FLAG" ] && { found=true; printf '%-24s (old-style b-idle off)\n' disabled; }
     [ "$found" = true ] || printf 'no holds\n'
 }
 
 case "${1:-status}" in
     status) status ;;
-    off)    name=${2:-manual}; hold_name "$name" && hold "$name" ;;
+    keep|off) name=${2:-manual}; hold_name "$name" && hold "$name" ;;
     on)     if [ -n "${2:-}" ]; then hold_name "$2" && release "$2"; else release_all; fi ;;
     holds)  list_holds ;;
     log)    journalctl -t idle-poweroff -n 30 --no-pager ;;
     -h|--help) usage ;;
-    *)      printf 'usage: b-idle [status|off [NAME]|on [NAME]|holds|log]\n' >&2; exit 2 ;;
+    *)      printf 'usage: b-idle [status|keep [NAME]|on [NAME]|holds|log]\n' >&2; exit 2 ;;
 esac

@@ -1261,7 +1261,7 @@ And it will not power off **at all** while:
   systems that still keep `utmp`;
 - a systemd `block` inhibitor is holding shutdown, which is the clean way to
   protect a long job: `systemd-inhibit --what=shutdown --why='ripping a disc' -- make -j16`;
-- a `b-idle off` hold is in force, or `ENABLED=false` is set in the config.
+- a `b-idle keep` hold made in the last 3 hours is in force, or `ENABLED=false` is set in the config.
 
 To turn it off for good on one machine, set `BLE_IDLE_POWEROFF=false` in
 `settings.local` and run `./setup.sh`: the timer is stopped and disabled, and
@@ -1301,30 +1301,39 @@ not a shell function, so zsh and bash both get it from the same single file:
 
 ```sh
 b-idle               # what it sees right now, and how close it is to powering off
-b-idle off NAME      # hold it off until `b-idle on NAME` or the next reboot
-b-idle on NAME       # release that hold; it powers off on its own once idle again
+b-idle keep NAME     # keep it up for the next 3 h; again = 3 h from now, never more
+b-idle on NAME       # release that hold now; it powers off on its own once idle again
 b-idle on            # release every hold
-b-idle holds         # list the holds in force, who made them and when
+b-idle holds         # list the holds in force, how long each has left, who made it
 b-idle log           # what it has actually done, from the journal
 ```
 
 A hold is for work the checks above cannot see: a job with little CPU, no
 terminal and no ssh session open, such as an agent on another machine that
-drives this one over short ssh calls. `off` and `on` need **no sudo**, so that
+drives this one over short ssh calls. `keep` and `on` need **no sudo**, so that
 agent can run them over ssh with no password prompt:
 
 ```sh
-ssh odissea b-idle off music-scan    # at the start of the job
+ssh odissea b-idle keep music-scan   # at the start of the job, and again every hour or two
 ssh odissea b-idle on music-scan     # at the end
 ```
+
+**A hold lasts 3 hours, never more** (`HOLD_MINUTES` in the config). Running
+`keep` again does not add 3 hours: it sets the end back to 3 hours from *now*.
+So a job that needs the machine longer must keep renewing it, and a hold
+somebody forgot to release ends on its own — the machine can never stay on all
+night just because an agent said "keep it up" in the afternoon. The timer counts
+from the hold file's mtime, so this holds for any hold whatever wrote it,
+including the old `b-idle off` (now just another name for `keep`). A file dated
+in the future is thrown away, not trusted.
 
 Give each job its own name (letters, digits, `.`, `_`, `-`; `manual` if you
 leave it out). The machine stays up while **any** hold is left, so ending one
 job never cuts off another one still running. Each hold is a file in
 `/run/idle-poweroff/holds/`, a sticky directory everybody can write to, like
 `/tmp`: you can only remove your own holds, and `b-idle on` with no name falls
-back to sudo for anybody else's. `/run` is a tmpfs, so a forgotten hold cannot
-outlive a reboot and leave a machine that silently never powers off again.
+back to sudo for anybody else's. `/run` is a tmpfs, so no hold outlives a reboot
+either.
 
 ### Only one thing may power the machine off
 

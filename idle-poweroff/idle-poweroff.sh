@@ -9,7 +9,8 @@ idle-poweroff — powers the machine off once nobody is using it.
 Waits 1 h at an unlocked desktop, 20 min with the screen locked or no screen at
 all. Never while an ssh client is connected, media is playing, a coding agent is
 busy, a tmux job is printing, or the load is high — nor for 20 min after the
-last ssh client left. Warns first, then acts.
+last ssh client left, nor while a `b-idle keep` hold (3 h at most) lasts.
+Warns first, then acts.
 
 Usage: idle-poweroff [--status|--dry-run]   Settings: /etc/idle-poweroff.conf
 EOF
@@ -63,19 +64,23 @@ BLOCK_ON_MUX=true
 MUX_SILENT_MINUTES=20
 # Pane commands that mean "an idle prompt", not "a job you left running".
 MUX_IDLE_SHELLS="bash zsh sh fish dash ksh tmux screen"
+# How long one `b-idle keep` hold lasts, counted from the hold file's mtime.
+# Renewing sets it back to this, never adds to it, so a forgotten hold cannot
+# keep a machine up all night.
+HOLD_MINUTES=180
 
 CONF=/etc/idle-poweroff.conf
 # shellcheck source=/dev/null
 [ -r "$CONF" ] && . "$CONF"
 
-# /run is a tmpfs: the headless counter restarts at boot and `b-idle off` cannot
-# outlive a reboot. Both are deliberate. The override exists for the unit tests.
+# /run is a tmpfs: the headless counter restarts at boot and a `b-idle keep` hold
+# cannot outlive a reboot. Both are deliberate. The override exists for the unit tests.
 STATE_DIR=${IDLE_POWEROFF_STATE_DIR:-/run/idle-poweroff}
 IDLE_SINCE="$STATE_DIR/idle-since"
 SSH_LAST="$STATE_DIR/ssh-last"
 WARNED="$STATE_DIR/warned"
 DISABLED="$STATE_DIR/disabled"
-# One file per hold, `b-idle off NAME`. Sticky and world-writable, like /tmp, so
+# One file per hold, `b-idle keep NAME`. Sticky and world-writable, like /tmp, so
 # an agent can hold the machine over ssh without sudo — and can only release the
 # holds it made itself.
 HOLDS="$STATE_DIR/holds"
@@ -96,6 +101,8 @@ HEADLESS_SECS=$(( HEADLESS_MINUTES * 60 ))
 MIN_UPTIME_SECS=$(( MIN_UPTIME_MINUTES * 60 ))
 AGENT_SILENT_SECS=$(( AGENT_SILENT_MINUTES * 60 ))
 MUX_SILENT_SECS=$(( MUX_SILENT_MINUTES * 60 ))
+case "$HOLD_MINUTES" in ''|*[!0-9]*|0) HOLD_MINUTES=180 ;; esac
+HOLD_SECS=$(( HOLD_MINUTES * 60 ))
 NOW=$(date +%s)
 UPTIME_SECS=$(cut -d' ' -f1 /proc/uptime 2>/dev/null | cut -d. -f1)
 # An unreadable /proc/uptime must not hand out a free pass forever, so fall back
@@ -415,15 +422,28 @@ x_idle() {
     printf '%s\n' $(( ms / 1000 ))
 }
 
-# The names of the `b-idle off NAME` holds, space-separated; fails when none.
-# Only plain files count: anyone can write there, so a symlink is never followed.
+# The live `b-idle keep NAME` holds, as "SECONDS-LEFT NAMES"; fails when none.
+# Each lasts HOLD_SECS from its file's mtime, whoever wrote it and with whatever
+# b-idle version, so no hold, old or new, keeps the machine up for good. The old
+# `disabled` flag gets the same treatment. Only plain files count: anyone can
+# write there, so a symlink is never followed.
 held_by() {
-    local f names=""
-    for f in "$HOLDS"/*; do
+    local f mtime left max=0 names=""
+    for f in "$HOLDS"/* "$DISABLED"; do
         [ -f "$f" ] && [ ! -L "$f" ] || continue
+        mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
+        left=$(( mtime + HOLD_SECS - NOW ))
+        # Expired, or dated in the future (`touch -d` to cheat the limit).
+        if [ "$left" -le 0 ] || [ "$left" -gt "$HOLD_SECS" ]; then
+            if [ "$MODE" = act ] && rm -f "$f" 2>/dev/null; then
+                log "hold ${f##*/} ended: older than $(human "$HOLD_SECS") or dated in the future"
+            fi
+            continue
+        fi
+        [ "$left" -gt "$max" ] && max=$left
         names="$names${names:+ }${f##*/}"
     done
-    [ -n "$names" ] && printf '%s\n' "$names"
+    [ -n "$names" ] && printf '%s %s\n' "$max" "$names"
 }
 
 # Made here, by root, on every tick, so it exists a minute after any boot.
@@ -441,10 +461,8 @@ add_check() { CHECKS+=("$1:$2:$3"); }
 
 if [ "$ENABLED" != true ]; then
     BLOCKED="disabled in $CONF"
-elif [ -e "$DISABLED" ]; then
-    BLOCKED="disabled until reboot (b-idle off)"
 elif holds=$(held_by); then
-    BLOCKED="held until reboot or b-idle on ($holds)"
+    BLOCKED="held by b-idle keep for $(human "${holds%% *}") more (${holds#* })"
 elif [ "$UPTIME_SECS" -lt "$MIN_UPTIME_SECS" ]; then
     BLOCKED="up for only $(human "$UPTIME_SECS") — the first $(human "$MIN_UPTIME_SECS") after a boot are always granted"
 elif load_high; then
