@@ -953,8 +953,8 @@ repos install into it, and fonts before the tools that render them. Items marked
    others.
    `$mod+z` does the same for one window: the window waits in the scratchpad and
    a see-through window takes its exact spot, tiled or floating. Only the border
-   stays, with the wallpaper inside it and the PC's name in red binary in its
-   bottom-right corner (it wraps onto more lines when the window is narrow). `$mod+z` on that cover puts the window
+   stays, with just the wallpaper inside it (no name in binary: that shows only
+   when `$mod+x` turns the whole workspace off). `$mod+z` on that cover puts the window
    back. Closing the cover by hand brings the window back too.
 19. **`64-lock-screen`** *(desktop)* — `b-lock`, linked into `~/.local/bin`, shows
    `wallpapers/default.jpg`, the login screen's picture, on the lock screen, with a
